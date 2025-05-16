@@ -31,7 +31,7 @@ This project is intended for chemists and researchers working in the field of ch
    ```
 3. Run the application:
    ```
-   python main.py
+   python gui.py
    ```
    (Replace `main.py` with your actual entry point if different.)
 
