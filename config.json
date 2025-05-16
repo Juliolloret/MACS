@@ -1,6 +1,6 @@
 {
   "system_variables": {
-    "openai_api_key": "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",
+    "openai_api_key": "",
     "output_project_synthesis_folder_name": "project_synthesis",
     "output_project_hypotheses_folder_name": "project_hypotheses",
     "output_project_experiments_folder_name": "project_experiments",
