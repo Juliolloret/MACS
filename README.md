@@ -125,7 +125,7 @@ python multi_agent_llm_system.py
 ## License
 
 MIT License
-Copyright (c) 2025 Juliolloret
+Copyright (c) 2025 Julio lloret Fillol 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -149,8 +149,10 @@ SOFTWARE.
 
 ## Credits
 
-Developed by Juliolloret. For academic, research, or non-commercial use.
-
+Developed by Julio lloret Fillol. For academic, research, or non-commercial use.
+J-lloret-Fillol-LAB
+https://github.com/J-lloret-Fillol-LAB
+https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
 ---
 
 Let me know if you want this as a Markdown file or if you want sections broken down differently!
