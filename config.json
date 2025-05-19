@@ -1,28 +1,35 @@
 {
   "system_variables": {
-    "openai_api_key": "",
+    "openai_api_key": "YOUR_KEY",
     "output_project_synthesis_folder_name": "project_synthesis",
     "output_project_hypotheses_folder_name": "project_hypotheses",
     "output_project_experiments_folder_name": "project_experiments",
     "default_llm_model": "gpt-4o",
     "models": {
-      "pdf_summarizer": "gpt-4-turbo",
-      "multi_doc_synthesizer_model": "gpt-4-turbo",
-      "web_research_model": "gpt-4o",
-      "knowledge_integrator_model": "gpt-4-turbo",
-      "hypothesis_generator": "gpt-4-turbo",
-      "experiment_designer": "gpt-4-turbo"
-    },
+    "pdf_summarizer": "gpt-4o",
+    "multi_doc_synthesizer_model": "gpt-4o",
+    "web_research_model": "gpt-4o-search-preview",
+    "knowledge_integrator_model": "o4-mini",
+    "hypothesis_generator": "o4-mini",
+    "experiment_designer": "gpt-4.1",
+    "sdk_planner_model": "o4-mini",
+    "sdk_search_model": "gpt-4o",
+    "sdk_writer_model": "gpt-4o"
+},
     "openai_api_timeout_seconds": 120
   },
   "agent_prompts": {
     "pdf_summarizer_sm": "You are an expert academic summarizer. Produce a concise, accurate summary (250-500 words) capturing core arguments, methods, key findings, and main conclusions of the provided text.",
     "multi_doc_synthesizer_sm": "You are a research synthesis expert. You have been provided with a list of summaries from multiple academic documents. Your task is to synthesize these summaries into a single, coherent 'cross-document understanding' (approx. 500-800 words). Identify common themes, key differences or contradictions, unique contributions from individual documents, and overall knowledge gaps apparent from the collection. Structure your output clearly.",
-    "web_researcher_sm": "You are an expert research analyst. Based on the provided 'cross-document understanding' synthesized from multiple academic papers, your task is to find complementary information, recent developments, and broader context, as if you were performing a comprehensive web search. Synthesize your findings into a coherent overview (approx. 300-500 words). If you cannot perform a live web search, clearly state your limitations and provide information based on your existing knowledge.",
+    "web_researcher_sm_old": "You are an expert research analyst. Based on the provided 'cross-document understanding' synthesized from multiple academic papers, your task is to find complementary information, recent developments, and broader context, as if you were performing a comprehensive web search. Synthesize your findings into a coherent overview (approx. 300-500 words). If you cannot perform a live web search, clearly state your limitations and provide information based on your existing knowledge.",
+    "web_researcher_sm": "This agent utilizes an advanced SDK to perform comprehensive web research, including planning search queries, executing parallel searches, and synthesizing a final report. It receives a cross-document understanding and outputs a web research summary.",
     "experimental_data_loader_sm": "You are a data utility. You will receive text describing experimental results. Present this text as a structured summary. If the text is already a summary, present it as is. Your main role is to make this data available for the next agent.",
     "knowledge_integrator_sm": "You are a senior research strategist. You have been provided with: \n1. A 'cross-document understanding' synthesized from multiple academic papers.\n2. A 'web research summary' providing broader context.\n3. An 'experimental data summary' (which may be 'N/A' if not provided).\nYour task is to integrate these three sources of information into a final, concise 'integrated knowledge brief' (approx. 400-600 words). This brief should highlight the most salient points, synergies, conflicts, and critical knowledge gaps that emerge when considering all information sources together. This brief will be the foundation for generating novel hypotheses.",
-    "hypothesis_generator_sm": "You are a highly insightful research strategist and innovator. Based on the provided 'integrated knowledge brief' (which consolidates information from multiple papers, web research, and experimental data), your task is to:\n1.  **Identify Key Opportunities:** Briefly highlight the most promising areas for novel research based on the integrated knowledge.\n2.  **Generate Hypotheses:** Propose 3-5 distinct, novel, and groundbreaking hypotheses that go beyond the current state-of-the-art. These hypotheses should be specific, testable, and aim to open new avenues of research by directly addressing the identified gaps or leveraging the novel connections found in the integrated brief.\n\n**Output Format STRICTLY REQUIRED:** Provide your response as a single JSON object with two keys:\n- `\"key_opportunities\"`: A string containing your brief summary of key research opportunities.\n- `\"hypotheses\"`: A JSON array of strings, where each string is a clearly articulated hypothesis.\n\nExample JSON output structure:\n```json\n{\n  \"key_opportunities\": \"The integration of X from papers, Y from web, and Z from experiments points to a critical need to investigate C.\",\n  \"hypotheses\": [\n    \"Hypothesis 1: ...\",\n    \"Hypothesis 2: ...\"\n  ]\n}\n```\nEnsure the entire output is a valid JSON object.",
-    "experiment_designer_sm": "You are an expert experimental physicist and research methodologist. Outline a feasible, rigorous, and detailed experimental design for the given hypothesis. Include Objective, Methodology & Apparatus, Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, Potential Challenges & Mitigation, and Ethical Considerations (if applicable)."
+    "hypothesis_generator_sm": "You are a highly insightful research strategist and innovator. Based on the provided 'integrated knowledge brief' (which consolidates information from multiple papers, web research, and experimental data), your task is to:\n1.  **Identify Key Opportunities:** Briefly highlight the most promising areas for novel research based on the integrated knowledge.\n2.  **Generate Hypotheses:** Propose {num_hypotheses} distinct, novel, and groundbreaking hypotheses that go beyond the current state-of-the-art. These hypotheses should be specific, testable, and aim to open new avenues of research by directly addressing the identified gaps or leveraging the novel connections found in the integrated brief.\n\n**Output Format STRICTLY REQUIRED:** Provide your response as a single JSON object with two keys:\n- `\"key_opportunities\"`: A string containing your brief summary of key research opportunities.\n- `\"hypotheses\"`: A JSON array of strings, where each string is a clearly articulated hypothesis.\n\nExample JSON output structure:\n```json\n{{\n  \"key_opportunities\": \"The integration of X from papers, Y from web, and Z from experiments points to a critical need to investigate C.\",\n  \"hypotheses\": [\n    \"Hypothesis 1: ...\",\n    \"Hypothesis 2: ...\"\n  ]\n}}\n```\nEnsure the entire output is a valid JSON object.",
+    "experiment_designer_sm": "You are an expert experimental physicist and research methodologist. Outline a feasible, rigorous, and detailed experimental design for the given hypothesis. Include Objective, Methodology & Apparatus, Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, Potential Challenges & Mitigation, and Ethical Considerations (if applicable).",
+    "sdk_planner_sm": "You are a research planning assistant. Based on the user's query, devise a concise plan of 3-5 distinct web search queries that will effectively gather the necessary information. For each query, briefly state the reason for the search. Output this plan.",
+    "sdk_searcher_sm": "You are a web search execution assistant. You will be given a specific search query and a reason. Execute this query using the provided web search tool. Concisely summarize the findings from the search results in 2-3 paragraphs, focusing on the most relevant information. Output only this summary.",
+    "sdk_writer_sm": "You are a senior research analyst. You have received an original research query and a collection of summarized search snippets from various web searches. Synthesize this information into a comprehensive, well-structured, and detailed markdown report of 500-1000 words. Include a short 2-3 sentence summary of the entire report and suggest 2-3 follow-up questions or research areas."
   },
   "graph_definition": {
     "nodes": [
@@ -81,7 +88,8 @@
         "config": {
           "description": "Generates novel hypotheses from the integrated knowledge brief.",
           "model_key": "hypothesis_generator",
-          "system_message_key": "hypothesis_generator_sm"
+          "system_message_key": "hypothesis_generator_sm",
+          "num_hypotheses": 5
         }
       },
       {
@@ -129,3 +137,5 @@
     ]
   }
 }
+
+
