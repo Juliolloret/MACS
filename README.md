@@ -124,10 +124,10 @@ python multi_agent_llm_system.py
 
 ## Credits
 
-Developed by Julio lloret Fillol. For academic, research, or non-commercial use.
-J-lloret-Fillol-LAB
-https://github.com/J-lloret-Fillol-LAB
-https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
+- **Developed by Julio lloret Fillol. For academic, research, or non-commercial use.
+- **J-lloret-Fillol-LAB
+- **https://github.com/J-lloret-Fillol-LAB
+- **https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
 ---
 
 Let me know if you want this as a Markdown file or if you want sections broken down differently!
