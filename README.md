@@ -22,7 +22,7 @@ Here’s a detailed extension for your README.md, incorporating the structure an
   - Handles backend import and configuration errors gracefully.
 - **How it works:** The GUI interacts with the backend (`multi_agent_llm_system.py`), passing user selections and displaying status updates.
 - 
-![image](https://github.com/user-attachments/assets/5c8fabc4-934f-42e9-849d-04b9412ed3b1)
+- <img src="https://github.com/user-attachments/assets/5c8fabc4-934f-42e9-849d-04b9412ed3b1" width="300" height="200"/>
 
 ### 2. `multi_agent_llm_system.py` — Multi-Agent Orchestration Backend
 
