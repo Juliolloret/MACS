@@ -21,6 +21,8 @@ Here’s a detailed extension for your README.md, incorporating the structure an
   - Monitor progress, logs, and errors in real time.
   - Handles backend import and configuration errors gracefully.
 - **How it works:** The GUI interacts with the backend (`multi_agent_llm_system.py`), passing user selections and displaying status updates.
+- 
+![image](https://github.com/user-attachments/assets/5c8fabc4-934f-42e9-849d-04b9412ed3b1)
 
 ### 2. `multi_agent_llm_system.py` — Multi-Agent Orchestration Backend
 
@@ -40,6 +42,8 @@ Here’s a detailed extension for your README.md, incorporating the structure an
   - **Output Handling:** Saves synthesized outputs, hypotheses, and experiment designs into organized subfolders.
 - **Usage:** Can be called from the GUI or invoked directly for CLI testing.
 
+
+
 ### 3. `config.json` — Configuration File
 
 - **Purpose:** Centralizes all settings, agent prompts, models, and workflow definitions.
@@ -48,6 +52,7 @@ Here’s a detailed extension for your README.md, incorporating the structure an
   - **agent_prompts:** Customizable system prompts for each agent type.
   - **graph_definition:** Declarative description of the agent workflow (nodes and edges), specifying agent types, order, and data mappings.
 - **Customization:** Users can adjust models, prompt styles, and workflow topology without modifying code.
+![image](https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b)
 
 ---
 
