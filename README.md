@@ -53,7 +53,7 @@ Here’s a detailed extension for your README.md, incorporating the structure an
   - **graph_definition:** Declarative description of the agent workflow (nodes and edges), specifying agent types, order, and data mappings.
 - **Customization:** Users can adjust models, prompt styles, and workflow topology without modifying code.
 ![image]()
-<img src="https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b" width="700" height="350"/>
+<img src="https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b" width="350" height="700"/>
 ---
 
 ## Setup & Usage
