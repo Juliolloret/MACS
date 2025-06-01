@@ -708,11 +708,26 @@ class HypothesisGeneratorAgent(Agent):
             key_opportunities = parsed_output.get("key_opportunities", "")
             hypotheses_list = parsed_output.get("hypotheses", [])
             if not isinstance(key_opportunities, str): key_opportunities = str(key_opportunities)
-            if not isinstance(hypotheses_list, list): hypotheses_list = []
-            hypotheses_list = [str(h).strip() for h in hypotheses_list if
-                               isinstance(h, (str, int, float)) and str(h).strip()]
+            if not isinstance(hypotheses_list, list):
+                log_status(f"[{self.agent_id}] WARNING: 'hypotheses' field is not a list or missing. Defaulting to empty list. LLM Output: {cleaned_llm_response_str[:500]}")
+                hypotheses_list = []
+
+            # Validate structure of each hypothesis object
+            valid_hypotheses = []
+            for idx, hypo_item in enumerate(hypotheses_list):
+                if isinstance(hypo_item, dict) and \
+                   'hypothesis' in hypo_item and isinstance(hypo_item['hypothesis'], str) and \
+                   'justification' in hypo_item and isinstance(hypo_item['justification'], str):
+                    valid_hypotheses.append({
+                        "hypothesis": hypo_item['hypothesis'].strip(),
+                        "justification": hypo_item['justification'].strip()
+                    })
+                else:
+                    log_status(f"[{self.agent_id}] WARNING: Invalid hypothesis item at index {idx}. Item: {str(hypo_item)[:100]}. Expected dict with 'hypothesis' and 'justification' strings.")
+
+            hypotheses_list = valid_hypotheses
             log_status(
-                f"[{self.agent_id}] Successfully parsed hypotheses. Opportunities: '{key_opportunities[:50]}...', Hypotheses count from LLM: {len(hypotheses_list)}")
+                f"[{self.agent_id}] Successfully parsed hypotheses. Opportunities: '{key_opportunities[:50]}...', Valid hypotheses count: {len(hypotheses_list)}")
             return {
                 "hypotheses_output_blob": llm_response_str,
                 "hypotheses_list": hypotheses_list,
@@ -745,13 +760,18 @@ class ExperimentDesignerAgent(Agent):
                 f"[{self.agent_id}] INFO: No hypotheses provided or invalid format for experiment design. Input: {hypotheses_list_input}")
             return {"experiment_designs_list": [], "info": "No valid hypotheses provided to design experiments for."}
         all_designs = []
-        for i, hypo_str in enumerate(hypotheses_list_input):
-            if not isinstance(hypo_str, str) or not hypo_str.strip():
-                log_status(f"[{self.agent_id}] WARNING: Skipping invalid hypothesis at index {i}: '{hypo_str}'")
-                all_designs.append({"experiment_design": "", "hypothesis_processed": str(hypo_str),
-                                    "error": "Invalid or empty hypothesis string."})
+        for i, hypo_obj in enumerate(hypotheses_list_input):
+            if not isinstance(hypo_obj, dict) or \
+               'hypothesis' not in hypo_obj or not isinstance(hypo_obj['hypothesis'], str) or not hypo_obj['hypothesis'].strip() or \
+               'justification' not in hypo_obj or not isinstance(hypo_obj['justification'], str): # Basic check for justification presence
+                log_status(f"[{self.agent_id}] WARNING: Skipping invalid hypothesis object at index {i}: '{str(hypo_obj)[:150]}'. Expected dict with non-empty 'hypothesis' string and 'justification' string.")
+                all_designs.append({"experiment_design": "", "hypothesis_processed": str(hypo_obj),
+                                    "error": "Invalid hypothesis object structure or empty hypothesis string."})
                 continue
-            log_status(f"[{self.agent_id}] Designing experiment for hypothesis {i + 1}: '{hypo_str[:100]}...'")
+
+            hypo_str = hypo_obj['hypothesis']
+            # Justification is available in hypo_obj['justification'] if needed for context, but prompt uses only hypo_str
+            log_status(f"[{self.agent_id}] Designing experiment for hypothesis {i + 1}: '{hypo_str[:100]}...' (Justification: '{hypo_obj.get('justification', '')[:50]}...')")
             prompt = f"Design a detailed, feasible, and rigorous experimental protocol for the following hypothesis:\n\nHypothesis: \"{hypo_str}\"\n\nAs per your role, include sections like Objective, Methodology & Apparatus, Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, Potential Challenges & Mitigation, and Ethical Considerations (if applicable)."
             design = call_openai_api(prompt, current_system_message, self.agent_id, model_name=self.model_name)
             design_output_single = {"hypothesis_processed": hypo_str}
@@ -1027,10 +1047,16 @@ class GraphOrchestrator:
         write_output_file("hypotheses", "hypotheses_raw_llm_output.json", raw_blob)
         key_ops = hypo_gen_node_out.get("key_opportunities")
         write_output_file("hypotheses", "key_research_opportunities.txt", key_ops)
-        hypo_list = hypo_gen_node_out.get("hypotheses_list", [])
+        hypo_list = hypo_gen_node_out.get("hypotheses_list", []) # This is now a list of dicts
         if hypo_list:
             hypo_list_content = ""
-            for i, h in enumerate(hypo_list): hypo_list_content += f"{i + 1}. {h}\n\n"
+            for i, h_obj in enumerate(hypo_list):
+                if isinstance(h_obj, dict):
+                    hypo_list_content += f"Hypothesis {i + 1}:\n"
+                    hypo_list_content += f"  Text: {h_obj.get('hypothesis', 'N/A')}\n"
+                    hypo_list_content += f"  Justification: {h_obj.get('justification', 'N/A')}\n\n"
+                else:
+                    hypo_list_content += f"Hypothesis {i + 1} (malformed): {str(h_obj)}\n\n"
             write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
         exp_designs_list = outputs_history.get("experiment_designer", {}).get("experiment_designs_list", [])
         exp_path = project_output_paths.get("experiments")
