@@ -1,13 +1,28 @@
+<p align="center">
+  <img src="https://your-logo-url-here" alt="MACS Logo" width="250"/>
+</p>
+
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Juliolloret/MACS/CI)
+![License](https://img.shields.io/github/license/Juliolloret/MACS)
+![Python Version](https://img.shields.io/badge/python-3.8+-blue)
+
 Here’s a detailed extension for your README.md, incorporating the structure and function of gui.py, multi_agent_llm_system.py, and config.json:
 
 ---
 
 # MACS: Multi-Agent LLM Research Assistant
+**MACS** (Multi-Agent Collaboration System) is a modular Python-based system for orchestrating advanced research workflows on collections of academic PDFs. 
+ It integrates multiple specialized agents to automate literature review, synthesis, and experimental planning. 
 
-## Overview
+## Table of Contents
 
-**MACS** (Multi-Agent Collaboration System) is a modular Python-based system for orchestrating advanced research workflows on collections of academic PDFs. It integrates multiple specialized agents—powered by large language models (LLMs)—to automate PDF loading, summarization, multi-document synthesis, web research, experimental data integration, hypothesis generation, and experiment design. The system features both a GUI (built with PyQt6) and a flexible configuration system.
-
+- [Overview](#overview)
+- [Components](#components)
+- [Setup & Usage](#setup--usage)
+- [Workflow Details](#workflow-details)
+- [Configuration](#configuration)
+- [Extending & Contributing](#extending--contributing)
+- [Credits](#credits)
 ---
 
 ## Components
@@ -97,7 +112,7 @@ python multi_agent_llm_system.py
 ---
 
 ## Workflow Details
-
+The current JSON file implements the following workflow. However, you can modify it by changing the JSON file. 
 1. **PDF Loading:** Extracts text from all PDFs in the selected folder.
 2. **Summarization:** Each PDF is summarized by an LLM agent.
 3. **Multi-Document Synthesis:** Summaries are synthesized into a cross-document understanding.
@@ -121,9 +136,15 @@ python multi_agent_llm_system.py
 
 ## Extending & Contributing
 
+We welcome contributions! Please read CONTRIBUTING.md for guidelines.
 - **Add New Agents:** Implement new agent classes in `multi_agent_llm_system.py` and add them to the graph in `config.json`.
 - **Customize GUI:** Edit `gui.py` to add new options or workflow controls.
 - **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
+Please note that this project is released with a Code of Conduct. By participating, you agree to abide by its terms.
+---
+
+## Security
+If you find a security issue, please report it privately by email to juliolloret@example.com (replace with your contact). Do not open public issues for security vulnerabilities.
 
 ---
 
@@ -134,5 +155,11 @@ python multi_agent_llm_system.py
 - https://github.com/J-lloret-Fillol-LAB
 - https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
 ---
+
+Related Projects
+Awesome Research Tools
+PyPDF2
+OpenAI
+PyQt6
 
 Let me know if you want this as a Markdown file or if you want sections broken down differently!
