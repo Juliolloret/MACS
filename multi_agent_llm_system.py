@@ -11,6 +11,22 @@ from typing import List, Dict, Any, Optional
 # Pydantic for structured data, used by the SDK agents
 from pydantic import BaseModel, Field
 
+# Imports for refactored Agent classes
+from agents import (
+    Agent,  # Base class
+    PDFLoaderAgent,
+    PDFSummarizerAgent,
+    MultiDocSynthesizerAgent,
+    WebResearcherAgent,
+    ExperimentalDataLoaderAgent,
+    KnowledgeIntegratorAgent,
+    HypothesisGeneratorAgent,
+    ExperimentDesignerAgent
+)
+# SDK Models are now in agents.sdk_models, but they are mostly used by WebResearcherAgent internally
+# and GraphOrchestrator doesn't directly interact with them.
+# No direct import needed here for the models unless other parts of multi_agent_llm_system.py use them.
+
 # --- SDK Imports & Availability Check ---
 SDK_AVAILABLE = False
 SDSAgent, Runner, WebSearchTool, ModelSettings = None, None, None, None
@@ -768,10 +784,11 @@ class ExperimentDesignerAgent(Agent):
 class GraphOrchestrator:
     def __init__(self, graph_definition_from_config):
         self.graph_definition = graph_definition_from_config
-        self.agents = {}
+        self.agents = {} # This will store agent instances
         self.adjacency_list = defaultdict(list)
         self.node_order = []
         self._build_graph_and_determine_order()
+        # agent_class_map is defined and used within _initialize_agents
         self._initialize_agents()
 
     def _build_graph_and_determine_order(self):
@@ -796,7 +813,7 @@ class GraphOrchestrator:
         while queue:
             u = queue.popleft()
             self.node_order.append(u)
-            for v_neighbor in self.adjacency_list.get(u, []):
+            for v_neighbor in self.adjacency_list.get(u, []): # Use .get for safety
                 in_degree[v_neighbor] -= 1
                 if in_degree[v_neighbor] == 0: queue.append(v_neighbor)
         if len(self.node_order) != len(node_ids):
@@ -809,12 +826,16 @@ class GraphOrchestrator:
         log_status(f"[GraphOrchestrator] INFO: Node execution order determined: {self.node_order}")
 
     def _initialize_agents(self):
+        # This map now correctly uses the imported agent classes
         agent_class_map = {
-            "PDFLoaderAgent": PDFLoaderAgent, "PDFSummarizerAgent": PDFSummarizerAgent,
-            "MultiDocSynthesizerAgent": MultiDocSynthesizerAgent, "WebResearcherAgent": WebResearcherAgent,
+            "PDFLoaderAgent": PDFLoaderAgent,
+            "PDFSummarizerAgent": PDFSummarizerAgent,
+            "MultiDocSynthesizerAgent": MultiDocSynthesizerAgent,
+            "WebResearcherAgent": WebResearcherAgent,
             "ExperimentalDataLoaderAgent": ExperimentalDataLoaderAgent,
             "KnowledgeIntegratorAgent": KnowledgeIntegratorAgent,
-            "HypothesisGeneratorAgent": HypothesisGeneratorAgent, "ExperimentDesignerAgent": ExperimentDesignerAgent,
+            "HypothesisGeneratorAgent": HypothesisGeneratorAgent,
+            "ExperimentDesignerAgent": ExperimentDesignerAgent,
         }
         for node_def in self.graph_definition.get('nodes', []):
             agent_id = node_def['id']
