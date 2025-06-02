@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=![image](https://github.com/user-attachments/assets/e2d9cd31-4e54-41f9-81d6-11304b0f80c1) alt="MACS Logo" width="250"/>
+  <img src="https://github.com/user-attachments/assets/e2d9cd31-4e54-41f9-81d6-11304b0f80c1" alt="MACS Logo" width="250"/>
 </p>
 
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Juliolloret/MACS/CI)
