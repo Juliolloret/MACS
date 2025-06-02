@@ -6,7 +6,7 @@ from .sdk_models import WebSearchPlan, ReportData # Moved models
 # Utilities and SDK components are now imported from utils.py
 from utils import (
     SDK_AVAILABLE, SDSAgent, Runner, WebSearchTool, ModelSettings, # SDK components
-    APP_CONFIG, get_model_name, log_status # Utilities
+    APP_CONFIG, get_model_name, log_status, SDK_KEY_SET_SUCCESS # Utilities, including the new flag
     # set_default_openai_key is handled within utils.load_app_config
 )
 
@@ -17,6 +17,11 @@ class WebResearcherAgent(Agent):
                 "OpenAI Agents SDK is not available or failed to load. Cannot perform SDK-based web research.")
             log_status(f"[{self.agent_id}] ERROR: {sdk_unavailable_msg}")
             return {"web_summary": "", "error": sdk_unavailable_msg + " Please install 'openai-agents'."}
+
+        if SDK_AVAILABLE and not SDK_KEY_SET_SUCCESS: # Check if SDK imported but key setting failed
+            sdk_key_error_msg = "OpenAI Agents SDK is available, but setting the OpenAI API key for the SDK failed. Web research cannot proceed."
+            log_status(f"[{self.agent_id}] ERROR: {sdk_key_error_msg}")
+            return {"web_summary": "", "error": sdk_key_error_msg}
 
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
@@ -92,11 +97,25 @@ class WebResearcherAgent(Agent):
 
             sdk_planner = SDSAgent(name="SDKResearchPlanner", instructions=planner_instructions,
                                    model=sdk_planner_model_name, output_type=WebSearchPlan)
+            if not sdk_planner:
+                err_msg = "Failed to initialize SDKResearchPlanner agent."
+                log_status(f"[{self.agent_id}] SDK_CRITICAL_ERROR: {err_msg}")
+                return {"error": err_msg}
+            
             sdk_searcher = SDSAgent(name="SDKWebSearcher", instructions=searcher_instructions,
                                     model=sdk_search_model_name, tools=[WebSearchTool()],
                                     model_settings=ModelSettings(tool_choice="required"), output_type=str)
+            if not sdk_searcher:
+                err_msg = "Failed to initialize SDKWebSearcher agent."
+                log_status(f"[{self.agent_id}] SDK_CRITICAL_ERROR: {err_msg}")
+                return {"error": err_msg}
+
             sdk_writer = SDSAgent(name="SDKReportWriter", instructions=writer_instructions, model=sdk_writer_model_name,
                                   output_type=ReportData)
+            if not sdk_writer:
+                err_msg = "Failed to initialize SDKReportWriter agent."
+                log_status(f"[{self.agent_id}] SDK_CRITICAL_ERROR: {err_msg}")
+                return {"error": err_msg}
 
             log_status(f"[{self.agent_id}] SDK: Step 1/3 - Planning searches for query: '{query[:70]}...'")
             planner_run_result = await Runner.run(sdk_planner, input=f"User Research Query: {query}")
@@ -104,18 +123,18 @@ class WebResearcherAgent(Agent):
             if not planner_run_result or not hasattr(planner_run_result,
                                                      'final_output_as') or not planner_run_result.is_done:
                 log_status(
-                    f"[{self.agent_id}] SDK_ERROR: Planner agent did not complete successfully or provide expected output structure.")
-                return {"error": "SDK Planner agent failed to produce a valid plan."}
+                    f"[{self.agent_id}] SDK_ERROR: SDKResearchPlanner agent run did not complete successfully or provide expected output structure.") # Clarified log
+                return {"error": "SDKResearchPlanner agent run failed to produce a valid plan."}
             search_plan: Optional[WebSearchPlan] = None
             try:
                 search_plan = planner_run_result.final_output_as(WebSearchPlan)
             except Exception as e:
                 log_status(
-                    f"[{self.agent_id}] SDK_ERROR: Failed to parse planner output into WebSearchPlan: {e}. Output was: {planner_run_result.final_output}")
-                return {"error": f"SDK Planner output parsing error: {e}"}
+                    f"[{self.agent_id}] SDK_ERROR: Failed to parse SDKResearchPlanner output into WebSearchPlan: {e}. Output was: {planner_run_result.final_output}") # Clarified log
+                return {"error": f"SDKResearchPlanner output parsing error: {e}"}
             if not search_plan or not search_plan.searches:
                 log_status(
-                    f"[{self.agent_id}] SDK_WARNING: Planner agent returned an empty or invalid search plan. Proceeding without web searches.")
+                    f"[{self.agent_id}] SDK_WARNING: SDKResearchPlanner agent returned an empty or invalid search plan. Proceeding without web searches.") # Clarified log
                 search_plan = WebSearchPlan(searches=[])
             log_status(f"[{self.agent_id}] SDK: Plan created with {len(search_plan.searches)} search queries.")
 
@@ -135,17 +154,17 @@ class WebResearcherAgent(Agent):
                     search_item_query = search_plan.searches[i].query # Safe access
                     if isinstance(res_or_exc, Exception):
                         log_status(
-                            f"[{self.agent_id}] SDK_SEARCH_ERROR: Search task for '{search_item_query}' failed: {res_or_exc}")
+                            f"[{self.agent_id}] SDK_SEARCH_ERROR: SDKWebSearcher task for query '{search_item_query}' failed: {res_or_exc}") # Clarified log
                         search_summaries.append(
                             f"[Error: Search for '{search_item_query}' failed: {type(res_or_exc).__name__}]")
                     elif res_or_exc and hasattr(res_or_exc, 'final_output') and res_or_exc.final_output is not None:
                         summary = str(res_or_exc.final_output)
                         search_summaries.append(summary)
                         log_status(
-                            f"[{self.agent_id}] SDK: Search for '{search_item_query}' completed. Summary length: {len(summary)}")
+                            f"[{self.agent_id}] SDK: SDKWebSearcher task for '{search_item_query}' completed. Summary length: {len(summary)}") # Clarified log
                     else:
                         log_status(
-                            f"[{self.agent_id}] SDK_SEARCH_WARNING: Search task for '{search_item_query}' returned no output or unexpected structure. Result: {res_or_exc}")
+                            f"[{self.agent_id}] SDK_SEARCH_WARNING: SDKWebSearcher task for '{search_item_query}' returned no output or unexpected structure. Result: {res_or_exc}") # Clarified log
                         search_summaries.append(
                             f"[Warning: No specific result or empty summary for '{search_item_query}'.]")
             else:
@@ -169,19 +188,19 @@ class WebResearcherAgent(Agent):
 
             if not writer_result_stream.is_done() or not hasattr(writer_result_stream, 'final_output_as'):
                 log_status(
-                    f"[{self.agent_id}] SDK_ERROR: Writer agent stream did not complete or lacks final output method.")
-                return {"error": "SDK Writer agent stream processing failed."}
+                    f"[{self.agent_id}] SDK_ERROR: SDKReportWriter agent stream did not complete or lacks final output method.") # Clarified log
+                return {"error": "SDKReportWriter agent stream processing failed."}
             final_report_data: Optional[ReportData] = None
             try:
                 final_report_data = writer_result_stream.final_output_as(ReportData)
             except Exception as e:
                 log_status(
-                    f"[{self.agent_id}] SDK_ERROR: Failed to parse writer output into ReportData: {e}. Raw output: {writer_result_stream.final_output}")
-                return {"error": f"SDK Writer output parsing error: {e}"}
+                    f"[{self.agent_id}] SDK_ERROR: Failed to parse SDKReportWriter output into ReportData: {e}. Raw output: {writer_result_stream.final_output}") # Clarified log
+                return {"error": f"SDKReportWriter output parsing error: {e}"}
 
             if not final_report_data: # Check if final_report_data is None after parsing attempt
-                log_status(f"[{self.agent_id}] SDK_ERROR: Writer agent failed to produce a valid ReportData object.")
-                return {"error": "SDK Writer agent did not produce a usable report object."}
+                log_status(f"[{self.agent_id}] SDK_ERROR: SDKReportWriter agent failed to produce a valid ReportData object.") # Clarified log
+                return {"error": "SDKReportWriter agent did not produce a usable report object."}
 
             log_status(
                 f"[{self.agent_id}] SDK: Report generation complete. Short summary: '{final_report_data.short_summary[:100]}...'")

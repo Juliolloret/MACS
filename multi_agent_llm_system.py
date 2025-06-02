@@ -141,6 +141,12 @@ class GraphOrchestrator:
             agent_id = node_def['id']
             agent_type_name = node_def['type']
             agent_config_params = node_def.get('config', {})
+
+            if not isinstance(agent_config_params, dict):
+                error_msg = f"[GraphOrchestrator] ERROR: Agent config for node '{agent_id}' is not a valid dictionary. Found: {type(agent_config_params)}. Skipping initialization."
+                log_status(error_msg)
+                raise ValueError(error_msg) # Or use 'continue' to skip this agent
+
             agent_class = agent_class_map.get(agent_type_name)
             if not agent_class:
                 log_status(f"[GraphOrchestrator] ERROR: Unknown agent type: {agent_type_name} for node {agent_id}")
@@ -272,7 +278,10 @@ class GraphOrchestrator:
                                 has_input_error = True
             if isinstance(current_agent,
                           ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:
-                if experimental_data_file_path: agent_inputs[
+                if experimental_data_file_path and not os.path.exists(experimental_data_file_path):
+                    log_status(f"[GraphOrchestrator] WARNING: Experimental data file specified ('{experimental_data_file_path}') for node '{node_id}' does not exist. Agent will not receive this input.")
+                    experimental_data_file_path = None # Ensure non-existent path isn't passed
+                if experimental_data_file_path: agent_inputs[ # This will now correctly skip if it was non-existent
                     "experimental_data_file_path"] = experimental_data_file_path
             log_status(
                 f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k, v in agent_inputs.items()])} }}")
@@ -335,27 +344,64 @@ class GraphOrchestrator:
                 log_status(
                     f"INFO: No valid content to save for '{filename}' (content was None, empty or an error string).")
 
-        mds_out = outputs_history.get("multi_doc_synthesizer", {}).get("multi_doc_synthesis_output")
+        # Multi-Document Synthesis Output
+        mds_node_output = outputs_history.get("multi_doc_synthesizer", {})
+        mds_out = mds_node_output.get("multi_doc_synthesis_output")
+        mds_error = mds_node_output.get("error")
+        if mds_error:
+            log_status(f"[GraphOrchestrator] INFO: Multi-document synthesis output not saved due to upstream error in 'multi_doc_synthesizer': {mds_error}")
         write_output_file("synthesis", "multi_document_synthesis.txt", mds_out)
-        web_research_out = outputs_history.get("web_researcher", {}).get("web_summary")
+
+        # Web Research Output
+        web_research_node_output = outputs_history.get("web_researcher", {})
+        web_research_out = web_research_node_output.get("web_summary")
+        web_research_error = web_research_node_output.get("error")
+        if web_research_error:
+            log_status(f"[GraphOrchestrator] INFO: Web research output not saved due to upstream error in 'web_researcher': {web_research_error}")
         write_output_file("synthesis", "web_research_summary.txt", web_research_out)
-        exp_data_out = outputs_history.get("experimental_data_loader", {}).get("experimental_data_summary", "N/A")
-        if exp_data_out != "N/A": write_output_file("synthesis", "experimental_data_summary.txt", exp_data_out)
-        ikb_out = outputs_history.get("knowledge_integrator", {}).get("integrated_knowledge_brief")
+
+        # Experimental Data Output
+        exp_data_node_output = outputs_history.get("experimental_data_loader", {})
+        exp_data_out = exp_data_node_output.get("experimental_data_summary", "N/A")
+        exp_data_error = exp_data_node_output.get("error")
+        if exp_data_error:
+            log_status(f"[GraphOrchestrator] INFO: Experimental data summary not saved due to upstream error in 'experimental_data_loader': {exp_data_error}")
+        if exp_data_out != "N/A": # Only attempt to write if there's actual data, not placeholder
+            write_output_file("synthesis", "experimental_data_summary.txt", exp_data_out)
+        
+        # Knowledge Integrator Output
+        ikb_node_output = outputs_history.get("knowledge_integrator", {})
+        ikb_out = ikb_node_output.get("integrated_knowledge_brief")
+        ikb_error = ikb_node_output.get("error")
+        if ikb_error:
+            log_status(f"[GraphOrchestrator] INFO: Integrated knowledge brief not saved due to upstream error in 'knowledge_integrator': {ikb_error}")
         write_output_file("synthesis", "integrated_knowledge_brief.txt", ikb_out)
-        hypo_gen_node_out = outputs_history.get("hypothesis_generator", {})
-        raw_blob = hypo_gen_node_out.get("hypotheses_output_blob")
+
+        # Hypothesis Generator Outputs
+        hypo_gen_node_output = outputs_history.get("hypothesis_generator", {})
+        hypo_gen_error = hypo_gen_node_output.get("error")
+        if hypo_gen_error:
+            log_status(f"[GraphOrchestrator] INFO: Hypothesis generator outputs (blob, key opportunities, list) may not be saved or may be incomplete due to upstream error: {hypo_gen_error}")
+        
+        raw_blob = hypo_gen_node_output.get("hypotheses_output_blob")
         write_output_file("hypotheses", "hypotheses_raw_llm_output.json", raw_blob)
-        key_ops = hypo_gen_node_out.get("key_opportunities")
+        key_ops = hypo_gen_node_output.get("key_opportunities")
         write_output_file("hypotheses", "key_research_opportunities.txt", key_ops)
-        hypo_list = hypo_gen_node_out.get("hypotheses_list", [])
-        if hypo_list:
+        hypo_list = hypo_gen_node_output.get("hypotheses_list", [])
+        if hypo_list: # This check is fine, as hypo_list might be empty even if no error
             hypo_list_content = ""
             for i, h in enumerate(hypo_list): hypo_list_content += f"{i + 1}. {h}\n\n"
             write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
-        exp_designs_list = outputs_history.get("experiment_designer", {}).get("experiment_designs_list", [])
+
+        # Experiment Designer Outputs
+        exp_designer_node_output = outputs_history.get("experiment_designer", {})
+        exp_designer_error = exp_designer_node_output.get("error")
+        if exp_designer_error:
+            log_status(f"[GraphOrchestrator] INFO: Experiment designs may not be saved or may be incomplete due to upstream error in 'experiment_designer': {exp_designer_error}")
+
+        exp_designs_list = exp_designer_node_output.get("experiment_designs_list", [])
         exp_path = project_output_paths.get("experiments")
-        if exp_designs_list and exp_path and os.path.exists(exp_path):
+        if exp_designs_list and exp_path and os.path.exists(exp_path): # This check is fine
             for i, design_info in enumerate(exp_designs_list):
                 hypo = design_info.get("hypothesis_processed", f"Hypothesis_N/A_{i + 1}")
                 design = design_info.get("experiment_design", "")
@@ -389,6 +435,12 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         final_error_msg = "Critical: APP_CONFIG is empty after load attempt. Orchestration cannot proceed."
         log_status(f"[MainWorkflow] ERROR: {final_error_msg}")
         return {"error": final_error_msg}
+
+    # Check for graph_definition
+    if not APP_CONFIG.get("graph_definition"):
+        critical_msg = "[MainWorkflow] CRITICAL_ERROR: 'graph_definition' is missing from the application configuration."
+        log_status(critical_msg)
+        return {"error": critical_msg, "details": "The 'graph_definition' key is essential for defining the agent workflow."}
 
     # Set OpenAI API key for the SDK globally, if SDK is available
     if SDK_AVAILABLE and 'set_default_openai_key' in globals() and callable(set_default_openai_key):
@@ -458,25 +510,32 @@ if __name__ == "__main__":
                                  "output_project_hypotheses_folder_name": "project_hypotheses_cli",
                                  "output_project_experiments_folder_name": "project_experiments_cli",
                                  "default_llm_model": "gpt-3.5-turbo",
-                                 "models": {"pdf_summarizer": "gpt-3.5-turbo",
+                                 "models": {
+                                            "pdf_summarizer": "gpt-3.5-turbo",
                                             "multi_doc_synthesizer_model": "gpt-3.5-turbo",
-                                            "web_research_model": "gpt-4o",
+                                            "web_research_model": "gpt-4o", # For WebResearcherAgent's own model_name if used
                                             "knowledge_integrator_model": "gpt-3.5-turbo",
                                             "hypothesis_generator": "gpt-3.5-turbo",
                                             "experiment_designer": "gpt-3.5-turbo",
-                                            "sdk_planner_model": "gpt-3.5-turbo", "sdk_search_model": "gpt-3.5-turbo",
-                                            "sdk_writer_model": "gpt-3.5-turbo"},
+                                            # Specific models for SDK agents used by WebResearcherAgent
+                                            "sdk_planner_model": "gpt-3.5-turbo", 
+                                            "sdk_search_model": "gpt-3.5-turbo",
+                                            "sdk_writer_model": "gpt-4-turbo" # Or "gpt-3.5-turbo"
+                                            },
                                  "openai_api_timeout_seconds": 180},
-            "agent_prompts": {"pdf_summarizer_sm": "Summarize this academic text in 1-2 paragraphs: {text_content}",
+            "agent_prompts": {
+                              "pdf_summarizer_sm": "Summarize this academic text in 1-2 paragraphs: {text_content}",
                               "multi_doc_synthesizer_sm": "Synthesize these summaries: {all_summaries_text}. Output: Cross-document understanding.",
-                              "web_researcher_sm": "This agent uses an SDK for web research.",
+                              "web_researcher_sm": "This agent performs web research using an SDK.", # System message for WebResearcherAgent itself
                               "experimental_data_loader_sm": "This is experimental data: {data_content}. Present as a structured summary.",
                               "knowledge_integrator_sm": "Integrate: Multi-doc: {multi_doc_synthesis}, Web: {web_research_summary}, ExpData: {experimental_data_summary}. Output: Integrated brief.",
                               "hypothesis_generator_sm": "You are a highly insightful research strategist and innovator. Based on the provided 'integrated knowledge brief' (which consolidates information from multiple papers, web research, and experimental data), your task is to:\n1.  **Identify Key Opportunities:** Briefly highlight the most promising areas for novel research based on the integrated knowledge.\n2.  **Generate Hypotheses:** Propose {num_hypotheses} distinct, novel, and groundbreaking hypotheses that go beyond the current state-of-the-art. These hypotheses should be specific, testable, and aim to open new avenues of research by directly addressing the identified gaps or leveraging the novel connections found in the integrated brief.\n\n**Output Format STRICTLY REQUIRED:** Provide your response as a single JSON object with two keys:\n- `\"key_opportunities\"`: A string containing your brief summary of key research opportunities.\n- `\"hypotheses\"`: A JSON array of strings, where each string is a clearly articulated hypothesis.\n\nExample JSON output structure:\n```json\n{{\n  \"key_opportunities\": \"The integration of X from papers, Y from web, and Z from experiments points to a critical need to investigate C.\",\n  \"hypotheses\": [\n    \"Hypothesis 1: ...\",\n    \"Hypothesis 2: ...\"\n  ]\n}}\n```\nEnsure the entire output is a valid JSON object.",
                               "experiment_designer_sm": "Design experiment for: {hypothesis}",
-                              "sdk_planner_sm": "Plan 2-3 web searches for query: {query}",
-                              "sdk_searcher_sm": "Search web for: {search_term}. Reason: {reason}. Summarize results concisely.",
-                              "sdk_writer_sm": "Write a brief report from query: {query} and search results: {search_results}."},
+                              # Specific prompts for SDK agents used by WebResearcherAgent
+                              "sdk_planner_sm": "Plan web searches for the query: {query}",
+                              "sdk_searcher_sm": "Search the web for: {search_term}. Reason: {reason}. Summarize results.",
+                              "sdk_writer_sm": "Write a report based on the query: {query} and search results: {search_results}."
+                              },
             "graph_definition": {"nodes": [
                 {"id": "pdf_loader_node", "type": "PDFLoaderAgent", "config": {"description": "Loads text from PDF."}},
                 {"id": "pdf_summarizer_node", "type": "PDFSummarizerAgent",
@@ -577,8 +636,12 @@ if __name__ == "__main__":
             full_pdf_path = os.path.join(cli_test_input_dir, pdf_name)
             if os.path.exists(full_pdf_path): pdf_paths_for_test.append(full_pdf_path); print(
                 f"[CLI_Test] Using existing dummy PDF: {full_pdf_path}")
-        if not pdf_paths_for_test: print(
-            "[CLI_Test] No dummy PDFs found or created. PDF processing steps will likely fail.")
+        if not pdf_paths_for_test: 
+            print("[CLI_Test] WARNING: No dummy PDFs found or created. PDF processing steps will likely fail or be skipped.")
+    
+    if not pdf_paths_for_test:
+        print("[CLI_Test] INFO: No PDF inputs available. PDF loading, summarization, and multi-document synthesis will be skipped or use empty inputs. Attempting to run remaining workflow steps.")
+
     exp_data_filename = "dummy_experimental_results_cli.txt"
     exp_data_full_path = os.path.join(cli_test_exp_data_dir, exp_data_filename)
     try:

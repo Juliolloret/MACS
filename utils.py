@@ -37,6 +37,7 @@ UTIL_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # NOTE: 'openai_agents' is a placeholder for the actual SDK package name.
 # This needs to be verified and updated if the SDK is published under a different name.
 SDK_AVAILABLE = False
+SDK_KEY_SET_SUCCESS = False # Global flag for SDK key setting status
 SDSAgent, Runner, WebSearchTool, ModelSettings = None, None, None, None
 _sdk_import_error = None # This will store the import error if any
 
@@ -101,7 +102,7 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     Uses main_script_dir to resolve relative config_path if provided,
     otherwise assumes config_path is absolute or relative to where load_app_config is called.
     """
-    global APP_CONFIG, OpenAI, PyPDF2, REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
+    global APP_CONFIG, OpenAI, PyPDF2, REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key, SDK_KEY_SET_SUCCESS
 
     OpenAI = None
     PyPDF2 = None
@@ -117,7 +118,38 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     try:
         with open(resolved_config_path, 'r', encoding='utf-8') as f:
             APP_CONFIG = json.load(f)
+
+        # Check for OpenAI API key
+        system_vars = APP_CONFIG.get("system_variables", {})
+        openai_api_key = system_vars.get("openai_api_key")
+        placeholder_keys = ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]
+
+        if not openai_api_key or openai_api_key in placeholder_keys:
+            log_status("[AppConfig] CRITICAL_ERROR: OpenAI API key is missing or a placeholder in config. Please update 'openai_api_key' in system_variables.")
+            # Depending on strictness, you might want to return False or raise an error here
+            # For now, just logging, as the key is also checked before each API call.
+
         log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
+
+        # Essential keys validation
+        essential_model_keys = [
+            "default_llm_model", "pdf_summarizer", "multi_doc_synthesizer_model",
+            "knowledge_integrator_model", "hypothesis_generator", "experiment_designer"
+        ]
+        essential_prompt_keys = [
+            "pdf_summarizer_sm", "multi_doc_synthesizer_sm", "knowledge_integrator_sm",
+            "hypothesis_generator_sm", "experiment_designer_sm"
+        ]
+
+        models_config = system_vars.get("models", {})
+        for key in essential_model_keys:
+            if key not in models_config:
+                log_status(f"[AppConfig] ERROR: Essential model key '{key}' not found in config under system_variables.models.")
+
+        agent_prompts_config = APP_CONFIG.get("agent_prompts", {})
+        for key in essential_prompt_keys:
+            if key not in agent_prompts_config:
+                log_status(f"[AppConfig] ERROR: Essential prompt key '{key}' not found in config under agent_prompts.")
 
         if OPENAI_SDK_AVAILABLE:
             log_status("[AppConfig] OpenAI library (openai>=1.0.0) confirmed available.")
@@ -145,18 +177,23 @@ def load_app_config(config_path="config.json", main_script_dir=None):
 
         # Set OpenAI API key for the SDK globally, if SDK is available and key is present
         # This is done *after* APP_CONFIG is loaded.
+        SDK_KEY_SET_SUCCESS = False # Initialize/reset before attempting
         if SDK_AVAILABLE and callable(set_default_openai_key):
             sdk_api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
             if sdk_api_key and sdk_api_key not in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
                 try:
                     set_default_openai_key(sdk_api_key)
                     log_status("[AppConfig] OpenAI API key set for 'openai_agents' SDK via set_default_openai_key.")
+                    SDK_KEY_SET_SUCCESS = True # Set to True on success
                 except Exception as e:
                     log_status(f"[AppConfig] WARNING: Failed to set OpenAI API key for 'openai_agents' SDK: {e}")
+                    # SDK_KEY_SET_SUCCESS remains False
             else:
                 log_status("[AppConfig] WARNING: Valid OpenAI API key not found in APP_CONFIG to set for 'openai_agents' SDK. SDK calls might fail if OPENAI_API_KEY env var is not set.")
+                # SDK_KEY_SET_SUCCESS remains False
         elif SDK_AVAILABLE:
             log_status("[AppConfig] WARNING: 'set_default_openai_key' function not available from 'openai_agents' SDK import. SDK calls might fail if OPENAI_API_KEY env var is not set.")
+            # SDK_KEY_SET_SUCCESS remains False (as it couldn't be called)
 
         return True
     except FileNotFoundError:

@@ -318,43 +318,76 @@ class AgentAppGUI(QWidget):
                                  "Backend module not loaded or config error. Cannot start workflow.")
             return
 
-        pdf_folder_path = self.pdf_folder_path_entry.text()
-        project_output_base_dir = self.output_dir_entry.text()
+        # 1. Gather all inputs and strip them
+        pdf_folder_path = self.pdf_folder_path_entry.text().strip()
+        project_output_base_dir = self.output_dir_entry.text().strip()
         project_name_input = self.project_name_entry.text().strip()
         exp_data_file_path = self.exp_data_file_entry.text().strip()
-
         config_file_path_gui = self.config_file_entry.text().strip()
-        config_file_path_for_backend = config_file_path_gui if config_file_path_gui else "config.json"
 
-        if config_file_path_gui and not os.path.exists(config_file_path_gui):
-            QMessageBox.warning(self, "Config File Error",
-                                f"Selected configuration file not found:\n{config_file_path_gui}")
-            return
-        log_msg = f"[GUI] Using configuration: {config_file_path_for_backend}" + (
-            " (default)" if not config_file_path_gui else "")
-        self.log_status_to_gui(log_msg)
-
+        # 2. Perform comprehensive validation
         if not project_name_input:
             QMessageBox.warning(self, "Input Error", "Please enter a Project Name.")
             return
-        if not pdf_folder_path or not os.path.isdir(pdf_folder_path):
-            QMessageBox.warning(self, "Input Error", "Please select a valid Input PDF Folder.")
+
+        if not pdf_folder_path:
+            QMessageBox.warning(self, "Input Error", "Input PDF Folder path cannot be empty.")
             return
-        if not project_output_base_dir:
-            QMessageBox.warning(self, "Input Error", "Please select a Project Output Base Directory.")
+        if not os.path.isdir(pdf_folder_path):
+            QMessageBox.warning(self, "Input Error", f"Selected Input PDF Folder does not exist or is not a directory:\n{pdf_folder_path}")
+            return
+        
+        try:
+            if not any(f.lower().endswith(".pdf") for f in os.listdir(pdf_folder_path)):
+                QMessageBox.warning(self, "Input Error", f"No PDF files found in the selected Input PDF Folder:\n{pdf_folder_path}")
+                return
+        except OSError as e:
+            QMessageBox.warning(self, "Input Error", f"Could not access Input PDF Folder to check for PDF files:\n{pdf_folder_path}\nError: {e}")
             return
 
+        if not project_output_base_dir: # This is the base directory, should exist or be creatable by user.
+            QMessageBox.warning(self, "Input Error", "Project Output Directory path cannot be empty.")
+            return
+        # It's okay if project_output_base_dir itself doesn't exist yet, as it's a base.
+        # The project_specific_output_dir creation later will handle it.
+        # However, if the parent of project_output_base_dir is invalid, os.makedirs might fail.
+        # For simplicity, we assume user provides a sensible base like ~/Documents/MyAppOutputs
+        # and the timestamped subfolder is what we create.
+
+        original_config_path_gui = config_file_path_gui # Store original for logging
+        if config_file_path_gui and not os.path.isfile(config_file_path_gui):
+            QMessageBox.warning(self, "Config File Error",
+                                f"The specified Configuration File was not found:\n{config_file_path_gui}\nFalling back to default 'config.json' if available with backend.")
+            config_file_path_gui = "" # This ensures backend uses its default "config.json"
+        
+        original_exp_data_path = exp_data_file_path # Store original for logging
         if exp_data_file_path and not os.path.isfile(exp_data_file_path):
             QMessageBox.warning(self, "Input Error",
-                                f"Experimental data file not found: {exp_data_file_path}. Proceeding without it.")
-            exp_data_file_path = ""  # Process without it if not found
+                                f"The specified Experimental Data File was not found:\n{exp_data_file_path}\nThis input will be ignored.")
+            exp_data_file_path = ""
+            self.exp_data_file_entry.setText("") # Clear the GUI field as it's invalid
 
-        all_pdf_files_in_folder = [os.path.join(pdf_folder_path, f) for f in os.listdir(pdf_folder_path) if
-                                   f.lower().endswith(".pdf")]
-        if not all_pdf_files_in_folder:
-            QMessageBox.information(self, "No PDFs Found", f"No PDF files found in folder:\n{pdf_folder_path}")
+        # 3. Set up config_file_path_for_backend
+        config_file_path_for_backend = config_file_path_gui if config_file_path_gui else "config.json"
+        
+        # Log which config is being used
+        log_msg_config = f"[GUI] Using configuration: '{config_file_path_for_backend}'"
+        if not config_file_path_gui and original_config_path_gui and original_config_path_gui != config_file_path_for_backend : # implies custom was invalid
+            log_msg_config += f" (Specified custom config '{original_config_path_gui}' was not found, falling back to default)."
+        elif not config_file_path_gui : # implies using default from the start
+            log_msg_config += " (default)."
+        self.log_status_to_gui(log_msg_config)
+        
+        # 4. Collect PDF files (this is now safe after isdir and listdir checks)
+        # This is the correct place, after all input validations
+        all_pdf_files_in_folder = [os.path.join(pdf_folder_path, f) for f in os.listdir(pdf_folder_path) if f.lower().endswith(".pdf")]
+        # This check is technically redundant due to the earlier one inside the try-except block,
+        # but as a safeguard, it doesn't hurt.
+        if not all_pdf_files_in_folder: 
+            QMessageBox.warning(self, "Input Error", f"No PDF files found in folder (unexpected error after validation):\n{pdf_folder_path}")
             return
 
+        # 5. Create project-specific output directory (and other existing logic)
         safe_project_name_base = "".join(
             c if c.isalnum() or c in (' ', '_', '-') else '_' for c in project_name_input).rstrip().replace(" ", "_")
         if not safe_project_name_base: safe_project_name_base = "Unnamed_IntegratedProject"
