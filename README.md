@@ -155,10 +155,10 @@ If you find a security issue, please report it privately by email to juliolloret
 - https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
 ---
 
-Related Projects
-Awesome Research Tools
-PyPDF2
-OpenAI
-PyQt6
+## Related Projects
+- Awesome Research Tools
+- PyPDF2
+- OpenAI
+- PyQt6
+---
 
-Let me know if you want this as a Markdown file or if you want sections broken down differently!
