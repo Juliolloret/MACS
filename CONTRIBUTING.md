@@ -55,6 +55,6 @@ Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Y
 ## Community
 
 - Be respectful and considerate in all interactions.
-- Review the Code of Conduct before participating.
+- Review the [Code of Conduct](Code of Conduct.md) before participating.
 
 **Thank you for helping make MACS better!**
