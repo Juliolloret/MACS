@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 from .base_agent import Agent
-from multi_agent_llm_system import call_openai_api, log_status, SCRIPT_DIR
+from utils import call_openai_api, log_status # SCRIPT_DIR is no longer imported from here
 
 class ExperimentalDataLoaderAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict
@@ -14,11 +14,10 @@ class ExperimentalDataLoaderAgent(Agent):
             log_status(f"[{self.agent_id}] INFO: No experimental data file path provided. Proceeding without it.")
             return {"experimental_data_summary": "N/A - No experimental data file provided."}
 
+        # Path resolution is now expected to be handled by the caller,
+        # or data_file_path should be an absolute path.
         resolved_data_path = data_file_path
-        if not os.path.isabs(data_file_path):
-            resolved_data_path = os.path.join(SCRIPT_DIR, data_file_path)
-            log_status(
-                f"[{self.agent_id}] INFO: Relative experimental data path '{data_file_path}' resolved to '{resolved_data_path}'.")
+        log_status(f"[{self.agent_id}] INFO: Using experimental data path: '{resolved_data_path}'.")
 
         if not os.path.exists(resolved_data_path):
             log_status(f"[{self.agent_id}] WARNING: Experimental data file not found at '{resolved_data_path}'.")

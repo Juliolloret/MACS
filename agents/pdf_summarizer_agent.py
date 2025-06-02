@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 from .base_agent import Agent
-from multi_agent_llm_system import call_openai_api, log_status
+from utils import call_openai_api, log_status
 
 class PDFSummarizerAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict

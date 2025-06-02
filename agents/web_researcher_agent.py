@@ -3,11 +3,11 @@ import traceback
 from typing import Dict, Any, Optional, List
 from .base_agent import Agent
 from .sdk_models import WebSearchPlan, ReportData # Moved models
-# Utilities from main system file
-from multi_agent_llm_system import (
-    SDK_AVAILABLE, SDSAgent, Runner, WebSearchTool, ModelSettings,
-    APP_CONFIG, get_model_name, log_status
-    # Removed set_default_openai_key as it's handled globally or not needed here
+# Utilities and SDK components are now imported from utils.py
+from utils import (
+    SDK_AVAILABLE, SDSAgent, Runner, WebSearchTool, ModelSettings, # SDK components
+    APP_CONFIG, get_model_name, log_status # Utilities
+    # set_default_openai_key is handled within utils.load_app_config
 )
 
 class WebResearcherAgent(Agent):
