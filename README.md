@@ -6,8 +6,6 @@
 ![License](https://img.shields.io/github/license/Juliolloret/MACS)
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue)
 
-Here’s a detailed extension for your README.md, incorporating the structure and function of gui.py, multi_agent_llm_system.py, and config.json:
-
 ---
 
 # MACS: Multi-Agent LLM Research Assistant
