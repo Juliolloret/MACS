@@ -140,7 +140,8 @@ We welcome contributions! Please read CONTRIBUTING.md for guidelines.
 - **Add New Agents:** Implement new agent classes in `multi_agent_llm_system.py` and add them to the graph in `config.json`.
 - **Customize GUI:** Edit `gui.py` to add new options or workflow controls.
 - **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
-Please note that this project is released with a Code of Conduct. By participating, you agree to abide by its terms.
+
+Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
 ---
 
 ## Security
