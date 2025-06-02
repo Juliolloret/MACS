@@ -1,6 +1,3 @@
-Here's the provided text formatted correctly as a Markdown code block:
-
-````markdown
 # Contributing to MACS
 
 Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Your contributions help improve the project for everyone.
@@ -61,4 +58,3 @@ Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Y
 - Review the Code of Conduct before participating.
 
 **Thank you for helping make MACS better!**
-````
