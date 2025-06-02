@@ -1,6 +1,6 @@
 from typing import Dict # For type hints
 from .base_agent import Agent
-from multi_agent_llm_system import call_openai_api
+from utils import call_openai_api
 # log_status is available via base_agent.py, or if not, would need to be imported if used directly here
 
 class KnowledgeIntegratorAgent(Agent):

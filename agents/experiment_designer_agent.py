@@ -1,6 +1,6 @@
 from typing import Dict, List
 from .base_agent import Agent
-from multi_agent_llm_system import call_openai_api, log_status
+from utils import call_openai_api, log_status
 
 class ExperimentDesignerAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict

@@ -2,15 +2,12 @@ import os
 import json
 from typing import Optional, Dict, Any
 
-# Attempt to import utility functions that Agent class depends on.
-# These will likely be moved to a utils.py later or passed as dependencies,
-# but for now, this reflects their current location.
-from multi_agent_llm_system import get_model_name, get_prompt_text, log_status, APP_CONFIG
+# Utility functions that Agent class depends on, now imported from utils.py
+from utils import get_model_name, get_prompt_text, log_status, APP_CONFIG
 
-# Placeholder for call_openai_api if it's directly used by base Agent,
-# though it seems it's used by specific agent execute methods rather than the base.
-# If Agent.execute or other base methods use it, it needs to be available.
-# from multi_agent_llm_system import call_openai_api
+# Placeholder for call_openai_api if it's directly used by base Agent.
+# Currently, it's used by specific agent execute methods, which will import it from utils.py.
+# from utils import call_openai_api
 
 
 class Agent:

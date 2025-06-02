@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 from .base_agent import Agent
-from multi_agent_llm_system import log_status, PyPDF2 # PyPDF2 needed for PyPDF2.PdfReader
+from utils import log_status, PyPDF2 # PyPDF2 needed for PyPDF2.PdfReader
 
 class PDFLoaderAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict matches common usage
