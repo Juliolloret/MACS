@@ -1,8 +1,10 @@
 import json
 from typing import Dict, List, Any # Any is used for parsed_output
 from .base_agent import Agent
+from .registry import register_agent
 from utils import call_openai_api, log_status
 
+@register_agent("HypothesisGeneratorAgent")
 class HypothesisGeneratorAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict
         num_hypotheses_to_generate = self.config_params.get("num_hypotheses", 3)
