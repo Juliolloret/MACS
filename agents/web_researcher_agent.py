@@ -2,7 +2,8 @@ import asyncio
 import traceback
 from typing import Dict, Any, Optional, List
 from .base_agent import Agent
-from .sdk_models import WebSearchPlan, ReportData # Moved models
+from .registry import register_agent
+from .sdk_models import WebSearchPlan, ReportData  # Moved models
 # Utilities and SDK components are now imported from utils.py
 from utils import (
     SDK_AVAILABLE, SDSAgent, Runner, WebSearchTool, ModelSettings, # SDK components
@@ -10,6 +11,7 @@ from utils import (
     # set_default_openai_key is handled within utils.load_app_config
 )
 
+@register_agent("WebResearcherAgent")
 class WebResearcherAgent(Agent):
     def execute(self, inputs: dict) -> dict:
         if not SDK_AVAILABLE:

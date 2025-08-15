@@ -1,8 +1,10 @@
 import os
 from typing import Dict
 from .base_agent import Agent
-from utils import log_status, PyPDF2 # PyPDF2 needed for PyPDF2.PdfReader
+from .registry import register_agent
+from utils import log_status, PyPDF2  # PyPDF2 needed for PyPDF2.PdfReader
 
+@register_agent("PDFLoaderAgent")
 class PDFLoaderAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict matches common usage
         base_pre_check_result = super().execute(inputs)

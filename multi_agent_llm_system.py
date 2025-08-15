@@ -55,17 +55,8 @@ from utils import (
 )
 
 # Imports for refactored Agent classes
-from agents import (
-    Agent, # Base Agent class
-    PDFLoaderAgent,
-    PDFSummarizerAgent,
-    MultiDocSynthesizerAgent,
-    WebResearcherAgent,
-    ExperimentalDataLoaderAgent,
-    KnowledgeIntegratorAgent,
-    HypothesisGeneratorAgent,
-    ExperimentDesignerAgent
-)
+# Core agent utilities
+from agents import Agent, get_agent_class
 # SDK Models are now in agents.sdk_models; WebResearcherAgent imports them directly.
 
 
@@ -130,18 +121,11 @@ class GraphOrchestrator:
         log_status(f"[GraphOrchestrator] INFO: Node execution order determined: {self.node_order}")
 
     def _initialize_agents(self):
-        agent_class_map = {
-            "PDFLoaderAgent": PDFLoaderAgent, "PDFSummarizerAgent": PDFSummarizerAgent,
-            "MultiDocSynthesizerAgent": MultiDocSynthesizerAgent, "WebResearcherAgent": WebResearcherAgent,
-            "ExperimentalDataLoaderAgent": ExperimentalDataLoaderAgent,
-            "KnowledgeIntegratorAgent": KnowledgeIntegratorAgent,
-            "HypothesisGeneratorAgent": HypothesisGeneratorAgent, "ExperimentDesignerAgent": ExperimentDesignerAgent,
-        }
         for node_def in self.graph_definition.get('nodes', []):
             agent_id = node_def['id']
             agent_type_name = node_def['type']
             agent_config_params = node_def.get('config', {})
-            agent_class = agent_class_map.get(agent_type_name)
+            agent_class = get_agent_class(agent_type_name)
             if not agent_class:
                 log_status(f"[GraphOrchestrator] ERROR: Unknown agent type: {agent_type_name} for node {agent_id}")
                 raise ValueError(f"Unknown agent type: {agent_type_name} for node {agent_id}")
