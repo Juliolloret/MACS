@@ -135,8 +135,8 @@ The current JSON file implements the following workflow. However, you can modify
 ## Extending & Contributing
 
 We welcome contributions! Please read [Contributing Guide](CONTRIBUTING.md) for guidelines.
-Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
-- **Add New Agents:** Implement new agent classes in `multi_agent_llm_system.py` and add them to the graph in `config.json`.
+-Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
+- **Add New Agents:** Implement new agent classes in the `agents` package (files ending with `_agent.py`). They are auto-registered via the plugin system. Add them to the workflow graph in `config.json`.
 - **Customize GUI:** Edit `gui.py` to add new options or workflow controls.
 - **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
 

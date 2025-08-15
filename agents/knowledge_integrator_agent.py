@@ -1,8 +1,10 @@
 from typing import Dict # For type hints
 from .base_agent import Agent
+from .registry import register_agent
 from utils import call_openai_api
 # log_status is available via base_agent.py, or if not, would need to be imported if used directly here
 
+@register_agent("KnowledgeIntegratorAgent")
 class KnowledgeIntegratorAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict
         current_system_message = self.get_formatted_system_message()
