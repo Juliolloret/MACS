@@ -1,7 +1,9 @@
 from typing import Dict, List
 from .base_agent import Agent
+from .registry import register_agent
 from utils import call_openai_api, log_status
 
+@register_agent("ExperimentDesignerAgent")
 class ExperimentDesignerAgent(Agent):
     def execute(self, inputs: dict) -> dict: # Type hint for dict
         current_system_message = self.get_formatted_system_message()
