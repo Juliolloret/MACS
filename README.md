@@ -51,6 +51,7 @@
     - `KnowledgeIntegratorAgent`: Integrates all knowledge into a unified brief.
     - `HypothesisGeneratorAgent`: Generates research hypotheses.
     - `ExperimentDesignerAgent`: Designs experiments for generated hypotheses.
+    - `ObserverAgent`: Reviews all agent outputs and reports any detected errors.
   - **Graph Orchestrator:** Executes the workflow graph as defined in `config.json`, ensuring correct data flow and error handling.
   - **Output Handling:** Saves synthesized outputs, hypotheses, and experiment designs into organized subfolders.
 - **Usage:** Can be called from the GUI or invoked directly for CLI testing.
@@ -119,7 +120,8 @@ The current JSON file implements the following workflow. However, you can modify
 6. **Knowledge Integration:** Combines all sources into an integrated knowledge brief.
 7. **Hypothesis Generation:** Proposes new hypotheses based on the brief.
 8. **Experiment Design:** Designs experiments for each hypothesis.
-9. **Output:** All results are saved in structured subfolders in the project output directory.
+9. **Observer Review:** The ObserverAgent checks all previous outputs and logs any errors.
+10. **Output:** All results are saved in structured subfolders in the project output directory.
 
 ---
 

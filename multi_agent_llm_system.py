@@ -64,7 +64,8 @@ from agents import (
     ExperimentalDataLoaderAgent,
     KnowledgeIntegratorAgent,
     HypothesisGeneratorAgent,
-    ExperimentDesignerAgent
+    ExperimentDesignerAgent,
+    ObserverAgent
 )
 # SDK Models are now in agents.sdk_models; WebResearcherAgent imports them directly.
 
@@ -131,11 +132,15 @@ class GraphOrchestrator:
 
     def _initialize_agents(self):
         agent_class_map = {
-            "PDFLoaderAgent": PDFLoaderAgent, "PDFSummarizerAgent": PDFSummarizerAgent,
-            "MultiDocSynthesizerAgent": MultiDocSynthesizerAgent, "WebResearcherAgent": WebResearcherAgent,
+            "PDFLoaderAgent": PDFLoaderAgent,
+            "PDFSummarizerAgent": PDFSummarizerAgent,
+            "MultiDocSynthesizerAgent": MultiDocSynthesizerAgent,
+            "WebResearcherAgent": WebResearcherAgent,
             "ExperimentalDataLoaderAgent": ExperimentalDataLoaderAgent,
             "KnowledgeIntegratorAgent": KnowledgeIntegratorAgent,
-            "HypothesisGeneratorAgent": HypothesisGeneratorAgent, "ExperimentDesignerAgent": ExperimentDesignerAgent,
+            "HypothesisGeneratorAgent": HypothesisGeneratorAgent,
+            "ExperimentDesignerAgent": ExperimentDesignerAgent,
+            "ObserverAgent": ObserverAgent,
         }
         for node_def in self.graph_definition.get('nodes', []):
             agent_id = node_def['id']
@@ -221,7 +226,7 @@ class GraphOrchestrator:
                                                         "multi_doc_synthesis_output": ""}
 
         # STAGE 3: Execute remaining graph nodes based on topological order
-        nodes_already_explicitly_handled = {"pdf_loader_node", "pdf_summarizer_node", "multi_doc_synthesizer"}
+        nodes_already_explicitly_handled = {"pdf_loader_node", "pdf_summarizer_node", "multi_doc_synthesizer", "observer"}
 
         for node_id in self.node_order:
             if node_id in nodes_already_explicitly_handled:
@@ -289,6 +294,14 @@ class GraphOrchestrator:
                 f"[{node_id}] RESULT: {{ {', '.join([f'{k}: {str(v)[:70]}...' for k, v in node_output.items()])} }}")
             if node_output.get("error"): log_status(
                 f"[GraphOrchestrator] NODE_EXECUTION_ERROR_REPORTED: Node '{node_id}': {node_output['error']}")
+        if "observer" in self.agents:
+            log_status("\n[GraphOrchestrator] EXECUTING ObserverAgent")
+            try:
+                observer_output = self.agents["observer"].execute({"outputs_history": outputs_history})
+            except Exception as obs_e:
+                log_status(f"[GraphOrchestrator] OBSERVER_ERROR: {obs_e}")
+                observer_output = {"error": f"Observer execution failed: {obs_e}"}
+            outputs_history["observer"] = observer_output
         self._save_consolidated_outputs(outputs_history, project_base_output_dir)
         log_status("\n[GraphOrchestrator] INFO: INTEGRATED workflow execution completed.")
         return outputs_history

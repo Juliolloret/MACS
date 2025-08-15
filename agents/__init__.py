@@ -7,6 +7,7 @@ from .experimental_data_loader_agent import ExperimentalDataLoaderAgent
 from .knowledge_integrator_agent import KnowledgeIntegratorAgent
 from .hypothesis_generator_agent import HypothesisGeneratorAgent
 from .experiment_designer_agent import ExperimentDesignerAgent
+from .observer_agent import ObserverAgent
 # Import the Pydantic models as well if they are intended to be part of the agents public API
 from .sdk_models import WebSearchItem, WebSearchPlan, ReportData
 
@@ -21,6 +22,7 @@ __all__ = [
     "KnowledgeIntegratorAgent",
     "HypothesisGeneratorAgent",
     "ExperimentDesignerAgent",
+    "ObserverAgent",
     "WebSearchItem",
     "WebSearchPlan",
     "ReportData"
