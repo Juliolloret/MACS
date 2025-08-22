@@ -2,7 +2,7 @@ from typing import Optional, Dict
 import os
 import json
 from llm import LLMClient
-from utils import log_status, get_model_name, APP_CONFIG
+from utils import log_status, get_model_name
 
 try:
     from openai import OpenAI as OpenAIClient, APIConnectionError, APITimeoutError, RateLimitError, AuthenticationError, BadRequestError
