@@ -9,6 +9,8 @@ class Agent:
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.config_params = config_params if config_params else {}
+        if llm is None:
+            raise ValueError("LLMClient instance must be provided to Agent")
         self.llm = llm
         model_key_from_config = self.config_params.get("model_key")
         self.model_name = get_model_name(model_key_from_config)
