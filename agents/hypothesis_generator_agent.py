@@ -32,7 +32,7 @@ class HypothesisGeneratorAgent(Agent):
             log_status(f"[{self.agent_id}] INPUT_ERROR: {error_msg}")
             return {"hypotheses_output_blob": "", "hypotheses_list": [], "key_opportunities": "", "error": error_msg}
 
-        max_brief_len = 15000 # Consider making this configurable
+        max_brief_len = self.config_params.get("max_brief_len", 15000)
         if len(integrated_knowledge_brief) > max_brief_len:
             log_status(
                 f"[{self.agent_id}] INFO: Truncating integrated_knowledge_brief from {len(integrated_knowledge_brief)} to {max_brief_len} for hypothesis generation.")
@@ -44,10 +44,12 @@ class HypothesisGeneratorAgent(Agent):
             "strictly in the specified JSON format."
         )
         log_status(f"[{self.agent_id}] Requesting {num_hypotheses_to_generate} hypotheses from LLM.")
+        temperature = float(self.config_params.get("temperature", 0.6))
         llm_response_str = self.llm.complete(
             system=current_system_message,
             prompt=user_prompt,
             model=self.model_name,
+            temperature=temperature,
         )
 
         if llm_response_str.startswith("Error:"):

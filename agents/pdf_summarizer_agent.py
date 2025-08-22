@@ -22,12 +22,17 @@ class PDFSummarizerAgent(Agent):
             log_status(
                 f"[{self.agent_id}] INFO: Truncating PDF text from {len(pdf_text_content)} to {max_len} chars for summarization.")
             pdf_text_content = pdf_text_content[:max_len]
-        prompt = f"Please summarize the following academic text from document '{os.path.basename(original_pdf_path)}':\n\n---\n{pdf_text_content}\n---"
+
+        temperature = float(self.config_params.get("temperature", 0.6))
+        prompt = (
+            f"Please summarize the following academic text from document '"
+            f"{os.path.basename(original_pdf_path)}':\n\n---\n{pdf_text_content}\n---"
+        )
         summary = self.llm.complete(
             system=current_system_message,
             prompt=prompt,
             model=self.model_name,
-            temperature=0.6,
+            temperature=temperature,
         )
         if summary.startswith("Error:"):
             return {"summary": "", "error": summary, "original_pdf_path": original_pdf_path}
