@@ -9,8 +9,15 @@
 ---
 
 # MACS: Multi-Agent LLM Research Assistant
-**MACS** (Multi-Agent Collaboration System) is a modular Python-based system for orchestrating advanced research workflows on collections of academic PDFs. 
- It integrates multiple specialized agents to automate literature review, synthesis, and experimental planning. 
+**MACS** (Multi-Agent Collaboration System) is a open-source modular Python-based platform for orchestrating advanced research workflows on collections of academic PDFs. It leverages multiple intelligent agents and LLMs to extract, summarize, and synthesize information from academic PDFs and experimental data, supporting literature reviews, hypothesis generation, and experiment planning.
+
+# Features
+- Automated Literature Review: Extracts and summarizes research articles from PDFs.
+- Multi-Document Synthesis: Integrates knowledge across multiple sources.
+- Experimental Planning: Generates hypotheses and designs experiments automatically.
+- User-Friendly GUI: Easily configure and launch workflows with real-time monitoring.
+- Customizable Workflows: Adjust agent prompts, models, and workflow topology via config.json.
+- Extensible Architecture: Add new agents for specialized tasks.
 
 ## Table of Contents
 
@@ -99,19 +106,21 @@ python gui.py
 ```
 - Use the GUI to select your PDF folder, output directory, and optional experimental data/config.
 - Click "Start Integrated Analysis" to launch the workflow.
+- Monitor progress and status in the GUI.
 
-#### Backend/CLI Mode
+#### Backend/CLI Mode (Command-Line Mode)
 
 For advanced/automated workflows, invoke the orchestrator directly:
 ```bash
 python multi_agent_llm_system.py
 ```
-(See code comments in `multi_agent_llm_system.py` for CLI test usage.)
+(See code comments in `multi_agent_llm_system.py` for CLI test usage. For advanced and automated workflows; see code comments for CLI options.)
 
 ---
 
 ## Workflow Details
-The current JSON file implements the following workflow. However, you can modify it by changing the JSON file. 
+MACS organizes research tasks into a graph of specialized agents:
+
 1. **PDF Loading:** Extracts text from all PDFs in the selected folder.
 2. **Summarization:** Each PDF is summarized by an LLM agent.
 3. **Multi-Document Synthesis:** Summaries are synthesized into a cross-document understanding.
@@ -123,6 +132,7 @@ The current JSON file implements the following workflow. However, you can modify
 9. **Observer Review:** The `ObserverAgent` scans all agent outputs and flags any errors.
 10. **Output:** All results are saved in structured subfolders in the project output directory.
 
+Workflow configuration is managed via config.json. Users can alter the agent order, prompts, and models without touching code.
 ---
 
 ## Configuration
@@ -137,9 +147,9 @@ The current JSON file implements the following workflow. However, you can modify
 ## Extending & Contributing
 
 We welcome contributions! Please read [Contributing Guide](CONTRIBUTING.md) for guidelines.
--Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
+- Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
 - **Add New Agents:** Implement new agent classes in the `agents` package (files ending with `_agent.py`). They are auto-registered via the plugin system. Add them to the workflow graph in `config.json`.
-- **Customize GUI:** Edit `gui.py` to add new options or workflow controls.
+- **Customize GUI:** Modify `gui.py` to add new options or workflow controls.
 - **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
 
 
