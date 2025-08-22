@@ -36,18 +36,23 @@ class ExperimentalDataLoaderAgent(Agent):
 
             # Decide whether to use LLM for summarization or pass raw content
             if current_system_message and not current_system_message.startswith("ERROR:") and self.config_params.get("use_llm_to_summarize_data", False): # Example: Add a config flag
-                max_exp_data_len = 10000 # Consider making this configurable
+                max_exp_data_len = self.config_params.get("max_exp_data_len", 10000)
                 truncated_data_content = data_content
                 if len(data_content) > max_exp_data_len:
                     log_status(
                         f"[{self.agent_id}] INFO: Truncating experimental data from {len(data_content)} to {max_exp_data_len} for LLM processing.")
                     truncated_data_content = data_content[:max_exp_data_len]
 
-                prompt = f"Please process and summarize the following experimental data content from file '{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
+                prompt = (
+                    f"Please process and summarize the following experimental data content from file '"
+                    f"{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
+                )
+                temperature = float(self.config_params.get("temperature", 0.6))
                 summary = self.llm.complete(
                     system=current_system_message,
                     prompt=prompt,
                     model=self.model_name,
+                    temperature=temperature,
                 )
 
                 if summary.startswith("Error:"):
