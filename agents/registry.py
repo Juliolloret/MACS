@@ -22,5 +22,8 @@ def load_agents(package_name: str = __package__):
     package_path = package.__path__
     for _, module_name, _ in pkgutil.iter_modules(package_path):
         if module_name.endswith('_agent'):
-            importlib.import_module(f"{package_name}.{module_name}")
+            try:
+                importlib.import_module(f"{package_name}.{module_name}")
+            except ImportError:  # pragma: no cover
+                continue
 

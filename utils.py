@@ -202,88 +202,14 @@ def get_prompt_text(prompt_key: Optional[str]) -> str:
 def call_openai_api(prompt: str, system_message: str = "You are a helpful assistant.",
                     agent_name: str = "LLM", model_name: Optional[str] = None,
                     temperature: float = 0.5) -> str:
-    """Makes a call to the OpenAI ChatCompletion API."""
-    chosen_model = model_name if model_name else get_model_name()
-    effective_system_message = system_message if system_message else "You are a helpful assistant."
-
-    if isinstance(system_message, str) and system_message.startswith("ERROR:"):
-        log_status(f"[{agent_name}] LLM_CALL_ERROR: Invalid system message provided: {system_message}")
-        return f"Error: Invalid system message for agent {agent_name} due to: {system_message}"
-
-    current_temperature = temperature
-    if chosen_model and "o4-mini" in chosen_model:
-        log_status(
-            f"[{agent_name}] INFO: Model '{chosen_model}' detected. Adjusting temperature to 1.0 (default) as it may not support other values.")
-        current_temperature = 1.0
-
-    prompt_display_snippet = prompt[:150].replace('\n', ' ')
-    log_status(
-        f"[{agent_name}] LLM_CALL_START: Model='{chosen_model}', Temp='{current_temperature}', SystemMessage='{effective_system_message[:70]}...', Prompt(start): '{prompt_display_snippet}...'")
-
-    if not OPENAI_SDK_AVAILABLE or not OpenAI_lib:
-        return f"Error: OpenAI library (openai>=1.0.0) not available for model {chosen_model}."
-    if not APP_CONFIG:
-        return f"Error: Application configuration not loaded for model {chosen_model}."
-
-    api_key_to_use = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
-    api_timeout_seconds = float(APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
-
-    if not api_key_to_use or api_key_to_use in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
-        return f"Error: OpenAI API key not configured for model {chosen_model}."
-
+    """Deprecated wrapper around OpenAILLM for backward compatibility."""
     try:
-        client = OpenAI_lib(api_key=api_key_to_use, timeout=api_timeout_seconds)
+        from llm_openai import OpenAILLM
+    except ImportError:
+        return "Error: OpenAI library is not available."
 
-        api_call_params = {
-            "model": chosen_model,
-            "messages": [
-                {"role": "system", "content": effective_system_message},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": current_temperature
-        }
-        response = client.chat.completions.create(**api_call_params)
-
-        if not response.choices:
-            log_status(f"[{agent_name}] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices.")
-            return f"Error: OpenAI API response had no choices for model {chosen_model}."
-
-        first_choice = response.choices[0]
-        if not first_choice.message or first_choice.message.content is None:
-            log_status(f"[{agent_name}] LLM_CALL_SUCCESS_EMPTY_CONTENT: Model='{chosen_model}' returned None or no message content.")
-            return ""
-
-        raw_content = first_choice.message.content
-        if not isinstance(raw_content, str):
-            log_status(
-                f"[{agent_name}] LLM_CALL_ERROR_UNEXPECTED_CONTENT_TYPE: Model='{chosen_model}' returned content of type {type(raw_content)}, expected string. Content: {str(raw_content)[:100]}")
-            return f"Error: OpenAI API returned unexpected content type for model {chosen_model}."
-
-        result = raw_content.strip()
-        result_display_snippet = result[:150].replace('\n', ' ')
-        log_status(
-            f"[{agent_name}] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{result_display_snippet}...'")
-        return result
-
-    except Exception as e:
-        error_type_name = type(e).__name__
-        if openai_errors:
-            for err_name, err_class_obj in openai_errors.items():
-                if isinstance(e, err_class_obj):
-                    log_status(f"[{agent_name}] LLM_ERROR ({err_name}): API call with {chosen_model} failed: {e}")
-                    error_detail = str(e)
-                    if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                        try:
-                            err_json = json.loads(e.response.text)
-                            if 'error' in err_json and 'message' in err_json['error']:
-                                error_detail = err_json['error']['message']
-                            else:
-                                error_detail = e.response.text[:500]
-                        except json.JSONDecodeError:
-                            error_detail = e.response.text[:500]
-                        except Exception:
-                            pass
-                    return f"Error: OpenAI API {err_name} for {chosen_model}: {error_detail}"
-
-        log_status(f"[{agent_name}] LLM_ERROR (General {error_type_name}): API call with {chosen_model} failed: {e}")
-        return f"Error: API call with {chosen_model} failed ({error_type_name}): {e}"
+    api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
+    timeout = float(APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
+    llm = OpenAILLM(api_key=api_key, timeout=int(timeout))
+    return llm.complete(system=system_message, prompt=prompt,
+                        model=model_name, temperature=temperature)
