@@ -44,7 +44,9 @@
         "config": {
           "description": "Summarizes text from a single PDF. Invoked multiple times.",
           "model_key": "pdf_summarizer",
-          "system_message_key": "pdf_summarizer_sm"
+          "system_message_key": "pdf_summarizer_sm",
+          "max_input_length": 15000,
+          "temperature": 0.6
         }
       },
       {
@@ -53,7 +55,9 @@
         "config": {
           "description": "Synthesizes summaries from ALL processed PDFs into a single understanding.",
           "model_key": "multi_doc_synthesizer_model",
-          "system_message_key": "multi_doc_synthesizer_sm"
+          "system_message_key": "multi_doc_synthesizer_sm",
+          "max_combined_len": 30000,
+          "temperature": 0.6
         }
       },
       {
@@ -70,7 +74,10 @@
         "type": "ExperimentalDataLoaderAgent",
         "config": {
           "description": "Loads and structures textual summary of experimental data from a file.",
-          "system_message_key": "experimental_data_loader_sm"
+          "system_message_key": "experimental_data_loader_sm",
+          "use_llm_to_summarize_data": false,
+          "max_exp_data_len": 10000,
+          "temperature": 0.6
         }
       },
       {
@@ -79,7 +86,9 @@
         "config": {
           "description": "Integrates multi-doc synthesis, web research, and experimental data into a final brief.",
           "model_key": "knowledge_integrator_model",
-          "system_message_key": "knowledge_integrator_sm"
+          "system_message_key": "knowledge_integrator_sm",
+          "max_input_segment_len": 10000,
+          "temperature": 0.6
         }
       },
       {
@@ -89,7 +98,9 @@
           "description": "Generates novel hypotheses from the integrated knowledge brief.",
           "model_key": "hypothesis_generator",
           "system_message_key": "hypothesis_generator_sm",
-          "num_hypotheses": 5
+          "num_hypotheses": 5,
+          "max_brief_len": 15000,
+          "temperature": 0.6
         }
       },
       {

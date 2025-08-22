@@ -31,18 +31,23 @@ class MultiDocSynthesizerAgent(Agent):
             formatted_summaries.append(f"Summary from '{pdf_name}':\n{item['summary']}\n---")
 
         combined_summaries_text = "\n\n".join(formatted_summaries)
-        max_combined_len = 30000 # Consider making this configurable
+        max_combined_len = self.config_params.get("max_combined_len", 30000)
         if len(combined_summaries_text) > max_combined_len:
             log_status(
                 f"[{self.agent_id}] INFO: Truncating combined summaries from {len(combined_summaries_text)} to {max_combined_len} chars for synthesis.")
             combined_summaries_text = combined_summaries_text[:max_combined_len]
 
-        prompt = f"Synthesize the following collection of summaries from multiple academic documents:\n\n{combined_summaries_text}\n\nProvide a coherent 'cross-document understanding' as per your role description."
+        temperature = float(self.config_params.get("temperature", 0.6))
+        prompt = (
+            "Synthesize the following collection of summaries from multiple academic documents:\n\n"
+            f"{combined_summaries_text}\n\n"
+            "Provide a coherent 'cross-document understanding' as per your role description."
+        )
         synthesis_output = self.llm.complete(
             system=current_system_message,
             prompt=prompt,
             model=self.model_name,
-            temperature=0.6,
+            temperature=temperature,
         )
         if synthesis_output.startswith("Error:"):
             return {"multi_doc_synthesis_output": "", "error": synthesis_output}
