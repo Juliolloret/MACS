@@ -120,6 +120,7 @@ python multi_agent_llm_system.py
 
 ## Workflow Details
 MACS organizes research tasks into a graph of specialized agents:
+Workflow configuration is managed via config.json. Users can alter the agent order, prompts, and models without touching code.
 
 1. **PDF Loading:** Extracts text from all PDFs in the selected folder.
 2. **Summarization:** Each PDF is summarized by an LLM agent.
@@ -132,7 +133,7 @@ MACS organizes research tasks into a graph of specialized agents:
 9. **Observer Review:** The `ObserverAgent` scans all agent outputs and flags any errors.
 10. **Output:** All results are saved in structured subfolders in the project output directory.
 
-Workflow configuration is managed via config.json. Users can alter the agent order, prompts, and models without touching code.
+
 ---
 
 ## Configuration
