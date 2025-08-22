@@ -100,10 +100,10 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     Dynamically imports PyPDF2 and reportlab if available.
     Uses main_script_dir to resolve relative config_path if provided,
     otherwise assumes config_path is absolute or relative to where load_app_config is called.
+    Returns the config dictionary on success, None on failure.
     """
-    global APP_CONFIG, OpenAI, PyPDF2, REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
+    global PyPDF2, REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
 
-    OpenAI = None
     PyPDF2 = None
     REPORTLAB_AVAILABLE = False
     canvas, letter, inch = None, None, None
@@ -116,78 +116,54 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     log_status(f"[AppConfig] Attempting to load configuration from: '{resolved_config_path}'")
     try:
         with open(resolved_config_path, 'r', encoding='utf-8') as f:
-            APP_CONFIG = json.load(f)
+            config = json.load(f)
         log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
 
-        if OPENAI_SDK_AVAILABLE:
-            log_status("[AppConfig] OpenAI library (openai>=1.0.0) confirmed available.")
-        else:
-            log_status("[AppConfig] WARNING: OpenAI library (openai>=1.0.0) not found. `call_openai_api` will fail.")
-
+        # Dynamic library loading remains as a side-effect for now
         try:
             import PyPDF2 as PyPDF2_lib
             PyPDF2 = PyPDF2_lib
-            log_status("[AppConfig] PyPDF2 library loaded.")
         except ImportError:
             PyPDF2 = None
-            log_status("[AppConfig] WARNING: PyPDF2 library not found (pip install PyPDF2).")
         try:
             from reportlab.pdfgen import canvas as rl_canvas
             from reportlab.lib.pagesizes import letter as rl_letter
             from reportlab.lib.units import inch as rl_inch
             canvas, letter, inch = rl_canvas, rl_letter, rl_inch
             REPORTLAB_AVAILABLE = True
-            log_status("[AppConfig] reportlab library loaded.")
         except ImportError:
             canvas, letter, inch = None, None, None
             REPORTLAB_AVAILABLE = False
-            log_status("[AppConfig] WARNING: reportlab library not found. PDF output features unavailable.")
 
-        # Set OpenAI API key for the SDK globally, if SDK is available and key is present
-        # This is done *after* APP_CONFIG is loaded.
-        if SDK_AVAILABLE and callable(set_default_openai_key):
-            sdk_api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
-            if sdk_api_key and sdk_api_key not in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
-                try:
-                    set_default_openai_key(sdk_api_key)
-                    log_status("[AppConfig] OpenAI API key set for 'openai_agents' SDK via set_default_openai_key.")
-                except Exception as e:
-                    log_status(f"[AppConfig] WARNING: Failed to set OpenAI API key for 'openai_agents' SDK: {e}")
-            else:
-                log_status("[AppConfig] WARNING: Valid OpenAI API key not found in APP_CONFIG to set for 'openai_agents' SDK. SDK calls might fail if OPENAI_API_KEY env var is not set.")
-        elif SDK_AVAILABLE:
-            log_status("[AppConfig] WARNING: 'set_default_openai_key' function not available from 'openai_agents' SDK import. SDK calls might fail if OPENAI_API_KEY env var is not set.")
-
-        return True
+        return config
     except FileNotFoundError:
         log_status(f"[AppConfig] ERROR: Configuration file '{resolved_config_path}' not found.")
     except json.JSONDecodeError as e:
         log_status(f"[AppConfig] ERROR: Could not decode JSON from '{resolved_config_path}': {e}.")
     except Exception as e:
         log_status(f"[AppConfig] ERROR: An unexpected error occurred while loading config '{resolved_config_path}': {e}.")
-    APP_CONFIG = {}
-    return False
+    return None
 
 
-def get_model_name(model_key: Optional[str] = None) -> str:
-    """Retrieves a model name from APP_CONFIG, falling back to default if not found."""
-    if not APP_CONFIG:
+def get_model_name(app_config: dict, model_key: Optional[str] = None) -> str:
+    """Retrieves a model name from the provided config, falling back to default if not found."""
+    if not app_config:
         return "gpt-4o"
-    models_config = APP_CONFIG.get("system_variables", {}).get("models", {})
+    models_config = app_config.get("system_variables", {}).get("models", {})
     if model_key and model_key in models_config:
         return models_config[model_key]
-    return APP_CONFIG.get("system_variables", {}).get("default_llm_model", "gpt-4o")
+    return app_config.get("system_variables", {}).get("default_llm_model", "gpt-4o")
 
 
-def get_prompt_text(prompt_key: Optional[str]) -> str:
-    """Retrieves a prompt text from APP_CONFIG by its key."""
+def get_prompt_text(app_config: dict, prompt_key: Optional[str]) -> str:
+    """Retrieves a prompt text from the provided config by its key."""
     if prompt_key is None:
         return ""
-    if not APP_CONFIG:
-        log_status(f"[Utils] ERROR: get_prompt_text called for '{prompt_key}' before APP_CONFIG initialized.")
-        return f"ERROR: Config not loaded, prompt key '{prompt_key}' unavailable."
+    if not app_config:
+        log_status(f"[Utils] ERROR: get_prompt_text called for '{prompt_key}' but app_config is not provided.")
+        return f"ERROR: Config not provided, prompt key '{prompt_key}' unavailable."
 
-    prompts_config = APP_CONFIG.get("agent_prompts", {})
+    prompts_config = app_config.get("agent_prompts", {})
     if prompt_key not in prompts_config:
         log_status(f"[AppConfig] ERROR: Prompt key '{prompt_key}' not found in agent_prompts.")
         return f"ERROR: Prompt key '{prompt_key}' not found."

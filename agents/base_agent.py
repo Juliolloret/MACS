@@ -5,17 +5,20 @@ from utils import get_model_name, get_prompt_text, log_status
 
 
 class Agent:
-    def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None):
+    def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.config_params = config_params if config_params else {}
         if llm is None:
             raise ValueError("LLMClient instance must be provided to Agent")
+        if app_config is None:
+            raise ValueError("app_config dictionary must be provided to Agent")
         self.llm = llm
+        self.app_config = app_config
         model_key_from_config = self.config_params.get("model_key")
-        self.model_name = get_model_name(model_key_from_config)
+        self.model_name = get_model_name(self.app_config, model_key_from_config)
         system_message_key = self.config_params.get("system_message_key")
-        self.system_message = get_prompt_text(system_message_key)
+        self.system_message = get_prompt_text(self.app_config, system_message_key)
         description = self.config_params.get("description", "No description provided.")
         log_status(
             f"[AgentInit] Created Agent: ID='{self.agent_id}', Type='{self.agent_type}', PrimaryModel='{self.model_name}'. SystemMsgKey='{system_message_key}'. Desc: {description}")
