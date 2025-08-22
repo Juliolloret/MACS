@@ -38,12 +38,19 @@ class WebResearcherAgent(Agent):
                 log_status(f"[{self.agent_id}] SDK_FLOW_ERROR: {report_data_dict['error']}")
                 return {"web_summary": "", "error": report_data_dict['error']}
             web_summary_output = report_data_dict.get("markdown_report", "")
-            if not web_summary_output: web_summary_output = report_data_dict.get("short_summary",
-                                                                                 "Research process completed, but no detailed report content was generated.")
+            if not web_summary_output:
+                web_summary_output = report_data_dict.get(
+                    "short_summary",
+                    "Research process completed, but no detailed report content was generated.",
+                )
             follow_ups = report_data_dict.get("follow_up_questions", [])
-            if follow_ups: log_status(f"[{self.agent_id}] SDK: Suggested follow-up questions: {follow_ups}")
+            if follow_ups:
+                log_status(
+                    f"[{self.agent_id}] SDK: Suggested follow-up questions: {follow_ups}"
+                )
             log_status(
-                f"[{self.agent_id}] SDK-based web research completed successfully. Output summary length: {len(web_summary_output)}")
+                f"[{self.agent_id}] SDK-based web research completed successfully. Output summary length: {len(web_summary_output)}"
+            )
             return {"web_summary": web_summary_output}
         except Exception as e:
             detailed_error = traceback.format_exc()
@@ -158,8 +165,8 @@ class WebResearcherAgent(Agent):
             writer_input_content = f"Original Research Query: {query}\n\n"
             if search_summaries:
                 writer_input_content += "Collected Search Summaries (each from a distinct search query):\n\n"
-                for i, summary in enumerate(
-                    search_summaries): writer_input_content += f"--- Summary {i + 1} ---\n{summary}\n\n"
+                for i, summary in enumerate(search_summaries):
+                    writer_input_content += f"--- Summary {i + 1} ---\n{summary}\n\n"
             else:
                 writer_input_content += "No web search summaries were available or generated to inform this report."
 
