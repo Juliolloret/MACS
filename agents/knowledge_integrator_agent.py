@@ -1,4 +1,3 @@
-from typing import Dict # For type hints
 from .base_agent import Agent
 from .registry import register_agent
 from utils import call_openai_api

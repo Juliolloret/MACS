@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Optional, Dict, Any
+from typing import Optional
 
 # Attempt to import OpenAI library and its specific errors.
 # These are primarily used by call_openai_api.
@@ -281,7 +281,8 @@ def call_openai_api(prompt: str, system_message: str = "You are a helpful assist
                                 error_detail = e.response.text[:500]
                         except json.JSONDecodeError:
                             error_detail = e.response.text[:500]
-                        except Exception: pass
+                        except Exception:
+                            pass
                     return f"Error: OpenAI API {err_name} for {chosen_model}: {error_detail}"
 
         log_status(f"[{agent_name}] LLM_ERROR (General {error_type_name}): API call with {chosen_model} failed: {e}")

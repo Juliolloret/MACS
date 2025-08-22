@@ -1,9 +1,7 @@
-import os
-import json
 from typing import Optional, Dict, Any
 
 # Utility functions that Agent class depends on, now imported from utils.py
-from utils import get_model_name, get_prompt_text, log_status, APP_CONFIG
+from utils import get_model_name, get_prompt_text, log_status
 
 # Placeholder for call_openai_api if it's directly used by base Agent.
 # Currently, it's used by specific agent execute methods, which will import it from utils.py.

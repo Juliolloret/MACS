@@ -1,5 +1,4 @@
 import os
-from typing import Dict
 from .base_agent import Agent
 from .registry import register_agent
 from utils import call_openai_api, log_status  # SCRIPT_DIR is no longer imported from here
