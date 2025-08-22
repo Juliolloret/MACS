@@ -1,7 +1,7 @@
 import os
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api, log_status
+from utils import log_status
 
 @register_agent("MultiDocSynthesizerAgent")
 class MultiDocSynthesizerAgent(Agent):
@@ -38,11 +38,10 @@ class MultiDocSynthesizerAgent(Agent):
             combined_summaries_text = combined_summaries_text[:max_combined_len]
 
         prompt = f"Synthesize the following collection of summaries from multiple academic documents:\n\n{combined_summaries_text}\n\nProvide a coherent 'cross-document understanding' as per your role description."
-        synthesis_output = call_openai_api(
-            prompt,
-            current_system_message,
-            self.agent_id,
-            model_name=self.model_name,
+        synthesis_output = self.llm.complete(
+            system=current_system_message,
+            prompt=prompt,
+            model=self.model_name,
             temperature=0.6,
         )
         if synthesis_output.startswith("Error:"):
