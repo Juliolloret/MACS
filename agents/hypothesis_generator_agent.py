@@ -1,7 +1,7 @@
 import json
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api, log_status
+from utils import log_status
 
 @register_agent("HypothesisGeneratorAgent")
 class HypothesisGeneratorAgent(Agent):
@@ -44,8 +44,11 @@ class HypothesisGeneratorAgent(Agent):
             "strictly in the specified JSON format."
         )
         log_status(f"[{self.agent_id}] Requesting {num_hypotheses_to_generate} hypotheses from LLM.")
-        llm_response_str = call_openai_api(user_prompt, current_system_message, self.agent_id,
-                                           model_name=self.model_name) # Temp can be default or configured
+        llm_response_str = self.llm.complete(
+            system=current_system_message,
+            prompt=user_prompt,
+            model=self.model_name,
+        )
 
         if llm_response_str.startswith("Error:"):
             return {"hypotheses_output_blob": llm_response_str, "hypotheses_list": [], "key_opportunities": "",

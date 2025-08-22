@@ -1,18 +1,15 @@
 from typing import Optional, Dict, Any
 
-# Utility functions that Agent class depends on, now imported from utils.py
+from llm import LLMClient
 from utils import get_model_name, get_prompt_text, log_status
-
-# Placeholder for call_openai_api if it's directly used by base Agent.
-# Currently, it's used by specific agent execute methods, which will import it from utils.py.
-# from utils import call_openai_api
 
 
 class Agent:
-    def __init__(self, agent_id, agent_type, config_params=None):
+    def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None):
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.config_params = config_params if config_params else {}
+        self.llm = llm
         model_key_from_config = self.config_params.get("model_key")
         self.model_name = get_model_name(model_key_from_config)
         system_message_key = self.config_params.get("system_message_key")

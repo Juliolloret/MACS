@@ -1,7 +1,7 @@
 import os
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api, log_status  # SCRIPT_DIR is no longer imported from here
+from utils import log_status  # SCRIPT_DIR is no longer imported from here
 
 @register_agent("ExperimentalDataLoaderAgent")
 class ExperimentalDataLoaderAgent(Agent):
@@ -44,7 +44,11 @@ class ExperimentalDataLoaderAgent(Agent):
                     truncated_data_content = data_content[:max_exp_data_len]
 
                 prompt = f"Please process and summarize the following experimental data content from file '{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
-                summary = call_openai_api(prompt, current_system_message, self.agent_id, self.model_name)
+                summary = self.llm.complete(
+                    system=current_system_message,
+                    prompt=prompt,
+                    model=self.model_name,
+                )
 
                 if summary.startswith("Error:"):
                     log_status(

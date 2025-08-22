@@ -1,7 +1,7 @@
 import os
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api, log_status
+from utils import log_status
 
 @register_agent("PDFSummarizerAgent")
 class PDFSummarizerAgent(Agent):
@@ -23,8 +23,11 @@ class PDFSummarizerAgent(Agent):
                 f"[{self.agent_id}] INFO: Truncating PDF text from {len(pdf_text_content)} to {max_len} chars for summarization.")
             pdf_text_content = pdf_text_content[:max_len]
         prompt = f"Please summarize the following academic text from document '{os.path.basename(original_pdf_path)}':\n\n---\n{pdf_text_content}\n---"
-        summary = call_openai_api(
-            prompt, current_system_message, self.agent_id, model_name=self.model_name
+        summary = self.llm.complete(
+            system=current_system_message,
+            prompt=prompt,
+            model=self.model_name,
+            temperature=0.6,
         )
         if summary.startswith("Error:"):
             return {"summary": "", "error": summary, "original_pdf_path": original_pdf_path}

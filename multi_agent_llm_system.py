@@ -6,8 +6,7 @@ import asyncio
 import traceback
 from typing import List, Dict, Any, Optional
 
-# Pydantic for structured data, used by the SDK agents
-from pydantic import BaseModel, Field
+from llm import LLMClient
 
 # --- SDK Imports & Availability Check ---
 SDK_AVAILABLE = False
@@ -44,12 +43,10 @@ except ImportError as e:
 # Import utilities from utils.py
 from utils import (
     APP_CONFIG,
-    REPORTLAB_AVAILABLE, # Used in __main__
-    # PyPDF2, OpenAI (client library) are used within utils.py by call_openai_api or load_app_config
+    REPORTLAB_AVAILABLE,  # Used in __main__
     load_app_config,
     log_status,
     set_status_callback,
-    # get_model_name, get_prompt_text, call_openai_api # These are primarily used by agents
 )
 
 # Imports for refactored Agent classes
@@ -76,11 +73,12 @@ else:
 # They are imported from their respective locations in 'utils.py' or the 'agents' package.
 
 class GraphOrchestrator:
-    def __init__(self, graph_definition_from_config):
+    def __init__(self, graph_definition_from_config, llm: LLMClient):
         self.graph_definition = graph_definition_from_config
         self.agents = {}
         self.adjacency_list = defaultdict(list)
         self.node_order = []
+        self.llm = llm
         self._build_graph_and_determine_order()
         self._initialize_agents()
 
@@ -128,7 +126,7 @@ class GraphOrchestrator:
                 log_status(f"[GraphOrchestrator] ERROR: Unknown agent type: {agent_type_name} for node {agent_id}")
                 raise ValueError(f"Unknown agent type: {agent_type_name} for node {agent_id}")
             try:
-                self.agents[agent_id] = agent_class(agent_id, agent_type_name, agent_config_params)
+                self.agents[agent_id] = agent_class(agent_id, agent_type_name, agent_config_params, llm=self.llm)
             except Exception as e:
                 log_status(
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
@@ -425,7 +423,12 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             log_status(f"[MainWorkflow] DIRECTORY_ERROR: {dir_error_msg}")
             return {"error": dir_error_msg}
     try:
-        orchestrator = GraphOrchestrator(APP_CONFIG.get("graph_definition"))
+        from llm_openai import OpenAILLM
+
+        api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
+        timeout = float(APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
+        llm = OpenAILLM(api_key=api_key, timeout=int(timeout))
+        orchestrator = GraphOrchestrator(APP_CONFIG.get("graph_definition"), llm)
         final_outputs = orchestrator.run(all_pdf_paths=pdf_file_paths,
                                          experimental_data_file_path=experimental_data_path,
                                          project_base_output_dir=project_base_output_dir)
