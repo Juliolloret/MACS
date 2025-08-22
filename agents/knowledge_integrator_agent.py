@@ -30,7 +30,7 @@ class KnowledgeIntegratorAgent(Agent):
             experimental_data_summary = f"[Error in upstream experimental data loading: {experimental_data_summary if isinstance(experimental_data_summary, str) else 'Content unavailable'}]"
 
         # Truncate inputs if they are too long
-        max_input_segment_len = 10000 # Consider making this configurable
+        max_input_segment_len = self.config_params.get("max_input_segment_len", 10000)
         if len(multi_doc_synthesis) > max_input_segment_len:
             multi_doc_synthesis = multi_doc_synthesis[:max_input_segment_len] + "\n[...truncated due to length...]"
         if len(web_research_summary) > max_input_segment_len:
@@ -49,11 +49,12 @@ class KnowledgeIntegratorAgent(Agent):
             f"Provide the integrated knowledge brief based on these sources, adhering to the specific analytical points outlined in your primary instructions (synergies, conflicts, gaps, contradictions, unanswered questions, novel links, limitations)."
         )
 
+        temperature = float(self.config_params.get("temperature", 0.6))
         integrated_brief = self.llm.complete(
             system=current_system_message,
             prompt=prompt,
             model=self.model_name,
-            temperature=0.6,
+            temperature=temperature,
         )
 
         if integrated_brief.startswith("Error:"):
