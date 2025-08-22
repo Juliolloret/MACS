@@ -205,7 +205,7 @@ class GraphOrchestrator:
                                                         "multi_doc_synthesis_output": ""}
 
         # STAGE 3: Execute remaining graph nodes based on topological order
-        nodes_already_explicitly_handled = {"pdf_loader_node", "pdf_summarizer_node", "multi_doc_synthesizer"}
+        nodes_already_explicitly_handled = {"pdf_loader_node", "pdf_summarizer_node", "multi_doc_synthesizer", "observer"}
 
         for node_id in self.node_order:
             if node_id in nodes_already_explicitly_handled:
@@ -273,6 +273,17 @@ class GraphOrchestrator:
                 f"[{node_id}] RESULT: {{ {', '.join([f'{k}: {str(v)[:70]}...' for k, v in node_output.items()])} }}")
             if node_output.get("error"): log_status(
                 f"[GraphOrchestrator] NODE_EXECUTION_ERROR_REPORTED: Node '{node_id}': {node_output['error']}")
+        # Run observer agent at end if configured
+        observer_agent = self.agents.get("observer")
+        if observer_agent:
+            log_status("\n[GraphOrchestrator] EXECUTING_NODE (Observer): 'observer'")
+            observer_output = observer_agent.execute({"outputs_history": outputs_history})
+            outputs_history["observer"] = observer_output
+            if observer_output.get("errors_found"):
+                log_status(f"[GraphOrchestrator] OBSERVER_DETECTED_ERRORS: {observer_output['errors']}")
+        else:
+            log_status("[GraphOrchestrator] INFO: 'observer' agent not configured; skipping global error review.")
+
         self._save_consolidated_outputs(outputs_history, project_base_output_dir)
         log_status("\n[GraphOrchestrator] INFO: INTEGRATED workflow execution completed.")
         return outputs_history
