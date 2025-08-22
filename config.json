@@ -100,6 +100,13 @@
           "model_key": "experiment_designer",
           "system_message_key": "experiment_designer_sm"
         }
+      },
+      {
+        "id": "observer",
+        "type": "ObserverAgent",
+        "config": {
+          "description": "Reviews all agent outputs for errors."
+        }
       }
     ],
     "edges": [
