@@ -1,6 +1,6 @@
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api, log_status
+from utils import log_status
 
 @register_agent("ExperimentDesignerAgent")
 class ExperimentDesignerAgent(Agent):
@@ -41,7 +41,11 @@ class ExperimentDesignerAgent(Agent):
 
             prompt = f"Design a detailed, feasible, and rigorous experimental protocol for the following hypothesis:\n\nHypothesis: \"{hypo_str}\"\n\nAs per your role, include sections like Objective, Methodology & Apparatus, Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, Potential Challenges & Mitigation, and Ethical Considerations (if applicable)."
 
-            design = call_openai_api(prompt, current_system_message, self.agent_id, model_name=self.model_name) # Temperature can be default or configured
+            design = self.llm.complete(
+                system=current_system_message,
+                prompt=prompt,
+                model=self.model_name,
+            )
 
             design_output_single = {"hypothesis_processed": hypo_str}
             if design.startswith("Error:"):

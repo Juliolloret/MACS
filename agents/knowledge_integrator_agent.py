@@ -1,6 +1,5 @@
 from .base_agent import Agent
 from .registry import register_agent
-from utils import call_openai_api
 # log_status is available via base_agent.py, or if not, would need to be imported if used directly here
 
 @register_agent("KnowledgeIntegratorAgent")
@@ -50,8 +49,12 @@ class KnowledgeIntegratorAgent(Agent):
             f"Provide the integrated knowledge brief based on these sources, adhering to the specific analytical points outlined in your primary instructions (synergies, conflicts, gaps, contradictions, unanswered questions, novel links, limitations)."
         )
 
-        integrated_brief = call_openai_api(prompt, current_system_message, self.agent_id, model_name=self.model_name,
-                                           temperature=0.6) # Temperature can be configured if needed
+        integrated_brief = self.llm.complete(
+            system=current_system_message,
+            prompt=prompt,
+            model=self.model_name,
+            temperature=0.6,
+        )
 
         if integrated_brief.startswith("Error:"):
             return {"integrated_knowledge_brief": "", "error": integrated_brief}
