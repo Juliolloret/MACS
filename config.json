@@ -34,15 +34,27 @@
   "graph_definition": {
     "nodes": [
       {
+        "id": "initial_input_provider",
+        "type": "InitialInputProvider",
+        "config": {
+          "description": "Provides the initial list of PDF paths and other runtime inputs."
+        }
+      },
+      {
         "id": "pdf_loader_node",
         "type": "PDFLoaderAgent",
-        "config": {"description": "Loads text from a PDF file. This will be invoked multiple times by the orchestrator."}
+        "config": {
+          "description": "Loads text from a PDF file. Loops over a list of paths.",
+          "loop_over": "all_pdf_paths",
+          "loop_item_input_key": "pdf_path"
+        }
       },
       {
         "id": "pdf_summarizer_node",
         "type": "PDFSummarizerAgent",
         "config": {
-          "description": "Summarizes text from a single PDF. Invoked multiple times.",
+          "description": "Summarizes text from a single PDF. Loops over the results of the loader.",
+          "loop_over": "loader_results",
           "model_key": "pdf_summarizer",
           "system_message_key": "pdf_summarizer_sm",
           "max_input_length": 15000,
@@ -121,36 +133,68 @@
       }
     ],
     "edges": [
-
+      {
+        "from": "initial_input_provider",
+        "to": "pdf_loader_node",
+        "data_mapping": {
+          "all_pdf_paths": "all_pdf_paths"
+        }
+      },
+      {
+        "from": "pdf_loader_node",
+        "to": "pdf_summarizer_node",
+        "data_mapping": {
+          "results": "loader_results"
+        }
+      },
+      {
+        "from": "pdf_summarizer_node",
+        "to": "multi_doc_synthesizer",
+        "data_mapping": {
+          "results": "all_pdf_summaries"
+        }
+      },
       {
         "from": "multi_doc_synthesizer",
         "to": "web_researcher",
-        "data_mapping": {"multi_doc_synthesis_output": "cross_document_understanding"}
+        "data_mapping": {
+          "multi_doc_synthesis_output": "cross_document_understanding"
+        }
       },
       {
         "from": "multi_doc_synthesizer",
         "to": "knowledge_integrator",
-        "data_mapping": {"multi_doc_synthesis_output": "multi_doc_synthesis"}
+        "data_mapping": {
+          "multi_doc_synthesis_output": "multi_doc_synthesis"
+        }
       },
       {
         "from": "web_researcher",
         "to": "knowledge_integrator",
-        "data_mapping": {"web_summary": "web_research_summary"}
+        "data_mapping": {
+          "web_summary": "web_research_summary"
+        }
       },
       {
         "from": "experimental_data_loader",
         "to": "knowledge_integrator",
-        "data_mapping": {"experimental_data_summary": "experimental_data_summary"}
+        "data_mapping": {
+          "experimental_data_summary": "experimental_data_summary"
+        }
       },
       {
         "from": "knowledge_integrator",
         "to": "hypothesis_generator",
-        "data_mapping": {"integrated_knowledge_brief": "integrated_knowledge_brief"}
+        "data_mapping": {
+          "integrated_knowledge_brief": "integrated_knowledge_brief"
+        }
       },
       {
         "from": "hypothesis_generator",
         "to": "experiment_designer",
-        "data_mapping": {"hypotheses_list": "hypotheses_list"}
+        "data_mapping": {
+          "hypotheses_list": "hypotheses_list"
+        }
       }
     ]
   }
