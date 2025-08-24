@@ -20,8 +20,6 @@ try:
     import PyPDF2
 except ImportError:
     PyPDF2 = None
-REPORTLAB_AVAILABLE = False
-canvas, letter, inch = None, None, None
 openai_errors = {
     "APIConnectionError": APIConnectionError,
     "APITimeoutError": APITimeoutError,
@@ -36,38 +34,16 @@ STATUS_CALLBACK = print
 
 UTIL_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# --- SDK Imports & Availability Check (Moved from multi_agent_llm_system.py) ---
-# NOTE: 'openai_agents' is a placeholder for the actual SDK package name.
-# This needs to be verified and updated if the SDK is published under a different name.
-SDK_AVAILABLE = False
-SDSAgent, Runner, WebSearchTool, ModelSettings = None, None, None, None
-_sdk_import_error = None # This will store the import error if any
-
-# Define set_default_openai_key as a placeholder if not imported,
-# or ensure it's imported if it's truly from the SDK.
-# For now, assuming it comes with the SDK components.
-set_default_openai_key = None
-
+# --- Simplified SDK Availability Check ---
+_sdk_import_error = None
 try:
-    # Attempt to import from a hypothetical specific SDK package name
-    from openai_agents import (
-        Agent as SDSAgent_actual,
-        Runner as Runner_actual,
-        WebSearchTool as WebSearchTool_actual,
-        ModelSettings as ModelSettings_actual,
-        set_default_openai_key as set_default_openai_key_actual
-    )
-
-    SDSAgent, Runner, WebSearchTool, ModelSettings = (
-        SDSAgent_actual, Runner_actual, WebSearchTool_actual, ModelSettings_actual
-    )
-    set_default_openai_key = set_default_openai_key_actual
+    import openai_agents
+    from openai_agents import set_default_openai_key
     SDK_AVAILABLE = True
 except ImportError as e:
+    SDK_AVAILABLE = False
+    set_default_openai_key = None
     _sdk_import_error = e
-    # Globals SDSAgent etc. remain None. SDK_AVAILABLE remains False.
-    # set_default_openai_key remains None or its placeholder value.
-    pass
 # --- End SDK Imports & Availability Check ---
 
 
@@ -105,10 +81,7 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     otherwise assumes config_path is absolute or relative to where load_app_config is called.
     Returns the config dictionary on success, None on failure.
     """
-    global REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
-
-    REPORTLAB_AVAILABLE = False
-    canvas, letter, inch = None, None, None
+    global openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
 
     if main_script_dir and not os.path.isabs(config_path):
         resolved_config_path = os.path.join(main_script_dir, config_path)
@@ -121,16 +94,8 @@ def load_app_config(config_path="config.json", main_script_dir=None):
             config = json.load(f)
         log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
 
-        # Dynamic library loading remains as a side-effect for now
-        try:
-            from reportlab.pdfgen import canvas as rl_canvas
-            from reportlab.lib.pagesizes import letter as rl_letter
-            from reportlab.lib.units import inch as rl_inch
-            canvas, letter, inch = rl_canvas, rl_letter, rl_inch
-            REPORTLAB_AVAILABLE = True
-        except ImportError:
-            canvas, letter, inch = None, None, None
-            REPORTLAB_AVAILABLE = False
+        # The dynamic loading of reportlab has been removed from this central utility.
+        # Client code that needs reportlab should handle its own imports and availability checks.
 
         return config
     except FileNotFoundError:

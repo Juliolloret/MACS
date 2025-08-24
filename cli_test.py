@@ -2,13 +2,16 @@ import os
 import time
 import json
 from multi_agent_llm_system import run_project_orchestration, SCRIPT_DIR
-from utils import REPORTLAB_AVAILABLE, set_status_callback, load_app_config
+from utils import set_status_callback, load_app_config
 
-if REPORTLAB_AVAILABLE:
+# Local dependency check for reportlab, specific to this test script
+try:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.units import inch
     from reportlab.pdfgen import canvas
-else:
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
     canvas = None
     letter = None
     inch = None

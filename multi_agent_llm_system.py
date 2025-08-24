@@ -8,42 +8,14 @@ from typing import List, Dict, Any, Optional
 
 from llm import LLMClient
 
-# --- SDK Imports & Availability Check ---
-SDK_AVAILABLE = False
-SDSAgent, Runner, WebSearchTool, ModelSettings = None, None, None, None
-_sdk_import_error = None
-
-try:
-    from agents import (
-        Agent as SDSAgent_actual,
-        Runner as Runner_actual,
-        WebSearchTool as WebSearchTool_actual,
-        ModelSettings as ModelSettings_actual,
-        set_default_openai_key  # Import the function to set the key for the SDK
-    )
-
-    SDSAgent, Runner, WebSearchTool, ModelSettings = (
-        SDSAgent_actual, Runner_actual, WebSearchTool_actual, ModelSettings_actual
-    )
-    SDK_AVAILABLE = True
-except ImportError as e:
-    _sdk_import_error = e
-    # Fallback if set_default_openai_key is not directly under agents in some versions
-    if 'set_default_openai_key' not in globals():
-        try:
-            from agents.config import set_default_openai_key  # Common alternative path
-        except ImportError:
-            pass  # Will be handled by SDK_AVAILABLE check
-    pass
+# --- SDK Imports & Availability Check (Now handled in utils.py) ---
+from utils import SDK_AVAILABLE, set_default_openai_key
 # --- End SDK Imports & Availability Check ---
 
-
-# --- End SDK Imports & Availability Check ---
 
 # Import utilities from utils.py
 from utils import (
     APP_CONFIG,
-    REPORTLAB_AVAILABLE,  # Used in __main__
     load_app_config,
     log_status,
     set_status_callback,
@@ -58,16 +30,7 @@ from agents import Agent, get_agent_class, ExperimentalDataLoaderAgent
 # Script's Directory - this is specific to the main script file.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# SDK Availability Logging (using imported log_status)
-if SDK_AVAILABLE:
-    log_status("INFO: openai-agents SDK loaded successfully. SDK-based WebResearcherAgent capabilities enabled.")
-else:
-    error_message_suffix = f" (Error: {_sdk_import_error})" if _sdk_import_error else ""
-    log_status(
-        f"WARNING: openai-agents SDK not found or failed to import{error_message_suffix}. "
-        "WebResearcherAgent with SDK integration will be disabled. "
-        "Please ensure 'openai-agents' package is installed in the correct environment."
-    )
+# SDK availability is now checked and logged in utils.py
 
 # --- All class definitions (Agent, Pydantic models, specific agent classes) and utility functions are now removed from this file. ---
 # They are imported from their respective locations in 'utils.py' or the 'agents' package.
@@ -404,11 +367,27 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             log_status(f"[MainWorkflow] DIRECTORY_ERROR: {dir_error_msg}")
             return {"error": dir_error_msg}
     try:
-        from llm_openai import OpenAILLM
+        # --- LLM Client Factory ---
+        system_vars = app_config.get("system_variables", {})
+        llm_client_type = system_vars.get("llm_client", "openai")  # Default to 'openai'
+        api_key = system_vars.get("openai_api_key")
+        timeout = float(system_vars.get("openai_api_timeout_seconds", 120))
+        llm = None
 
-        api_key = app_config.get("system_variables", {}).get("openai_api_key")
-        timeout = float(app_config.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
-        llm = OpenAILLM(app_config=app_config, api_key=api_key, timeout=int(timeout))
+        log_status(f"[MainWorkflow] INFO: Attempting to initialize LLM client of type '{llm_client_type}'.")
+
+        if llm_client_type == "openai":
+            from llm_openai import OpenAILLM
+            llm = OpenAILLM(app_config=app_config, api_key=api_key, timeout=int(timeout))
+            log_status("[MainWorkflow] INFO: Initialized OpenAILLM client.")
+        elif llm_client_type == "fake":
+            from llm_fake import FakeLLM
+            llm = FakeLLM(app_config=app_config)
+            log_status("[MainWorkflow] INFO: Initialized FakeLLM client for testing.")
+        else:
+            raise ValueError(f"Unsupported LLM client type '{llm_client_type}' in configuration.")
+        # --- End LLM Client Factory ---
+
         orchestrator = GraphOrchestrator(app_config.get("graph_definition"), llm, app_config)
 
         initial_inputs = {
