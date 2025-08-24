@@ -6,10 +6,20 @@ from .registry import register_agent
 from .sdk_models import WebSearchPlan, ReportData  # Moved models
 # Utilities and SDK components are now imported from utils.py
 from utils import (
-    SDK_AVAILABLE, SDSAgent, Runner, WebSearchTool, ModelSettings, # SDK components
     APP_CONFIG, get_model_name, log_status # Utilities
-    # set_default_openai_key is handled within utils.load_app_config
 )
+
+# Handle optional import of the openai-agents SDK
+try:
+    from openai_agents import Agent as SDSAgent, Runner, WebSearchTool, ModelSettings
+    SDK_AVAILABLE = True
+except ImportError:
+    SDK_AVAILABLE = False
+    # Define placeholder classes to avoid NameError during class definition
+    class SDSAgent: pass
+    class Runner: pass
+    class WebSearchTool: pass
+    class ModelSettings: pass
 
 @register_agent("WebResearcherAgent")
 class WebResearcherAgent(Agent):

@@ -1,6 +1,7 @@
 {
   "system_variables": {
     "openai_api_key": "YOUR_KEY",
+    "llm_client": "openai",
     "output_project_synthesis_folder_name": "project_synthesis",
     "output_project_hypotheses_folder_name": "project_hypotheses",
     "output_project_experiments_folder_name": "project_experiments",
