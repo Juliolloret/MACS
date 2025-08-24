@@ -87,19 +87,25 @@ class GraphOrchestrator:
         if 'nodes' not in self.graph_definition or 'edges' not in self.graph_definition:
             log_status("[GraphOrchestrator] ERROR: Graph definition in config must contain 'nodes' and 'edges'.")
             raise ValueError("Graph definition in config must contain 'nodes' and 'edges'.")
-        node_ids = {node['id'] for node in self.graph_definition['nodes']}
+        # Exclude the 'observer' node from the topological sort as it's handled as a special case after the main graph execution.
+        graph_nodes = [n for n in self.graph_definition.get('nodes', []) if n.get('id') != 'observer']
+        node_ids = {node['id'] for node in graph_nodes}
+
         if not node_ids:
-            log_status("[GraphOrchestrator] WARNING: No nodes defined in the graph.")
+            log_status("[GraphOrchestrator] WARNING: No nodes defined in the graph for sorting.")
             self.node_order = []
             return
         in_degree = {node_id: 0 for node_id in node_ids}
+        all_node_ids_in_config = {node['id'] for node in self.graph_definition.get('nodes', [])} # For validation
+
         for edge in self.graph_definition.get('edges', []):
             from_node, to_node = edge.get('from'), edge.get('to')
-            if from_node not in node_ids or to_node not in node_ids:
-                log_status(f"[GraphOrchestrator] ERROR: Edge references undefined node: {from_node} -> {to_node}")
-                raise ValueError(f"Edge references undefined node: {from_node} -> {to_node}")
-            self.adjacency_list[from_node].append(to_node)
-            in_degree[to_node] += 1
+            if from_node not in all_node_ids_in_config or to_node not in all_node_ids_in_config:
+                log_status(f"[GraphOrchestrator] ERROR: Edge references undefined node ID: {from_node} -> {to_node}")
+                raise ValueError(f"Edge references undefined node ID: {from_node} -> {to_node}")
+            if from_node in node_ids and to_node in node_ids:
+                self.adjacency_list[from_node].append(to_node)
+                in_degree[to_node] += 1
         queue = deque([node_id for node_id in node_ids if in_degree[node_id] == 0])
         self.node_order = []
         while queue:

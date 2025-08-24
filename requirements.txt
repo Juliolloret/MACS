@@ -1,6 +1,7 @@
 openai
 PyPDF2
 reportlab
+PyQt6
 
 # Optional dependency for WebResearcherAgent
-# openai-agents
+openai-agents
