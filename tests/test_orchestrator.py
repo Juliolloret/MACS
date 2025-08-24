@@ -14,13 +14,12 @@ class DummyAgent(Agent):
     def execute(self, inputs: dict) -> dict:
         return {}
 
-
 def test_topological_order():
     graph = {
         "nodes": [
-            {"id": "A", "type": "DummyAgent"},
-            {"id": "B", "type": "DummyAgent"},
-            {"id": "C", "type": "DummyAgent"},
+            {"id": "A", "type": "DummyAgent", "config": {}},
+            {"id": "B", "type": "DummyAgent", "config": {}},
+            {"id": "C", "type": "DummyAgent", "config": {}},
         ],
         "edges": [
             {"from": "A", "to": "B"},
@@ -28,6 +27,11 @@ def test_topological_order():
             {"from": "A", "to": "C"},
         ],
     }
-    orchestrator = GraphOrchestrator(graph, FakeLLM())
+    # A minimal app_config is needed for the agent initialization
+    app_config = {
+        "system_variables": {"models": {}},
+        "agent_prompts": {}
+    }
+    orchestrator = GraphOrchestrator(graph, FakeLLM(app_config), app_config)
     order = orchestrator.node_order
     assert order.index("A") < order.index("B") < order.index("C")
