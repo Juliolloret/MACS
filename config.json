@@ -9,10 +9,10 @@
     "pdf_summarizer": "gpt-4o",
     "multi_doc_synthesizer_model": "gpt-4o",
     "web_research_model": "gpt-4o-search-preview",
-    "knowledge_integrator_model": "o4-mini",
-    "hypothesis_generator": "o4-mini",
+    "knowledge_integrator_model": "gpt-4o-mini",
+    "hypothesis_generator": "gpt-4o-mini",
     "experiment_designer": "gpt-4.1",
-    "sdk_planner_model": "o4-mini",
+    "sdk_planner_model": "gpt-4o-mini",
     "sdk_search_model": "gpt-4o",
     "sdk_writer_model": "gpt-4o"
 },
