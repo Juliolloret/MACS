@@ -1,6 +1,7 @@
 import os
 import sys
-import pytest
+import unittest
+import shutil
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -14,24 +15,35 @@ class DummyAgent(Agent):
     def execute(self, inputs: dict) -> dict:
         return {}
 
-def test_topological_order():
-    graph = {
-        "nodes": [
-            {"id": "A", "type": "DummyAgent", "config": {}},
-            {"id": "B", "type": "DummyAgent", "config": {}},
-            {"id": "C", "type": "DummyAgent", "config": {}},
-        ],
-        "edges": [
-            {"from": "A", "to": "B"},
-            {"from": "B", "to": "C"},
-            {"from": "A", "to": "C"},
-        ],
-    }
-    # A minimal app_config is needed for the agent initialization
-    app_config = {
-        "system_variables": {"models": {}},
-        "agent_prompts": {}
-    }
-    orchestrator = GraphOrchestrator(graph, FakeLLM(app_config), app_config)
-    order = orchestrator.node_order
-    assert order.index("A") < order.index("B") < order.index("C")
+class TestGraphOrchestrator(unittest.TestCase):
+    def setUp(self):
+        self.test_outputs_dir = "test_outputs"
+        if not os.path.exists(self.test_outputs_dir):
+            os.makedirs(self.test_outputs_dir)
+
+    def tearDown(self):
+        if os.path.exists(self.test_outputs_dir):
+            shutil.rmtree(self.test_outputs_dir)
+
+    def test_topological_order(self):
+        graph = {
+            "nodes": [
+                {"id": "A", "type": "DummyAgent", "config": {}},
+                {"id": "B", "type": "DummyAgent", "config": {}},
+                {"id": "C", "type": "DummyAgent", "config": {}},
+            ],
+            "edges": [
+                {"from": "A", "to": "B"},
+                {"from": "B", "to": "C"},
+                {"from": "A", "to": "C"},
+            ],
+        }
+        # A minimal app_config is needed for the agent initialization
+        app_config = {
+            "system_variables": {"models": {}},
+            "agent_prompts": {}
+        }
+        orchestrator = GraphOrchestrator(graph, FakeLLM(app_config), app_config)
+        order = orchestrator.node_order
+        self.assertLess(order.index("A"), order.index("B"))
+        self.assertLess(order.index("B"), order.index("C"))
