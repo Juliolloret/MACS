@@ -402,7 +402,7 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
 
         api_key = app_config.get("system_variables", {}).get("openai_api_key")
         timeout = float(app_config.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
-        llm = OpenAILLM(api_key=api_key, timeout=int(timeout))
+        llm = OpenAILLM(app_config=app_config, api_key=api_key, timeout=int(timeout))
         orchestrator = GraphOrchestrator(app_config.get("graph_definition"), llm, app_config)
 
         initial_inputs = {
