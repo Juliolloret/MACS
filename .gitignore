@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test output
+/cli_test_integrated_project_output_*/
+/cli_test_experimental_data/
+
+# VS Code
+.vscode/
+
+# Env
+.env

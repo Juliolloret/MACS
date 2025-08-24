@@ -66,22 +66,10 @@ class AgentAppGUI(QWidget):
         self.init_ui()
 
         if self.backend_ok:
-            try:
-                # Backend's load_app_config resolves "config.json" relative to its SCRIPT_DIR
-                if backend.load_app_config():
-                    backend.set_status_callback(self.signals.progress.emit)
-                    self.log_status_to_gui("[GUI] Backend default configuration (config.json) loaded successfully.")
-                else:
-                    self.log_status_to_gui(
-                        "[GUI] ERROR: Backend default configuration (config.json) failed to load. Check backend logs for details.")
-            except Exception as e:
-                self.log_status_to_gui(f"[GUI] ERROR loading backend default configuration: {e}")
-                QMessageBox.critical(self, "Config Load Error",
-                                     f"An unexpected error occurred while loading the default backend configuration (config.json).\nError: {e}")
-                self.backend_ok = False  # Treat as backend not okay
-                if hasattr(self, 'start_button'):  # Ensure button exists
-                    self.start_button.setEnabled(False)
-                    self.start_button.setText("Backend Config Error")
+            # The config is now loaded on-demand when the workflow starts.
+            # We can still set the status callback here.
+            backend.set_status_callback(self.signals.progress.emit)
+            self.log_status_to_gui("[GUI] Backend module loaded. Configuration will be loaded on workflow start.")
         else:
             self.log_status_to_gui(
                 "[GUI] CRITICAL: Backend module could not be imported. Functionality will be severely limited.")
@@ -385,14 +373,19 @@ class AgentAppGUI(QWidget):
 
         self.stop_event.clear()
 
+        app_config = backend.load_app_config(config_path=config_file_path_for_backend)
+        if not app_config:
+            QMessageBox.critical(self, "Config Load Error", f"Failed to load configuration from:\n{config_file_path_for_backend}\nCheck logs for details.")
+            return
+
         self.processing_thread = threading.Thread(
             target=self.run_integrated_backend_task,
             args=(
-            all_pdf_files_in_folder, exp_data_file_path, project_specific_output_dir, config_file_path_for_backend)
+            all_pdf_files_in_folder, exp_data_file_path, project_specific_output_dir, app_config)
         )
         self.processing_thread.start()
 
-    def run_integrated_backend_task(self, pdf_file_paths_list, exp_data_path, project_output_dir, config_file_path):
+    def run_integrated_backend_task(self, pdf_file_paths_list, exp_data_path, project_output_dir, app_config):
         try:
             if self.stop_event.is_set():
                 self.signals.progress.emit("[GUI] Integrated processing cancelled before start.")
@@ -400,13 +393,12 @@ class AgentAppGUI(QWidget):
 
             self.signals.progress.emit(f"\n[GUI] Starting integrated analysis for the project...")
 
-            # This is the corrected call
             result = backend.run_project_orchestration(
                 pdf_file_paths=pdf_file_paths_list,
                 experimental_data_path=exp_data_path,
                 project_base_output_dir=project_output_dir,
                 status_update_callback=self.signals.progress.emit,
-                config_file_path=config_file_path
+                app_config=app_config
             )
 
             if self.stop_event.is_set():

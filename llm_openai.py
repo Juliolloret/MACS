@@ -13,10 +13,13 @@ except Exception:  # pragma: no cover - handled in tests without openai
     APIConnectionError = APITimeoutError = RateLimitError = AuthenticationError = BadRequestError = Exception
 
 
+from typing import Optional, Dict, Any
+
 class OpenAILLM(LLMClient):
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 120):
+    def __init__(self, app_config: Dict[str, Any], api_key: Optional[str] = None, timeout: int = 120):
         if not OPENAI_AVAILABLE:
             raise ImportError("openai library is required for OpenAILLM")
+        self.app_config = app_config
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.timeout = timeout
 
@@ -24,7 +27,7 @@ class OpenAILLM(LLMClient):
                  model: Optional[str] = None,
                  temperature: Optional[float] = None,
                  extra: Optional[Dict] = None) -> str:
-        chosen_model = model if model else get_model_name()
+        chosen_model = model if model else get_model_name(self.app_config)
         sys_msg = system if system else "You are a helpful assistant."
         temp = temperature
         if chosen_model and "o4-mini" in chosen_model and temp is None:
