@@ -6,16 +6,13 @@ from utils import log_status, PyPDF2  # PyPDF2 needed for PyPDF2.PdfReader
 @register_agent("PDFLoaderAgent")
 class PDFLoaderAgent(Agent):
     def execute(self, inputs: dict) -> dict:  # Type hint for dict matches common usage
-        base_pre_check_result = super().execute(inputs)
-        if base_pre_check_result:
-            return base_pre_check_result
         pdf_path = inputs.get("pdf_path")
         if not pdf_path:
             return {"pdf_text_content": "", "error": "PDF path not provided."}
         # Ensure log_status is available or handled if this agent is truly standalone.
-        log_status(f"[{self.agent_id}] PDF_LOAD_START: Path='{pdf_path}'")
         if not PyPDF2:
             return {"pdf_text_content": "", "error": "PyPDF2 library not available."}
+        log_status(f"[{self.agent_id}] PDF_LOAD_START: Path='{pdf_path}'")
         if not os.path.exists(pdf_path):
             return {"pdf_text_content": "", "error": f"PDF file not found: {pdf_path}"}
         try:
