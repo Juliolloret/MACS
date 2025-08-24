@@ -16,7 +16,10 @@ except ImportError:
 # --- Global Variables / Placeholders ---
 # These will be initialized or updated by load_app_config
 OpenAI = None
-PyPDF2 = None
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
 REPORTLAB_AVAILABLE = False
 canvas, letter, inch = None, None, None
 openai_errors = {
@@ -102,9 +105,8 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     otherwise assumes config_path is absolute or relative to where load_app_config is called.
     Returns the config dictionary on success, None on failure.
     """
-    global PyPDF2, REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
+    global REPORTLAB_AVAILABLE, canvas, letter, inch, openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
 
-    PyPDF2 = None
     REPORTLAB_AVAILABLE = False
     canvas, letter, inch = None, None, None
 
@@ -120,11 +122,6 @@ def load_app_config(config_path="config.json", main_script_dir=None):
         log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
 
         # Dynamic library loading remains as a side-effect for now
-        try:
-            import PyPDF2 as PyPDF2_lib
-            PyPDF2 = PyPDF2_lib
-        except ImportError:
-            PyPDF2 = None
         try:
             from reportlab.pdfgen import canvas as rl_canvas
             from reportlab.lib.pagesizes import letter as rl_letter
