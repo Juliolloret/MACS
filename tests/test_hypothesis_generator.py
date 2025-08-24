@@ -19,12 +19,17 @@ def test_hypothesis_generator_parses_json():
         "key_opportunities": "Opportunity",
         "hypotheses": [{"hypothesis": "H1", "justification": "Because"}],
     })
-    fake = FakeLLM({prompt: output})
+    app_config = {
+        "system_variables": {"models": {}},
+        "agent_prompts": {}
+    }
+    fake = FakeLLM(app_config, {prompt: output})
     agent = HypothesisGeneratorAgent(
         "hypo",
         "HypothesisGeneratorAgent",
         {"num_hypotheses": num},
         llm=fake,
+        app_config=app_config,
     )
     result = agent.execute({"integrated_knowledge_brief": brief})
     assert result["hypotheses_list"] == [{"hypothesis": "H1", "justification": "Because"}]

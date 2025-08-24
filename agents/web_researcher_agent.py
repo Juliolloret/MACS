@@ -63,12 +63,12 @@ class WebResearcherAgent(Agent):
             # sdk_api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
             # Handled by global set_default_openai_key in main run function based on current design
 
-            sdk_models_config = APP_CONFIG.get("system_variables", {}).get("models", {})
-            sdk_planner_model_name = get_model_name(sdk_models_config.get("sdk_planner_model", "gpt-4o")) # Default to gpt-4o if not specified
-            sdk_search_model_name = get_model_name(sdk_models_config.get("sdk_search_model", "gpt-4o")) # Default to gpt-4o
-            sdk_writer_model_name = get_model_name(sdk_models_config.get("sdk_writer_model", "gpt-4-turbo")) # Default to gpt-4-turbo
+            sdk_models_config = self.app_config.get("system_variables", {}).get("models", {})
+            sdk_planner_model_name = get_model_name(self.app_config, sdk_models_config.get("sdk_planner_model", "gpt-4o"))
+            sdk_search_model_name = get_model_name(self.app_config, sdk_models_config.get("sdk_search_model", "gpt-4o"))
+            sdk_writer_model_name = get_model_name(self.app_config, sdk_models_config.get("sdk_writer_model", "gpt-4-turbo"))
 
-            sdk_prompts_config = APP_CONFIG.get("agent_prompts", {})
+            sdk_prompts_config = self.app_config.get("agent_prompts", {})
             default_planner_instr = (
                 "You are a meticulous research planning assistant. Based on the user's query, "
                 "devise a concise and effective plan of 3-5 distinct web search queries. "

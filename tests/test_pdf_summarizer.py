@@ -14,12 +14,17 @@ def test_pdf_summarizer_truncates_input():
         "Please summarize the following academic text from document 'doc.pdf':\n\n---\n"
         + truncated + "\n---"
     )
-    fake = FakeLLM({prompt: "TRUNCATED"})
+    app_config = {
+        "system_variables": {"models": {}},
+        "agent_prompts": {}
+    }
+    fake = FakeLLM(app_config, {prompt: "TRUNCATED"})
     agent = PDFSummarizerAgent(
         "summarizer",
         "PDFSummarizerAgent",
         {"max_input_length": 10},
         llm=fake,
+        app_config=app_config,
     )
     result = agent.execute({"pdf_text_content": long_text, "original_pdf_path": "doc.pdf"})
     assert result["summary"] == "TRUNCATED"
