@@ -57,4 +57,11 @@ Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Y
 - Be respectful and considerate in all interactions.
 - Review the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
+## Developer Notes
+
+### Test Configuration Discrepancy
+Please be aware that the CLI test script (`cli_test.py`) uses its own configuration file, `config_cli_test_integrated.json`. The agent workflow defined in this test configuration may be out of sync with the primary `config.json` used by the GUI application.
+
+Specifically, it may reference older or different agents (e.g., `MultiDocSynthesizerAgent`, `WebResearcherAgent`). When making changes to the core agent architecture, please consider updating the test configuration as well to maintain consistency.
+
 **Thank you for helping make MACS better!**
