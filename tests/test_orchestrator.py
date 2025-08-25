@@ -6,6 +6,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 from multi_agent_llm_system import GraphOrchestrator, load_app_config
+from utils import APP_CONFIG
 from llm_fake import FakeLLM
 from agents.base_agent import Agent
 from agents.registry import register_agent
@@ -33,11 +34,13 @@ class TestGraphOrchestrator(unittest.TestCase):
         os.makedirs(self.test_outputs_dir, exist_ok=True)
         # The new agents require a dummy API key to be set, even for tests.
         os.environ["OPENAI_API_KEY"] = "dummy"
+        APP_CONFIG.clear()
 
     def tearDown(self):
         if os.path.exists(self.test_outputs_dir):
             shutil.rmtree(self.test_outputs_dir)
         del os.environ["OPENAI_API_KEY"]
+        APP_CONFIG.clear()
 
     def test_topological_sort(self):
         config = {
@@ -89,6 +92,7 @@ class TestGraphOrchestrator(unittest.TestCase):
 
         # Load the actual application config
         app_config = load_app_config()
+        self.assertEqual(APP_CONFIG, app_config)
         # Use a fake LLM for testing
         llm = FakeLLM(app_config)
 
