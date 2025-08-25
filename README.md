@@ -45,26 +45,25 @@
 
  <img src="https://github.com/user-attachments/assets/5c8fabc4-934f-42e9-849d-04b9412ed3b1" width="600" height="475"/>
 
-### 2. `multi_agent_llm_system.py` — Multi-Agent Orchestration Backend
+### 2. `multi_agent_llm_system.py` — Multi-Agent Orchestrator
 
-- **Purpose:** Core backend that defines, manages, and executes the multi-agent workflow.
+- **Purpose:** Core backend that loads and executes the multi-agent workflow defined in `config.json`.
 - **Key Elements:**
-  - **Config Loader:** Reads `config.json` for system settings, agent prompts, and the agent graph structure.
-  - **Agents:** Each node in the workflow is an agent class specializing in a research task:
-    - `PDFLoaderAgent`: Loads and extracts text from PDFs.
-    - `PDFSummarizerAgent`: Summarizes single PDFs with LLMs.
-    - `ShortTermMemoryAgent`: Embeds individual summaries into a vector store for semantic search.
-    - `LongTermMemoryAgent`: Persists summaries across runs for cumulative knowledge.
-    - `DeepResearchSummarizerAgent`: Queries short-term memory to build a cross-document understanding.
-    - `WebResearcherAgent`: Performs SDK-based web research using the deep research summary.
-    - `ExperimentalDataLoaderAgent`: Loads and summarizes experimental data (if provided).
-    - `KnowledgeIntegratorAgent`: Merges long-term memory, web research, and experimental data into a unified brief.
-    - `HypothesisGeneratorAgent`: Generates research hypotheses.
-    - `ExperimentDesignerAgent`: Designs experiments for generated hypotheses.
-    - `ObserverAgent`: Reviews outputs from all agents and reports any detected errors.
-  - **Graph Orchestrator:** Executes the workflow graph as defined in `config.json`, ensuring correct data flow and error handling. It can also export the graph structure for visualization via Graphviz.
-  - **Output Handling:** Saves synthesized outputs, hypotheses, and experiment designs into organized subfolders.
-- **Usage:** Can be called from the GUI or invoked directly for CLI testing.
+  - **Graph Orchestrator:** The central component that builds a directed acyclic graph (DAG) of agents from the configuration file. It executes the agents in the correct topological order, managing the flow of data between them. It can also export the graph structure for visualization via Graphviz.
+  - **Dynamic Agent Loading:** Agents are not hardcoded in the orchestrator. Instead, agent classes are dynamically loaded from the `agents` package based on the `type` specified for each node in the `config.json` graph.
+  - **Agent Network:** The default workflow consists of specialized agents, including:
+    - `PDFLoaderAgent`: Loads and extracts text from PDF files.
+    - `PDFSummarizerAgent`: Summarizes the text of a single PDF using an LLM.
+    - `ShortTermMemoryAgent`: Creates a temporary vector store from the summaries of the current session, enabling semantic search.
+    - `DeepResearchSummarizerAgent`: Queries the short-term memory to synthesize a cross-document summary based on a user-provided query.
+    - `LongTermMemoryAgent`: Manages a persistent, cumulative knowledge base by integrating summaries from the current session.
+    - `ExperimentalDataLoaderAgent`: Loads and structures experimental data from a text file, if provided.
+    - `KnowledgeIntegratorAgent`: Merges the deep research summary, long-term memory, and experimental data into a final, unified "knowledge brief."
+    - `HypothesisGeneratorAgent`: Generates novel research hypotheses based on the integrated knowledge brief.
+    - `ExperimentDesignerAgent`: Designs detailed experiments to test the generated hypotheses.
+    - `ObserverAgent`: Reviews the outputs from all other agents to detect and report any errors.
+  - **Output Handling:** Saves all generated artifacts (summaries, briefs, hypotheses, and experiment designs) into a structured project output directory.
+- **Usage:** The orchestrator is invoked by the `gui.py` or can be run directly for command-line testing via `cli_test.py`.
 
 
 
@@ -111,32 +110,38 @@ python gui.py
 - Click "Start Integrated Analysis" to launch the workflow.
 - Monitor progress and status in the GUI.
 
-#### Backend/CLI Mode (Command-Line Mode)
+#### Command-Line Interface (CLI)
 
-For advanced/automated workflows, invoke the orchestrator directly:
-```bash
-python multi_agent_llm_system.py
-```
-(See code comments in `multi_agent_llm_system.py` for CLI test usage. For advanced and automated workflows; see code comments for CLI options.)
+For testing and automation, you can run the system directly from the command line. The `cli_test.py` script provides a template for this.
+
+1.  **Configure for CLI:** The script uses `config_cli_test_integrated.json`. If this file doesn't exist, the script will create a template for you. **You must edit this file to add a valid OpenAI API key.**
+2.  **Run the test script:**
+    ```bash
+    python cli_test.py
+    ```
+    This will:
+    - Create dummy PDF files and experimental data in the `cli_test_multi_input_pdfs/` and `cli_test_experimental_data/` directories.
+    - Run the full orchestration pipeline using the settings from `config_cli_test_integrated.json`.
+    - Save all outputs to a timestamped folder, e.g., `cli_test_integrated_project_output_YYYYMMDD_HHMMSS/`.
+
+*Note: The agent workflow in the default `config_cli_test_integrated.json` may differ slightly from the primary `config.json` used by the GUI.*
 
 ---
 
 ## Workflow Details
-MACS organizes research tasks into a graph of specialized agents:
-Workflow configuration is managed via config.json. Users can alter the agent order, prompts, and models without touching code.
+MACS organizes research tasks into a graph of specialized agents defined in `config.json`. The standard workflow is as follows:
 
-1. **PDF Loading:** Extracts text from all PDFs in the selected folder.
-2. **Summarization:** Each PDF is summarized by an LLM agent.
-3. **Short-Term Memory:** Summaries are embedded into a vector store for semantic search.
-4. **Long-Term Memory:** Summaries are appended to a persistent knowledge base across runs.
-5. **Deep Research Summary:** The vector store is queried to produce a cross-document understanding.
-6. **Web Research:** (Optional) SDK-based web search expands on the deep research summary.
-7. **Experimental Data Integration:** (Optional) Loads and summarizes experimental results.
-8. **Knowledge Integration:** Merges long-term memory, web findings, and experimental data into an integrated brief.
-9. **Hypothesis Generation:** Proposes new hypotheses based on the brief.
-10. **Experiment Design:** Designs experiments for each hypothesis.
-11. **Observer Review:** The `ObserverAgent` scans all agent outputs and flags any errors.
-12. **Output:** All results are saved in structured subfolders in the project output directory.
+1. **PDF Loading:** The `PDFLoaderAgent` extracts text from all PDFs in the user-selected folder.
+2. **Individual Summarization:** The `PDFSummarizerAgent` processes each PDF's text to create a concise summary.
+3. **Short-Term Memory Creation:** The `ShortTermMemoryAgent` takes all the individual summaries and embeds them into a temporary vector store (using FAISS) for semantic search within the current session.
+4. **Cross-Document Synthesis:** Based on a user query, the `DeepResearchSummarizerAgent` queries the short-term memory to find the most relevant summaries and synthesizes them into a coherent, cross-document answer.
+5. **Long-Term Memory Integration:** The `LongTermMemoryAgent` integrates the new summaries into a persistent FAISS index, allowing knowledge to accumulate across different sessions.
+6. **Experimental Data Integration:** (Optional) If a text file with experimental data is provided, the `ExperimentalDataLoaderAgent` loads and structures it.
+7. **Knowledge Integration:** The `KnowledgeIntegratorAgent` is the central hub for synthesis. It merges the outputs from the `DeepResearchSummarizerAgent` (cross-document synthesis), the `LongTermMemoryAgent` (cumulative knowledge), and the `ExperimentalDataLoaderAgent` into a final, comprehensive "integrated knowledge brief."
+8. **Hypothesis Generation:** The `HypothesisGeneratorAgent` uses this integrated brief to propose novel, testable research hypotheses.
+9. **Experiment Design:** For each hypothesis, the `ExperimentDesignerAgent` outlines a detailed experimental plan.
+10. **Observer Review:** Finally, the `ObserverAgent` scans the outputs of all previous agents to check for any errors or inconsistencies.
+11. **Output:** All artifacts are saved in structured subfolders within the specified project output directory.
 
 
 ---
