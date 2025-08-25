@@ -5,6 +5,7 @@ class FakeLLM:
         self.app_config = app_config
         self.client = self
         self.response_map = response_map or {}
+        self._embedding_client = self
 
     def get_response(self, system_message, user_message, model, temperature):
         if user_message in self.response_map:
@@ -25,6 +26,9 @@ class FakeLLM:
         # The user message is the prompt in the complete method
         return self.get_response(system, prompt, model, temperature)
 
+    def get_embeddings_client(self):
+        return self._embedding_client
+
     def embeddings(self, input, model):
         # Return a dummy embedding
         return self
@@ -40,3 +44,6 @@ class FakeLLM:
     @property
     def embedding(self):
         return [[0.1, 0.2, 0.3]]
+
+    def close(self) -> None:
+        return None
