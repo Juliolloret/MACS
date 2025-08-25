@@ -14,6 +14,9 @@ from utils import (
     set_status_callback,
 )
 
+# Configuration schema validation
+from config_schema import validate_graph_definition
+
 # Imports for refactored Agent classes
 # Core agent utilities
 from agents import Agent, get_agent_class
@@ -31,7 +34,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class GraphOrchestrator:
     def __init__(self, graph_definition_from_config, llm: LLMClient, app_config: Dict[str, Any]):
-        self.graph_definition = graph_definition_from_config
+        # Validate and normalize the graph definition before proceeding
+        self.graph_definition = validate_graph_definition(graph_definition_from_config)
         self.app_config = app_config
         self.agents = {}
         self.adjacency_list = defaultdict(list)
