@@ -158,6 +158,33 @@ We welcome contributions! Please read [Contributing Guide](CONTRIBUTING.md) for 
 - **Customize GUI:** Modify `gui.py` to add new options or workflow controls.
 - **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
 
+### Agent Plugins
+
+Third-party agents can be added as plugins. Drop a Python module into the `agent_plugins/` directory and expose a `PLUGIN` variable:
+
+```python
+from agents.base_agent import Agent
+from agents.registry import AgentPlugin, PluginMetadata, MACS_VERSION
+
+class MyAgent(Agent):
+    def run(self):
+        ...
+
+PLUGIN = AgentPlugin(
+    agent_class=MyAgent,
+    metadata=PluginMetadata(
+        name="my_agent",
+        version="0.1",
+        author="ACME",
+        macs_version=MACS_VERSION,
+    ),
+)
+```
+
+`load_plugins()` automatically discovers modules in this folder, registers compatible agents, and checks the `macs_version` field for compatibility.
+
+
+
 
 ---
 
