@@ -34,19 +34,6 @@ STATUS_CALLBACK = print
 
 UTIL_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# --- Simplified SDK Availability Check ---
-_sdk_import_error = None
-try:
-    import openai_agents
-    from openai_agents import set_default_openai_key
-    SDK_AVAILABLE = True
-except ImportError as e:
-    SDK_AVAILABLE = False
-    set_default_openai_key = None
-    _sdk_import_error = e
-# --- End SDK Imports & Availability Check ---
-
-
 # --- Utility Function Definitions ---
 
 def set_status_callback(callback_func):
@@ -61,17 +48,6 @@ def log_status(message: str):
     else:
         print(message) # Fallback to print if callback is not callable
 
-# SDK Availability Logging (using log_status from this file)
-# This needs to be called *after* log_status is defined.
-if SDK_AVAILABLE:
-    log_status("INFO: (from utils.py) openai-agents SDK loaded successfully.")
-else:
-    error_message_suffix = f" (Error: {_sdk_import_error})" if _sdk_import_error else ""
-    log_status(
-        f"WARNING: (from utils.py) openai-agents SDK not found or failed to import{error_message_suffix}. "
-        "Ensure 'openai-agents' package is installed."
-    )
-
 
 def load_app_config(config_path="config.json", main_script_dir=None):
     """
@@ -81,7 +57,7 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     otherwise assumes config_path is absolute or relative to where load_app_config is called.
     Returns the config dictionary on success, None on failure.
     """
-    global openai_errors, OPENAI_SDK_AVAILABLE, set_default_openai_key
+    global openai_errors, OPENAI_SDK_AVAILABLE
 
     if main_script_dir and not os.path.isabs(config_path):
         resolved_config_path = os.path.join(main_script_dir, config_path)

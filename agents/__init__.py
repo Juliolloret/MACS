@@ -3,12 +3,6 @@ from .base_agent import Agent
 from .memory_agent import ShortTermMemoryAgent, LongTermMemoryAgent
 from .deep_research_summarizer_agent import DeepResearchSummarizerAgent
 
-try:  # Optional models used only by SDK-based agents
-    from .sdk_models import WebSearchItem, WebSearchPlan, ReportData
-    _sdk_models = ["WebSearchItem", "WebSearchPlan", "ReportData"]
-except Exception:  # pragma: no cover
-    _sdk_models = []
-
 # Import all modules ending with '_agent' to populate AGENT_REGISTRY
 load_agents(__name__)
 
@@ -24,4 +18,4 @@ __all__ = [
     "ShortTermMemoryAgent",
     "LongTermMemoryAgent",
     "DeepResearchSummarizerAgent",
-] + _sdk_models
+]
