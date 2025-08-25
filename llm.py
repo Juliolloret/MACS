@@ -19,3 +19,11 @@ class LLMClient(Protocol):
         extra: Optional[Dict] = None,
     ) -> str:
         ...
+
+    def get_embeddings_client(self) -> Any:
+        """Returns a cached embedding client if available."""
+        ...
+
+    def close(self) -> None:
+        """Releases any underlying resources held by the client."""
+        ...

@@ -1,10 +1,8 @@
-import json
 import os
 import time
 from typing import Dict, Any, List
 
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
 
 from .base_agent import Agent
 from .registry import register_agent
@@ -57,8 +55,7 @@ class ShortTermMemoryAgent(Agent):
 
         try:
             log_status(f"[{self.agent_id}] INFO: Generating embeddings for {len(valid_summaries)} summaries.")
-            # Initialize OpenAI embeddings from the underlying LLM's client
-            embeddings = OpenAIEmbeddings(client=self.llm.client)
+            embeddings = self.llm.get_embeddings_client()
 
             # Create a FAISS vector store from the summaries
             vector_store = FAISS.from_texts(texts=valid_summaries, embedding=embeddings)
@@ -145,7 +142,7 @@ class LongTermMemoryAgent(Agent):
             return {"error": "No valid summary strings to add to long-term memory."}
 
         try:
-            embeddings = OpenAIEmbeddings(client=self.llm.client)
+            embeddings = self.llm.get_embeddings_client()
             vector_store = None
 
             # Load existing LTM vector store if it exists
