@@ -4,6 +4,7 @@ import unittest
 from agents.knowledge_integrator_agent import KnowledgeIntegratorAgent
 from agents.hypothesis_generator_agent import HypothesisGeneratorAgent
 from agents.experiment_designer_agent import ExperimentDesignerAgent
+from agents.multi_doc_synthesizer_agent import MultiDocSynthesizerAgent
 from llm_fake import FakeLLM
 
 
@@ -12,9 +13,19 @@ class TestAgentIntegration(unittest.TestCase):
         os.environ["OPENAI_API_KEY"] = "dummy_key"
         self.app_config = {
             "system_variables": {"models": {}},
-            "agent_prompts": {"hypothesis_generator_sm": "prompt"},
+            "agent_prompts": {
+                "hypothesis_generator_sm": "prompt",
+                "multi_doc_synthesizer_sm": "prompt",
+            },
         }
         self.llm = FakeLLM(self.app_config)
+        self.multi_doc_agent = MultiDocSynthesizerAgent(
+            "mds",
+            "MultiDocSynthesizerAgent",
+            {"system_message_key": "multi_doc_synthesizer_sm"},
+            self.llm,
+            self.app_config,
+        )
         self.knowledge_agent = KnowledgeIntegratorAgent(
             "kia",
             "KnowledgeIntegratorAgent",
@@ -41,9 +52,15 @@ class TestAgentIntegration(unittest.TestCase):
         del os.environ["OPENAI_API_KEY"]
 
     def test_pipeline(self):
+        summaries = [
+            {"summary": "First", "original_pdf_path": "doc1.pdf"},
+            {"summary": "Second", "original_pdf_path": "doc2.pdf"},
+        ]
+        multi_doc_out = self.multi_doc_agent.execute({"all_pdf_summaries": summaries})
+        self.assertIn("multi_doc_synthesis_output", multi_doc_out)
         knowledge_out = self.knowledge_agent.execute(
             {
-                "multi_doc_synthesis": "docs",
+                "multi_doc_synthesis": multi_doc_out["multi_doc_synthesis_output"],
                 "web_research_summary": "web",
                 "experimental_data_summary": "data",
             }
