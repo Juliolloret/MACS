@@ -191,5 +191,59 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertLess(elapsed, sum(durations))
         self.assertEqual(len(outputs.get("sleeper", {}).get("results", [])), 2)
 
+    def test_parallel_loop_execution_order(self):
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {
+                        "id": "sleeper",
+                        "type": "SleepAgent",
+                        "config": {
+                            "loop_over": "durations",
+                            "loop_item_input_key": "duration",
+                            "parallel_execution": True,
+                        },
+                    }
+                ],
+                "edges": [],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+        durations = [0.1, 0.2, 0.3]
+        outputs = orchestrator.run({"durations": durations}, self.test_outputs_dir)
+        results = outputs.get("sleeper", {}).get("results", [])
+        self.assertEqual([r.get("slept") for r in results], durations)
+
+    def test_visualize_graph_without_graphviz(self):
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "b", "type": "B"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "b"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+        output_base = os.path.join(self.test_outputs_dir, "graph_no_gv")
+        import builtins
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("graphviz"):
+                raise ImportError
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            path = orchestrator.visualize(output_base)
+        self.assertTrue(path.endswith(".gv"))
+        self.assertTrue(os.path.exists(path))
+
 if __name__ == '__main__':
     unittest.main()
