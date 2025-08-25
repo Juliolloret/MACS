@@ -123,7 +123,18 @@ def call_openai_api(prompt: str, system_message: str = "You are a helpful assist
         return "Error: OpenAI library is not available."
 
     api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
-    timeout = float(APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120))
-    llm = OpenAILLM(api_key=api_key, timeout=int(timeout))
-    return llm.complete(system=system_message, prompt=prompt,
-                        model=model_name, temperature=temperature)
+    timeout = float(
+        APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120)
+    )
+    # BUGFIX: OpenAILLM requires the application configuration during
+    # initialisation.  The previous implementation omitted this argument,
+    # resulting in a ``TypeError`` being raised when ``call_openai_api`` was
+    # invoked.  We now pass the global ``APP_CONFIG`` so the wrapper behaves
+    # as intended.
+    llm = OpenAILLM(app_config=APP_CONFIG, api_key=api_key, timeout=int(timeout))
+    return llm.complete(
+        system=system_message,
+        prompt=prompt,
+        model=model_name,
+        temperature=temperature,
+    )
