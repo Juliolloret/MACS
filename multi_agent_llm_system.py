@@ -164,6 +164,13 @@ class GraphOrchestrator:
                 if initial_inputs.get("experimental_data_file_path"):
                     agent_inputs["experimental_data_file_path"] = initial_inputs["experimental_data_file_path"]
 
+            # --- Memory Agent Path Injection ---
+            # For agents that need to write to the project directory, inject the base path.
+            if current_agent.agent_type in ["LongTermMemoryAgent"]:
+                agent_inputs["project_base_output_dir"] = project_base_output_dir
+                log_status(f"[{node_id}] INFO: Injected 'project_base_output_dir' for persistent storage.")
+
+
             log_status(f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k,v in agent_inputs.items()])} }}")
 
             # --- Execution ---
