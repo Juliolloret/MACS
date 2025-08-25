@@ -1,7 +1,18 @@
+fastapi
+uvicorn
+python-dotenv
 openai
+langchain
+langchain-openai
+langchain-community
+tiktoken
+pypdf
+faiss-cpu
+lxml
+beautifulsoup4
+pandas
+requests
 PyPDF2
 reportlab
 PyQt6
-
-# Optional dependency for WebResearcherAgent
 openai-agents
