@@ -23,7 +23,8 @@ from utils import (
 
 # Imports for refactored Agent classes
 # Core agent utilities
-from agents import Agent, get_agent_class, ExperimentalDataLoaderAgent
+from agents import Agent, get_agent_class
+from agents.experimental_data_loader_agent import ExperimentalDataLoaderAgent
 # SDK Models are now in agents.sdk_models; WebResearcherAgent imports them directly.
 
 

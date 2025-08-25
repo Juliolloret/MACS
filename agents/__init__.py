@@ -12,7 +12,16 @@ except Exception:  # pragma: no cover
 # Import all modules ending with '_agent' to populate AGENT_REGISTRY
 load_agents(__name__)
 
-# Expose agent classes for backward compatibility
-globals().update(AGENT_REGISTRY)
+# -- Agent classes are now loaded into the registry via load_agents() and accessed via get_agent_class() --
+# -- The explicit import and exposure of all agent classes is removed to simplify the package interface --
 
-__all__ = ["Agent", "register_agent", "get_agent_class", "ShortTermMemoryAgent", "LongTermMemoryAgent", "DeepResearchSummarizerAgent"] + _sdk_models + list(AGENT_REGISTRY.keys())
+__all__ = [
+    "Agent",
+    "AGENT_REGISTRY",
+    "register_agent",
+    "get_agent_class",
+    "load_agents",
+    "ShortTermMemoryAgent",
+    "LongTermMemoryAgent",
+    "DeepResearchSummarizerAgent",
+] + _sdk_models
