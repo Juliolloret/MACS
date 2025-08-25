@@ -1,5 +1,7 @@
 from .registry import AGENT_REGISTRY, register_agent, get_agent_class, load_agents
 from .base_agent import Agent
+from .memory_agent import ShortTermMemoryAgent, LongTermMemoryAgent
+from .deep_research_summarizer_agent import DeepResearchSummarizerAgent
 
 try:  # Optional models used only by SDK-based agents
     from .sdk_models import WebSearchItem, WebSearchPlan, ReportData
@@ -13,4 +15,4 @@ load_agents(__name__)
 # Expose agent classes for backward compatibility
 globals().update(AGENT_REGISTRY)
 
-__all__ = ["Agent", "register_agent", "get_agent_class"] + _sdk_models + list(AGENT_REGISTRY.keys())
+__all__ = ["Agent", "register_agent", "get_agent_class", "ShortTermMemoryAgent", "LongTermMemoryAgent", "DeepResearchSummarizerAgent"] + _sdk_models + list(AGENT_REGISTRY.keys())

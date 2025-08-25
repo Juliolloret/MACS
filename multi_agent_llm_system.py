@@ -166,7 +166,7 @@ class GraphOrchestrator:
 
             # --- Memory Agent Path Injection ---
             # For agents that need to write to the project directory, inject the base path.
-            if current_agent.agent_type in ["LongTermMemoryAgent"]:
+            if current_agent.agent_type in ["LongTermMemoryAgent", "ShortTermMemoryAgent"]:
                 agent_inputs["project_base_output_dir"] = project_base_output_dir
                 log_status(f"[{node_id}] INFO: Injected 'project_base_output_dir' for persistent storage.")
 
