@@ -8,11 +8,6 @@ from typing import List, Dict, Any, Optional
 
 from llm import LLMClient
 
-# --- SDK Imports & Availability Check (Now handled in utils.py) ---
-from utils import SDK_AVAILABLE, set_default_openai_key
-# --- End SDK Imports & Availability Check ---
-
-
 # Import utilities from utils.py
 from utils import (
     APP_CONFIG,
@@ -333,23 +328,6 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         final_error_msg = "Critical: app_config dictionary is not provided to run_project_orchestration."
         log_status(f"[MainWorkflow] ERROR: {final_error_msg}")
         return {"error": final_error_msg}
-
-    # Set OpenAI API key for the SDK globally, if SDK is available
-    if SDK_AVAILABLE and 'set_default_openai_key' in globals() and callable(set_default_openai_key):
-        sdk_api_key = app_config.get("system_variables", {}).get("openai_api_key")
-        if sdk_api_key and sdk_api_key not in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY",
-                                               "KEY"]:
-            try:
-                set_default_openai_key(sdk_api_key)
-                log_status("[MainWorkflow] INFO: OpenAI API key set for openai-agents SDK.")
-            except Exception as e:
-                log_status(f"[MainWorkflow] WARNING: Failed to set OpenAI API key for SDK: {e}")
-        else:
-            log_status(
-                "[MainWorkflow] WARNING: Valid OpenAI API key not found in app_config to set for SDK. SDK calls might fail if OPENAI_API_KEY env var is not set.")
-    elif SDK_AVAILABLE:
-        log_status(
-            "[MainWorkflow] WARNING: 'set_default_openai_key' function not available from SDK import. SDK calls might fail if OPENAI_API_KEY env var is not set.")
 
     openai_api_key_check = app_config.get("system_variables", {}).get("openai_api_key")
     if not openai_api_key_check or openai_api_key_check in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
