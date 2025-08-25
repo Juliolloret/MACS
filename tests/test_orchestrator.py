@@ -58,6 +58,17 @@ class TestGraphOrchestrator(unittest.TestCase):
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
         self.assertIsNotNone(orchestrator)
 
+        expected_incoming = {
+            "b": [{"from": "a", "to": "b", "data_mapping": {"out1": "in1"}}],
+            "c": [{"from": "b", "to": "c", "data_mapping": {"out2": "in2"}}],
+        }
+        self.assertEqual(dict(orchestrator.incoming_edges_map), expected_incoming)
+
+        outputs_history = orchestrator.run({}, self.test_outputs_dir)
+        self.assertEqual(outputs_history["a"], {"out1": "output from A"})
+        self.assertEqual(outputs_history["b"], {"out2": "output from B"})
+        self.assertEqual(outputs_history["c"], {"out3": "output from C"})
+
 
     @patch('os.path.exists')
     @patch('agents.deep_research_summarizer_agent.FAISS')
