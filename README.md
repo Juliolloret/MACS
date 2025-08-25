@@ -173,10 +173,23 @@ If you find a security issue, please report it privately by email. Do not open p
 - https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
 ---
 
-## Related Projects
+## Related Projects and Requirements
 - Awesome Research Tools
 - PyPDF2
 - OpenAI
 - PyQt6
----
+- fastapi
+- uvicorn
+- python-dotenv
+- langchain
+- langchain-openai
+- langchain-community
+- tiktoken
+- faiss-cpu
+- lxml
+- beautifulsoup4
+- pandas
+- requests
+- reportlab
+
 
