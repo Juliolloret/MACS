@@ -3,6 +3,7 @@ import os
 import json
 from llm import LLMClient, LLMError
 from utils import log_status, get_model_name
+from cache import Cache, CachingEmbeddings
 
 try:
     from openai import OpenAI as OpenAIClient, APIConnectionError, APITimeoutError, RateLimitError, AuthenticationError, BadRequestError
@@ -24,6 +25,17 @@ class OpenAILLM(LLMClient):
         self.timeout = timeout
         self._client = None
         self._embeddings_client = None
+        # Simple JSON backed caches for completions and embeddings
+        cache_dir = app_config.get("system_variables", {}).get("cache_dir", ".cache")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+        except Exception:
+            # If directory can't be created, fall back to in-memory cache
+            cache_dir = None
+        responses_path = os.path.join(cache_dir, "llm_responses.json") if cache_dir else None
+        embeds_path = os.path.join(cache_dir, "embeddings.json") if cache_dir else None
+        self._response_cache = Cache(responses_path)
+        self._embedding_cache = Cache(embeds_path)
 
     @property
     def client(self):
@@ -34,7 +46,8 @@ class OpenAILLM(LLMClient):
     def get_embeddings_client(self):
         if self._embeddings_client is None:
             from langchain_openai import OpenAIEmbeddings
-            self._embeddings_client = OpenAIEmbeddings(client=self.client)
+            base = OpenAIEmbeddings(client=self.client)
+            self._embeddings_client = CachingEmbeddings(base, self._embedding_cache)
         return self._embeddings_client
 
     def complete(self, *, system: str, prompt: str,
@@ -52,6 +65,11 @@ class OpenAILLM(LLMClient):
             "KEY",
         ]:
             raise LLMError(f"OpenAI API key not configured for model {chosen_model}.")
+        cache_key = self._response_cache.make_key(chosen_model, sys_msg, prompt, temp)
+        cached = self._response_cache.get(cache_key)
+        if cached is not None:
+            log_status(f"[LLM] CACHE_HIT: Model='{chosen_model}'")
+            return cached
         try:
             response = self.client.chat.completions.create(
                 model=chosen_model,
@@ -76,6 +94,7 @@ class OpenAILLM(LLMClient):
             result = content.strip()
             snippet = result[:150].replace('\n', ' ')
             log_status(f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'")
+            self._response_cache.set(cache_key, result)
             return result
         except Exception as e:  # pragma: no cover - network errors not triggered in tests
             err_name = type(e).__name__
