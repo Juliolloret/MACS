@@ -1,5 +1,6 @@
 import pkgutil
 import importlib
+from utils import log_status
 
 AGENT_REGISTRY = {}
 
@@ -24,20 +25,20 @@ def load_agents(package_name: str = __name__):
     package = importlib.import_module(__package__)
     package_path = package.__path__
 
-    print(f"--- Starting Agent Loading from package: '{__package__}' ---")
+    log_status(f"--- Starting Agent Loading from package: '{__package__}' ---")
 
     for _, module_name, _ in pkgutil.iter_modules(package_path):
         if module_name.endswith('_agent'):
             full_module_name = f"{__package__}.{module_name}"
             try:
                 importlib.import_module(full_module_name)
-                print(f"  [SUCCESS] Successfully imported agent module: '{module_name}'")
+                log_status(f"  [SUCCESS] Successfully imported agent module: '{module_name}'")
             except ImportError as e:
                 # This is a critical error that should be visible.
-                print(f"  [FAILURE] Failed to import agent module '{module_name}'. Error: {e}")
+                log_status(f"  [FAILURE] Failed to import agent module '{module_name}'. Error: {e}")
                 # Depending on strictness, you might want to raise the error.
                 # For now, we'll just log it and continue, which is the previous behavior.
                 continue
 
-    print(f"--- Agent Loading Complete. Registered agents: {list(AGENT_REGISTRY.keys())} ---")
+    log_status(f"--- Agent Loading Complete. Registered agents: {list(AGENT_REGISTRY.keys())} ---")
 
