@@ -16,15 +16,28 @@ def get_agent_class(name: str):
     return AGENT_REGISTRY.get(name)
 
 
-def load_agents(package_name: str = __package__):
+def load_agents(package_name: str = __name__):
     """Dynamically import modules ending with '_agent' to populate the registry."""
-    package = importlib.import_module(package_name)
+    # Note: Using __name__ as the default might be tricky if this file is moved.
+    # It's better to pass the package name explicitly.
+    # Using __package__ ('agents') is a reliable way to reference the current package.
+    package = importlib.import_module(__package__)
     package_path = package.__path__
+
+    print(f"--- Starting Agent Loading from package: '{__package__}' ---")
+
     for _, module_name, _ in pkgutil.iter_modules(package_path):
         if module_name.endswith('_agent'):
+            full_module_name = f"{__package__}.{module_name}"
             try:
-                importlib.import_module(f"{package_name}.{module_name}")
-            except ImportError as e:  # pragma: no cover
-                print(f"DEBUG: Failed to import module '{module_name}'. Error: {e}")
+                importlib.import_module(full_module_name)
+                print(f"  [SUCCESS] Successfully imported agent module: '{module_name}'")
+            except ImportError as e:
+                # This is a critical error that should be visible.
+                print(f"  [FAILURE] Failed to import agent module '{module_name}'. Error: {e}")
+                # Depending on strictness, you might want to raise the error.
+                # For now, we'll just log it and continue, which is the previous behavior.
                 continue
+
+    print(f"--- Agent Loading Complete. Registered agents: {list(AGENT_REGISTRY.keys())} ---")
 
