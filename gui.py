@@ -474,12 +474,10 @@ class AgentAppGUI(QWidget):
                     self.log_status_to_gui("[GUI] Worker thread stopped or finished.")
 
                 event.accept()
-                QApplication.instance().quit()
             else:
                 event.ignore()
         else:
             event.accept()
-            QApplication.instance().quit()
 
 
 if __name__ == '__main__':

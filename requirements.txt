@@ -6,7 +6,6 @@ langchain
 langchain-openai
 langchain-community
 tiktoken
-pypdf
 faiss-cpu
 lxml
 beautifulsoup4
@@ -15,4 +14,3 @@ requests
 PyPDF2
 reportlab
 PyQt6
-openai-agents
