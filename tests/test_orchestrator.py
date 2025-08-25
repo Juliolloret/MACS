@@ -1,6 +1,7 @@
 import unittest
 import os
 import shutil
+import time
 from unittest.mock import patch, MagicMock
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -25,6 +26,14 @@ class AgentB(Agent):
 class AgentC(Agent):
     def execute(self, inputs):
         return {"out3": "output from C"}
+
+
+@register_agent("SleepAgent")
+class SleepAgent(Agent):
+    def execute(self, inputs):
+        duration = inputs.get("duration", 0.1)
+        time.sleep(duration)
+        return {"slept": duration}
 
 
 class TestGraphOrchestrator(unittest.TestCase):
@@ -135,6 +144,33 @@ class TestGraphOrchestrator(unittest.TestCase):
         mock_vector_store.save_local.assert_called()
         mock_faiss_deep_research.load_local.assert_called_once()
         mock_vector_store.similarity_search.assert_called_once_with("What is the main takeaway from the documents?", k=3)
+
+    def test_parallel_loop_execution(self):
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {
+                        "id": "sleeper",
+                        "type": "SleepAgent",
+                        "config": {
+                            "loop_over": "durations",
+                            "loop_item_input_key": "duration",
+                            "parallel_execution": True,
+                        },
+                    }
+                ],
+                "edges": [],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+        durations = [0.5, 0.5]
+        start = time.time()
+        outputs = orchestrator.run({"durations": durations}, self.test_outputs_dir)
+        elapsed = time.time() - start
+        self.assertLess(elapsed, sum(durations))
+        self.assertEqual(len(outputs.get("sleeper", {}).get("results", [])), 2)
 
 if __name__ == '__main__':
     unittest.main()

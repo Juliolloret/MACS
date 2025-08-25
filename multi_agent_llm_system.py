@@ -3,6 +3,7 @@ import json
 from collections import defaultdict, deque
 import traceback
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from llm import LLMClient
 
@@ -187,27 +188,48 @@ class GraphOrchestrator:
 
                 if loop_over_key and loop_over_key in agent_inputs and isinstance(agent_inputs[loop_over_key], list):
                     input_list = agent_inputs[loop_over_key]
-                    loop_outputs = []
-                    log_status(f"[{node_id}] LOOP_START: Iterating over {len(input_list)} items from '{loop_over_key}'.")
+                    loop_outputs = [None] * len(input_list)
+                    log_status(
+                        f"[{node_id}] LOOP_START: Iterating over {len(input_list)} items from '{loop_over_key}'."
+                    )
 
                     item_input_key = current_agent.config_params.get("loop_item_input_key")
 
-                    for i, item in enumerate(input_list):
-                        iteration_inputs = {}
-                        # Carry over other non-loop inputs
-                        for k, v in agent_inputs.items():
-                            if k != loop_over_key:
-                                iteration_inputs[k] = v
-
+                    def build_iteration_inputs(item):
+                        iteration_inputs = {
+                            k: v for k, v in agent_inputs.items() if k != loop_over_key
+                        }
                         if item_input_key:
                             iteration_inputs[item_input_key] = item
                         elif isinstance(item, dict):
                             iteration_inputs.update(item)
                         else:
-                            iteration_inputs['item'] = item
+                            iteration_inputs["item"] = item
+                        return iteration_inputs
 
-                        log_status(f"[{node_id}] -> Loop {i+1}/{len(input_list)}")
-                        loop_outputs.append(current_agent.execute(iteration_inputs))
+                    if current_agent.config_params.get("parallel_execution"):
+                        max_workers = current_agent.config_params.get("max_workers")
+                        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                            futures = {
+                                executor.submit(
+                                    current_agent.execute, build_iteration_inputs(item)
+                                ): idx
+                                for idx, item in enumerate(input_list)
+                            }
+                            for future in as_completed(futures):
+                                idx = futures[future]
+                                try:
+                                    loop_outputs[idx] = future.result()
+                                except Exception as e:
+                                    loop_outputs[idx] = {
+                                        "error": f"Parallel execution failed: {e}"
+                                    }
+                    else:
+                        for i, item in enumerate(input_list):
+                            log_status(f"[{node_id}] -> Loop {i+1}/{len(input_list)}")
+                            loop_outputs[i] = current_agent.execute(
+                                build_iteration_inputs(item)
+                            )
                     node_output = {"results": loop_outputs}
                 else:
                     # Standard execution for non-looping nodes
