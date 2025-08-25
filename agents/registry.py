@@ -24,6 +24,7 @@ def load_agents(package_name: str = __package__):
         if module_name.endswith('_agent'):
             try:
                 importlib.import_module(f"{package_name}.{module_name}")
-            except ImportError:  # pragma: no cover
+            except ImportError as e:  # pragma: no cover
+                print(f"DEBUG: Failed to import module '{module_name}'. Error: {e}")
                 continue
 
