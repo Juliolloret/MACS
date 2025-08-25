@@ -2,6 +2,7 @@ import json
 from .base_agent import Agent
 from .registry import register_agent
 from utils import log_status
+from llm import LLMError
 
 @register_agent("HypothesisGeneratorAgent")
 class HypothesisGeneratorAgent(Agent):
@@ -26,9 +27,11 @@ class HypothesisGeneratorAgent(Agent):
                     "error": current_system_message}
 
         integrated_knowledge_brief = inputs.get("integrated_knowledge_brief")
-        if inputs.get("integrated_knowledge_brief_error") or not integrated_knowledge_brief or \
-                (isinstance(integrated_knowledge_brief, str) and integrated_knowledge_brief.startswith("Error:")):
-            error_msg = f"Invalid or missing integrated knowledge brief for hypothesis generation. Upstream error: {inputs.get('error', integrated_knowledge_brief)}"
+        if inputs.get("integrated_knowledge_brief_error") or not integrated_knowledge_brief:
+            error_msg = (
+                "Invalid or missing integrated knowledge brief for hypothesis generation. "
+                f"Upstream error: {inputs.get('error', integrated_knowledge_brief)}"
+            )
             log_status(f"[{self.agent_id}] INPUT_ERROR: {error_msg}")
             return {"hypotheses_output_blob": "", "hypotheses_list": [], "key_opportunities": "", "error": error_msg}
 
@@ -45,16 +48,20 @@ class HypothesisGeneratorAgent(Agent):
         )
         log_status(f"[{self.agent_id}] Requesting {num_hypotheses_to_generate} hypotheses from LLM.")
         temperature = float(self.config_params.get("temperature", 0.6))
-        llm_response_str = self.llm.complete(
-            system=current_system_message,
-            prompt=user_prompt,
-            model=self.model_name,
-            temperature=temperature,
-        )
-
-        if llm_response_str.startswith("Error:"):
-            return {"hypotheses_output_blob": llm_response_str, "hypotheses_list": [], "key_opportunities": "",
-                    "error": f"LLM call failed: {llm_response_str}"}
+        try:
+            llm_response_str = self.llm.complete(
+                system=current_system_message,
+                prompt=user_prompt,
+                model=self.model_name,
+                temperature=temperature,
+            )
+        except LLMError as e:
+            return {
+                "hypotheses_output_blob": "",
+                "hypotheses_list": [],
+                "key_opportunities": "",
+                "error": f"LLM call failed: {e}",
+            }
 
         try:
             # Attempt to clean up markdown code block fences if present

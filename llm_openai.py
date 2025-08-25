@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 import os
 import json
-from llm import LLMClient
+from llm import LLMClient, LLMError
 from utils import log_status, get_model_name
 
 try:
@@ -32,8 +32,12 @@ class OpenAILLM(LLMClient):
         temp = temperature
         if chosen_model and "o4-mini" in chosen_model and temp is None:
             temp = 1.0
-        if not self.api_key or self.api_key in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG", "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
-            return f"Error: OpenAI API key not configured for model {chosen_model}."
+        if not self.api_key or self.api_key in [
+            "YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
+            "YOUR_ACTUAL_OPENAI_API_KEY",
+            "KEY",
+        ]:
+            raise LLMError(f"OpenAI API key not configured for model {chosen_model}.")
         try:
             client = OpenAIClient(api_key=self.api_key, timeout=self.timeout)
             response = client.chat.completions.create(
@@ -42,29 +46,52 @@ class OpenAILLM(LLMClient):
                 temperature=temp,
             )
             if not response.choices:
-                log_status(f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices.")
-                return f"Error: OpenAI API response had no choices for model {chosen_model}."
+                log_status(
+                    f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices."
+                )
+                raise LLMError(
+                    f"OpenAI API response had no choices for model {chosen_model}."
+                )
             content = response.choices[0].message.content
             if not isinstance(content, str):
                 log_status(
                     f"[LLM] LLM_CALL_ERROR_UNEXPECTED_CONTENT_TYPE: Model='{chosen_model}' returned content of type {type(content)}"
                 )
-                return f"Error: OpenAI API returned unexpected content type for model {chosen_model}."
+                raise LLMError(
+                    f"OpenAI API returned unexpected content type for model {chosen_model}."
+                )
             result = content.strip()
             snippet = result[:150].replace('\n', ' ')
             log_status(f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'")
             return result
         except Exception as e:  # pragma: no cover - network errors not triggered in tests
             err_name = type(e).__name__
-            if isinstance(e, (APIConnectionError, APITimeoutError, RateLimitError, AuthenticationError, BadRequestError)):
-                log_status(f"[LLM] LLM_ERROR ({err_name}): API call with {chosen_model} failed: {e}")
+            if isinstance(
+                e,
+                (
+                    APIConnectionError,
+                    APITimeoutError,
+                    RateLimitError,
+                    AuthenticationError,
+                    BadRequestError,
+                ),
+            ):
+                log_status(
+                    f"[LLM] LLM_ERROR ({err_name}): API call with {chosen_model} failed: {e}"
+                )
                 detail = str(e)
-                if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                if hasattr(e, "response") and hasattr(e.response, "text"):
                     try:
                         err_json = json.loads(e.response.text)
-                        detail = err_json.get('error', {}).get('message', detail)
+                        detail = err_json.get("error", {}).get("message", detail)
                     except Exception:
                         detail = e.response.text[:500]
-                return f"Error: OpenAI API {err_name} for {chosen_model}: {detail}"
-            log_status(f"[LLM] LLM_ERROR (General {err_name}): API call with {chosen_model} failed: {e}")
-            return f"Error: API call with {chosen_model} failed ({err_name}): {e}"
+                raise LLMError(
+                    f"OpenAI API {err_name} for {chosen_model}: {detail}"
+                )
+            log_status(
+                f"[LLM] LLM_ERROR (General {err_name}): API call with {chosen_model} failed: {e}"
+            )
+            raise LLMError(
+                f"API call with {chosen_model} failed ({err_name}): {e}"
+            )
