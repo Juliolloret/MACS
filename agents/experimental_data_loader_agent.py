@@ -2,6 +2,7 @@ import os
 from .base_agent import Agent
 from .registry import register_agent
 from utils import log_status  # SCRIPT_DIR is no longer imported from here
+from llm import LLMError
 
 @register_agent("ExperimentalDataLoaderAgent")
 class ExperimentalDataLoaderAgent(Agent):
@@ -44,22 +45,25 @@ class ExperimentalDataLoaderAgent(Agent):
                     truncated_data_content = data_content[:max_exp_data_len]
 
                 prompt = (
-                    f"Please process and summarize the following experimental data content from file '"
-                    f"{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
+                    f"Please process and summarize the following experimental data content from file "
+                    f"'{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
                 )
                 temperature = float(self.config_params.get("temperature", 0.6))
-                summary = self.llm.complete(
-                    system=current_system_message,
-                    prompt=prompt,
-                    model=self.model_name,
-                    temperature=temperature,
-                )
-
-                if summary.startswith("Error:"):
+                try:
+                    summary = self.llm.complete(
+                        system=current_system_message,
+                        prompt=prompt,
+                        model=self.model_name,
+                        temperature=temperature,
+                    )
+                except LLMError as e:
                     log_status(
-                        f"[{self.agent_id}] WARNING: Failed to summarize experimental data via LLM: {summary}. Passing raw content as fallback.")
-                    return {"experimental_data_summary": data_content, # Fallback to raw content
-                            "warning": f"LLM summary failed: {summary}. Raw data used."}
+                        f"[{self.agent_id}] WARNING: Failed to summarize experimental data via LLM: {e}. Passing raw content as fallback."
+                    )
+                    return {
+                        "experimental_data_summary": data_content,
+                        "warning": f"LLM summary failed: {e}. Raw data used.",
+                    }
                 log_status(f"[{self.agent_id}] INFO: Experimental data summarized by LLM.")
                 return {"experimental_data_summary": summary}
             else:

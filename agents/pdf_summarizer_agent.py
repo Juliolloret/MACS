@@ -2,6 +2,7 @@ import os
 from .base_agent import Agent
 from .registry import register_agent
 from utils import log_status
+from llm import LLMError
 
 @register_agent("PDFSummarizerAgent")
 class PDFSummarizerAgent(Agent):
@@ -12,10 +13,11 @@ class PDFSummarizerAgent(Agent):
                     "original_pdf_path": inputs.get("original_pdf_path", "Unknown PDF")}
         pdf_text_content = inputs.get("pdf_text_content")
         original_pdf_path = inputs.get("original_pdf_path", "Unknown PDF")
-        if inputs.get("pdf_text_content_error") or not pdf_text_content or (
-                isinstance(pdf_text_content, str) and pdf_text_content.startswith("Error:")):
-            error_msg = f"Invalid text content for summarization from {original_pdf_path}. Upstream error: {inputs.get('error', pdf_text_content)}"
-            # log_status might be useful here if not already done upstream
+        if inputs.get("pdf_text_content_error") or not pdf_text_content:
+            error_msg = (
+                f"Invalid text content for summarization from {original_pdf_path}. "
+                f"Upstream error: {inputs.get('error', pdf_text_content)}"
+            )
             return {"summary": "", "error": error_msg, "original_pdf_path": original_pdf_path}
         max_len = self.config_params.get("max_input_length", 15000)
         if len(pdf_text_content) > max_len:
@@ -28,12 +30,13 @@ class PDFSummarizerAgent(Agent):
             f"Please summarize the following academic text from document '"
             f"{os.path.basename(original_pdf_path)}':\n\n---\n{pdf_text_content}\n---"
         )
-        summary = self.llm.complete(
-            system=current_system_message,
-            prompt=prompt,
-            model=self.model_name,
-            temperature=temperature,
-        )
-        if summary.startswith("Error:"):
-            return {"summary": "", "error": summary, "original_pdf_path": original_pdf_path}
+        try:
+            summary = self.llm.complete(
+                system=current_system_message,
+                prompt=prompt,
+                model=self.model_name,
+                temperature=temperature,
+            )
+        except LLMError as e:
+            return {"summary": "", "error": str(e), "original_pdf_path": original_pdf_path}
         return {"summary": summary, "original_pdf_path": original_pdf_path}
