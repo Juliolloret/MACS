@@ -45,4 +45,4 @@ class Agent:
         if self.system_message.startswith("ERROR:"):
             return {
                 "error": f"Agent {self.agent_id} cannot execute due to configuration error for system message (key: '{self.config_params.get('system_message_key')}'): {self.system_message}"}
-        return None
+        raise NotImplementedError("Subclasses must implement execute()")
