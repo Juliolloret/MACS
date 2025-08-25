@@ -386,13 +386,13 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             dir_error_msg = f"Could not create project output directory '{project_base_output_dir}': {e}"
             log_status(f"[MainWorkflow] DIRECTORY_ERROR: {dir_error_msg}")
             return {"error": dir_error_msg}
+    llm = None
     try:
         # --- LLM Client Factory ---
         system_vars = app_config.get("system_variables", {})
         llm_client_type = system_vars.get("llm_client", "openai")  # Default to 'openai'
         api_key = system_vars.get("openai_api_key")
         timeout = float(system_vars.get("openai_api_timeout_seconds", 120))
-        llm = None
 
         log_status(f"[MainWorkflow] INFO: Attempting to initialize LLM client of type '{llm_client_type}'.")
 
@@ -428,6 +428,9 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         detailed_traceback = traceback.format_exc()
         log_status(f"[MainWorkflow] UNEXPECTED_ORCHESTRATION_ERROR: Orchestration failed: {e}\n{detailed_traceback}")
         return {"error": f"Unexpected error during orchestration: {e}"}
+    finally:
+        if llm and hasattr(llm, "close"):
+            llm.close()
 
 
 

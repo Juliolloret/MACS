@@ -2,7 +2,6 @@ import os
 from typing import Dict, Any
 
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
 
 from .base_agent import Agent
 from .registry import register_agent
@@ -46,7 +45,7 @@ class DeepResearchSummarizerAgent(Agent):
 
         try:
             log_status(f"[{self.agent_id}] INFO: Loading FAISS vector store from '{vector_store_path}'.")
-            embeddings = OpenAIEmbeddings(client=self.llm.client)
+            embeddings = self.llm.get_embeddings_client()
             vector_store = FAISS.load_local(vector_store_path, embeddings, allow_dangerous_deserialization=True)
             log_status(f"[{self.agent_id}] INFO: FAISS vector store loaded successfully.")
 
