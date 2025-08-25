@@ -110,6 +110,58 @@ class GraphOrchestrator:
                 log_status(
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
                 raise
+        
+    def visualize(self, output_path: str, format: str = "png") -> str:
+        """Generate a visual representation of the agent graph.
+
+        Parameters
+        ----------
+        output_path: str
+            Path (without extension) where the visualization will be written.
+        format: str
+            Graphviz output format, e.g., ``'png'`` or ``'pdf'``.
+
+        Returns
+        -------
+        str
+            The path to the generated visualization file or the saved DOT file.
+        """
+        try:
+            from graphviz import Digraph
+            from graphviz.backend import ExecutableNotFound
+
+            dot = Digraph(comment="Agent Graph", format=format)
+            for node in self.graph_definition.get("nodes", []):
+                node_id = node.get("id")
+                label = node.get("type", node_id)
+                dot.node(node_id, label)
+
+            for edge in self.graph_definition.get("edges", []):
+                dot.edge(edge.get("from"), edge.get("to"))
+
+            try:
+                output_file = dot.render(output_path, cleanup=True)
+                log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
+                return output_file
+            except ExecutableNotFound:
+                dot_path = dot.save(output_path + ".gv")
+                log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
+                return dot_path
+
+        except ImportError:
+            dot_lines = ["digraph AgentGraph {"]
+            for node in self.graph_definition.get("nodes", []):
+                node_id = node["id"]
+                label = node.get("type", node_id)
+                dot_lines.append(f'    "{node_id}" [label="{label}"];')
+            for edge in self.graph_definition.get("edges", []):
+                dot_lines.append(f'    "{edge.get("from")}" -> "{edge.get("to")}";')
+            dot_lines.append("}")
+            dot_path = output_path + ".gv"
+            with open(dot_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(dot_lines))
+            log_status(f"[GraphOrchestrator] INFO: graphviz package not available. DOT file saved to {dot_path}")
+            return dot_path
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
         outputs_history = {}
