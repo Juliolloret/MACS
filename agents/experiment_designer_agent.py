@@ -1,6 +1,7 @@
 from .base_agent import Agent
 from .registry import register_agent
 from utils import log_status
+from llm import LLMError
 
 @register_agent("ExperimentDesignerAgent")
 class ExperimentDesignerAgent(Agent):
@@ -39,20 +40,24 @@ class ExperimentDesignerAgent(Agent):
             # Log justification for context if needed, but it's not directly in the prompt to LLM here.
             log_status(f"[{self.agent_id}] Designing experiment for hypothesis {i + 1}: '{hypo_str[:100]}...' (Justification: '{hypo_obj['justification'][:50]}...')")
 
-            prompt = f"Design a detailed, feasible, and rigorous experimental protocol for the following hypothesis:\n\nHypothesis: \"{hypo_str}\"\n\nAs per your role, include sections like Objective, Methodology & Apparatus, Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, Potential Challenges & Mitigation, and Ethical Considerations (if applicable)."
-
-            design = self.llm.complete(
-                system=current_system_message,
-                prompt=prompt,
-                model=self.model_name,
+            prompt = (
+                "Design a detailed, feasible, and rigorous experimental protocol for the following hypothesis:\n\n"
+                f"Hypothesis: \"{hypo_str}\"\n\nAs per your role, include sections like Objective, Methodology & Apparatus, "
+                "Step-by-step Procedure, Variables & Controls, Data Collection & Analysis, Expected Outcomes & Success Criteria, "
+                "Potential Challenges & Mitigation, and Ethical Considerations (if applicable)."
             )
 
             design_output_single = {"hypothesis_processed": hypo_str}
-            if design.startswith("Error:"):
-                design_output_single["experiment_design"] = ""
-                design_output_single["error"] = design
-            else:
+            try:
+                design = self.llm.complete(
+                    system=current_system_message,
+                    prompt=prompt,
+                    model=self.model_name,
+                )
                 design_output_single["experiment_design"] = design
+            except LLMError as e:
+                design_output_single["experiment_design"] = ""
+                design_output_single["error"] = str(e)
             all_designs.append(design_output_single)
 
         log_status(f"[{self.agent_id}] Finished designing experiments for {len(hypotheses_list_input)} hypotheses.")

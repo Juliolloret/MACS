@@ -131,14 +131,21 @@ def get_prompt_text(app_config: dict, prompt_key: Optional[str]) -> str:
     return prompt_text
 
 
-def call_openai_api(prompt: str, system_message: str = "You are a helpful assistant.",
-                    agent_name: str = "LLM", model_name: Optional[str] = None,
-                    temperature: float = 0.5) -> str:
+from llm import LLMError
+
+
+def call_openai_api(
+    prompt: str,
+    system_message: str = "You are a helpful assistant.",
+    agent_name: str = "LLM",
+    model_name: Optional[str] = None,
+    temperature: float = 0.5,
+) -> str:
     """Deprecated wrapper around OpenAILLM for backward compatibility."""
     try:
         from llm_openai import OpenAILLM
-    except ImportError:
-        return "Error: OpenAI library is not available."
+    except ImportError as e:
+        raise LLMError("OpenAI library is not available.") from e
 
     api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
     timeout = float(

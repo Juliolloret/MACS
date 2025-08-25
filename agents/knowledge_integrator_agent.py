@@ -1,5 +1,6 @@
 from .base_agent import Agent
 from .registry import register_agent
+from llm import LLMError
 # log_status is available via base_agent.py, or if not, would need to be imported if used directly here
 
 @register_agent("KnowledgeIntegratorAgent")
@@ -9,25 +10,32 @@ class KnowledgeIntegratorAgent(Agent):
         if current_system_message.startswith("ERROR:"):
             return {"integrated_knowledge_brief": "", "error": current_system_message}
 
-        multi_doc_synthesis = inputs.get("multi_doc_synthesis",
-                                         "N/A (No multi-document synthesis provided or error upstream).")
-        web_research_summary = inputs.get("web_research_summary",
-                                          "N/A (No web research summary provided or error upstream).")
-        experimental_data_summary = inputs.get("experimental_data_summary",
-                                               "N/A (No experimental data provided or error upstream).")
+        multi_doc_synthesis = inputs.get(
+            "multi_doc_synthesis", "N/A (No multi-document synthesis provided or error upstream.)"
+        )
+        web_research_summary = inputs.get(
+            "web_research_summary", "N/A (No web research summary provided or error upstream.)"
+        )
+        experimental_data_summary = inputs.get(
+            "experimental_data_summary", "N/A (No experimental data provided or error upstream.)"
+        )
 
         # Check for upstream errors and prepend to content if necessary
-        if inputs.get("multi_doc_synthesis_error") or (
-                isinstance(multi_doc_synthesis, str) and multi_doc_synthesis.startswith("Error:")):
-            multi_doc_synthesis = f"[Error in upstream multi-document synthesis: {multi_doc_synthesis if isinstance(multi_doc_synthesis, str) else 'Content unavailable'}]"
+        if inputs.get("multi_doc_synthesis_error"):
+            multi_doc_synthesis = (
+                f"[Error in upstream multi-document synthesis: {inputs.get('error', 'Content unavailable')}]"
+            )
 
-        if inputs.get("web_research_summary_error") or (
-                isinstance(web_research_summary, str) and web_research_summary.startswith("Error:")):
-            web_research_summary = f"[Error in upstream web research: {web_research_summary if isinstance(web_research_summary, str) else 'Content unavailable'}]"
+        if inputs.get("web_research_summary_error"):
+            web_research_summary = (
+                f"[Error in upstream web research: {inputs.get('error', 'Content unavailable')}]"
+            )
 
-        if inputs.get("experimental_data_summary_error") or (
-                isinstance(experimental_data_summary, str) and experimental_data_summary.startswith("Error:")):
-            experimental_data_summary = f"[Error in upstream experimental data loading: {experimental_data_summary if isinstance(experimental_data_summary, str) else 'Content unavailable'}]"
+        if inputs.get("experimental_data_summary_error"):
+            experimental_data_summary = (
+                f"[Error in upstream experimental data loading: {inputs.get('error', 'Content unavailable')}]"
+            )
+
 
         # Truncate inputs if they are too long
         max_input_segment_len = self.config_params.get("max_input_segment_len", 10000)
@@ -50,13 +58,13 @@ class KnowledgeIntegratorAgent(Agent):
         )
 
         temperature = float(self.config_params.get("temperature", 0.6))
-        integrated_brief = self.llm.complete(
-            system=current_system_message,
-            prompt=prompt,
-            model=self.model_name,
-            temperature=temperature,
-        )
-
-        if integrated_brief.startswith("Error:"):
-            return {"integrated_knowledge_brief": "", "error": integrated_brief}
+        try:
+            integrated_brief = self.llm.complete(
+                system=current_system_message,
+                prompt=prompt,
+                model=self.model_name,
+                temperature=temperature,
+            )
+        except LLMError as e:
+            return {"integrated_knowledge_brief": "", "error": str(e)}
         return {"integrated_knowledge_brief": integrated_brief}
