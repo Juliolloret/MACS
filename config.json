@@ -5,25 +5,26 @@
     "output_project_synthesis_folder_name": "project_synthesis",
     "output_project_hypotheses_folder_name": "project_hypotheses",
     "output_project_experiments_folder_name": "project_experiments",
-    "long_term_memory_filename": "long_term_memory.json",
+    "long_term_memory_filename": "faiss_index_ltm",
+    "short_term_memory_filename": "faiss_index_stm",
     "default_llm_model": "gpt-4o",
     "models": {
-    "long_term_memory_model": "gpt-4o-mini",
-    "pdf_summarizer": "gpt-4o",
-    "multi_doc_synthesizer_model": "gpt-4o",
-    "web_research_model": "gpt-4o-search-preview",
-    "knowledge_integrator_model": "gpt-4o-mini",
-    "hypothesis_generator": "gpt-4o-mini",
-    "experiment_designer": "gpt-4.1",
-    "sdk_planner_model": "gpt-4o-mini",
-    "sdk_search_model": "gpt-4o",
-    "sdk_writer_model": "gpt-4o"
-},
+      "long_term_memory_model": "gpt-4o-mini",
+      "pdf_summarizer": "gpt-4o",
+      "deep_research_summarizer_model": "gpt-4o",
+      "web_research_model": "gpt-4o-search-preview",
+      "knowledge_integrator_model": "gpt-4o-mini",
+      "hypothesis_generator": "gpt-4o-mini",
+      "experiment_designer": "gpt-4.1",
+      "sdk_planner_model": "gpt-4o-mini",
+      "sdk_search_model": "gpt-4o",
+      "sdk_writer_model": "gpt-4o"
+    },
     "openai_api_timeout_seconds": 120
   },
   "agent_prompts": {
     "pdf_summarizer_sm": "You are an expert academic summarizer. Produce a concise, accurate summary (250-500 words) capturing core arguments, methods, key findings, and main conclusions of the provided text.",
-    "multi_doc_synthesizer_sm": "You are a research synthesis expert. You have been provided with a list of summaries from multiple academic documents. Your task is to synthesize these summaries into a single, coherent 'cross-document understanding' (approx. 500-800 words). Identify common themes, key differences or contradictions, unique contributions from individual documents, and overall knowledge gaps apparent from the collection. Structure your output clearly.",
+    "deep_research_summarizer_sm": "You are a deep research synthesis expert. Based on a user's query and a set of retrieved document excerpts, provide a comprehensive and coherent summary that directly addresses the user's question. Synthesize the information from the excerpts to build a complete picture, highlighting key points, and identifying any contradictions or gaps.",
     "web_researcher_sm_old": "You are an expert research analyst. Based on the provided 'cross-document understanding' synthesized from multiple academic papers, your task is to find complementary information, recent developments, and broader context, as if you were performing a comprehensive web search. Synthesize your findings into a coherent overview (approx. 300-500 words). If you cannot perform a live web search, clearly state your limitations and provide information based on your existing knowledge.",
     "web_researcher_sm": "This agent utilizes an advanced SDK to perform comprehensive web research, including planning search queries, executing parallel searches, and synthesizing a final report. It receives a cross-document understanding and outputs a web research summary.",
     "experimental_data_loader_sm": "You are a data utility. You will receive text describing experimental results. Present this text as a structured summary. If the text is already a summary, present it as is. Your main role is to make this data available for the next agent.",
@@ -69,18 +70,19 @@
         "id": "short_term_memory_node",
         "type": "ShortTermMemoryAgent",
         "config": {
-          "description": "Collects all individual PDF summaries into a short-term memory store for the current run."
+          "description": "Collects all individual PDF summaries into a short-term memory store for the current run.",
+          "vector_store_path_key": "short_term_memory_filename"
         }
       },
       {
-        "id": "multi_doc_synthesizer",
-        "type": "MultiDocSynthesizerAgent",
+        "id": "deep_research_summarizer",
+        "type": "DeepResearchSummarizerAgent",
         "config": {
-          "description": "Synthesizes summaries from ALL processed PDFs into a single understanding.",
-          "model_key": "multi_doc_synthesizer_model",
-          "system_message_key": "multi_doc_synthesizer_sm",
-          "max_combined_len": 30000,
-          "temperature": 0.6
+          "description": "Performs a deep research summary based on a user query.",
+          "model_key": "deep_research_summarizer_model",
+          "system_message_key": "deep_research_summarizer_sm",
+          "temperature": 0.7,
+          "top_k": 3
         }
       },
       {
@@ -88,10 +90,7 @@
         "type": "LongTermMemoryAgent",
         "config": {
           "description": "Integrates the latest synthesis into a persistent long-term knowledge base.",
-          "model_key": "long_term_memory_model",
-          "system_message_key": "long_term_memory_sm",
-          "storage_filename_key": "long_term_memory_filename",
-          "temperature": 0.5
+          "storage_filename_key": "long_term_memory_filename"
         }
       },
       {
@@ -163,6 +162,13 @@
         }
       },
       {
+        "from": "initial_input_provider",
+        "to": "deep_research_summarizer",
+        "data_mapping": {
+          "user_query": "user_query"
+        }
+      },
+      {
         "from": "pdf_loader_node",
         "to": "pdf_summarizer_node",
         "data_mapping": {
@@ -178,30 +184,30 @@
       },
       {
         "from": "short_term_memory_node",
-        "to": "multi_doc_synthesizer",
+        "to": "deep_research_summarizer",
         "data_mapping": {
-          "summaries_collection": "all_pdf_summaries"
+          "vector_store_path": "vector_store_path"
         }
       },
       {
-        "from": "multi_doc_synthesizer",
-        "to": "web_researcher",
-        "data_mapping": {
-          "multi_doc_synthesis_output": "cross_document_understanding"
-        }
-      },
-      {
-        "from": "multi_doc_synthesizer",
+        "from": "short_term_memory_node",
         "to": "long_term_memory_node",
         "data_mapping": {
-          "multi_doc_synthesis_output": "new_synthesis"
+          "individual_summaries": "individual_summaries"
+        }
+      },
+      {
+        "from": "deep_research_summarizer",
+        "to": "web_researcher",
+        "data_mapping": {
+          "deep_research_summary": "cross_document_understanding"
         }
       },
       {
         "from": "long_term_memory_node",
         "to": "knowledge_integrator",
         "data_mapping": {
-          "updated_long_term_memory": "multi_doc_synthesis"
+          "long_term_memory_path": "multi_doc_synthesis"
         }
       },
       {
@@ -235,5 +241,3 @@
     ]
   }
 }
-
-

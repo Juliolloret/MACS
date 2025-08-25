@@ -5,10 +5,12 @@
     "output_project_synthesis_folder_name": "project_synthesis_cli",
     "output_project_hypotheses_folder_name": "project_hypotheses_cli",
     "output_project_experiments_folder_name": "project_experiments_cli",
+    "long_term_memory_filename": "faiss_index_ltm_cli",
+    "short_term_memory_filename": "faiss_index_stm_cli",
     "default_llm_model": "gpt-3.5-turbo",
     "models": {
       "pdf_summarizer": "gpt-3.5-turbo",
-      "multi_doc_synthesizer_model": "gpt-3.5-turbo",
+      "deep_research_summarizer_model": "gpt-3.5-turbo",
       "web_research_model": "gpt-4o",
       "knowledge_integrator_model": "gpt-3.5-turbo",
       "hypothesis_generator": "gpt-3.5-turbo",
@@ -18,7 +20,7 @@
   },
   "agent_prompts": {
     "pdf_summarizer_sm": "Summarize this academic text in 1-2 paragraphs: {text_content}",
-    "multi_doc_synthesizer_sm": "Synthesize these summaries: {all_summaries_text}. Output: Cross-document understanding.",
+    "deep_research_summarizer_sm": "You are a deep research synthesis expert. Based on a user's query and a set of retrieved document excerpts, provide a comprehensive and coherent summary that directly addresses the user's question. Synthesize the information from the excerpts to build a complete picture, highlighting key points, and identifying any contradictions or gaps.",
     "web_researcher_sm": "This agent uses an SDK for web research.",
     "experimental_data_loader_sm": "This is experimental data: {data_content}. Present as a structured summary.",
     "knowledge_integrator_sm": "Integrate: Multi-doc: {multi_doc_synthesis}, Web: {web_research_summary}, ExpData: {experimental_data_summary}. Output: Integrated brief.",
@@ -50,11 +52,25 @@
         }
       },
       {
-        "id": "multi_doc_synthesizer",
-        "type": "MultiDocSynthesizerAgent",
+        "id": "short_term_memory_node",
+        "type": "ShortTermMemoryAgent",
         "config": {
-          "model_key": "multi_doc_synthesizer_model",
-          "system_message_key": "multi_doc_synthesizer_sm"
+          "vector_store_path_key": "short_term_memory_filename"
+        }
+      },
+      {
+        "id": "deep_research_summarizer",
+        "type": "DeepResearchSummarizerAgent",
+        "config": {
+          "model_key": "deep_research_summarizer_model",
+          "system_message_key": "deep_research_summarizer_sm"
+        }
+      },
+      {
+        "id": "long_term_memory_node",
+        "type": "LongTermMemoryAgent",
+        "config": {
+          "storage_filename_key": "long_term_memory_filename"
         }
       },
       {
@@ -107,6 +123,13 @@
         }
       },
       {
+        "from": "initial_input_provider",
+        "to": "deep_research_summarizer",
+        "data_mapping": {
+          "user_query": "user_query"
+        }
+      },
+      {
         "from": "pdf_loader_node",
         "to": "pdf_summarizer_node",
         "data_mapping": {
@@ -115,23 +138,37 @@
       },
       {
         "from": "pdf_summarizer_node",
-        "to": "multi_doc_synthesizer",
+        "to": "short_term_memory_node",
         "data_mapping": {
-          "results": "all_pdf_summaries"
+          "results": "individual_summaries"
         }
       },
       {
-        "from": "multi_doc_synthesizer",
+        "from": "short_term_memory_node",
+        "to": "deep_research_summarizer",
+        "data_mapping": {
+          "vector_store_path": "vector_store_path"
+        }
+      },
+      {
+        "from": "short_term_memory_node",
+        "to": "long_term_memory_node",
+        "data_mapping": {
+          "individual_summaries": "individual_summaries"
+        }
+      },
+      {
+        "from": "deep_research_summarizer",
         "to": "web_researcher",
         "data_mapping": {
-          "multi_doc_synthesis_output": "cross_document_understanding"
+          "deep_research_summary": "cross_document_understanding"
         }
       },
       {
-        "from": "multi_doc_synthesizer",
+        "from": "deep_research_summarizer",
         "to": "knowledge_integrator",
         "data_mapping": {
-          "multi_doc_synthesis_output": "multi_doc_synthesis"
+          "deep_research_summary": "multi_doc_synthesis"
         }
       },
       {
