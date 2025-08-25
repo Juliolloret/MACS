@@ -81,6 +81,25 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual(outputs_history["b"], {"out2": "output from B"})
         self.assertEqual(outputs_history["c"], {"out3": "output from C"})
 
+    def test_visualize_graph(self):
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "b", "type": "B"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "b"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+        output_base = os.path.join(self.test_outputs_dir, "graph")
+        path = orchestrator.visualize(output_base)
+        self.assertTrue(os.path.exists(path))
+
 
     @patch('os.path.exists')
     @patch('agents.deep_research_summarizer_agent.FAISS')
