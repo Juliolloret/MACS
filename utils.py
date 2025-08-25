@@ -54,10 +54,12 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     Loads the application configuration from a JSON file.
     Dynamically imports PyPDF2 and reportlab if available.
     Uses main_script_dir to resolve relative config_path if provided,
-    otherwise assumes config_path is absolute or relative to where load_app_config is called.
+    otherwise assumes config_path is absolute or relative to where
+    load_app_config is called. The loaded configuration is stored in the
+    module-level ``APP_CONFIG`` dictionary, mutating global state.
     Returns the config dictionary on success, None on failure.
     """
-    global openai_errors, OPENAI_SDK_AVAILABLE
+    global openai_errors, OPENAI_SDK_AVAILABLE, APP_CONFIG
 
     if main_script_dir and not os.path.isabs(config_path):
         resolved_config_path = os.path.join(main_script_dir, config_path)
@@ -72,6 +74,12 @@ def load_app_config(config_path="config.json", main_script_dir=None):
 
         # The dynamic loading of reportlab has been removed from this central utility.
         # Client code that needs reportlab should handle its own imports and availability checks.
+
+        # Store the loaded configuration in the module-level APP_CONFIG so
+        # subsequent calls can rely on the global state without manually
+        # updating it.
+        APP_CONFIG.clear()
+        APP_CONFIG.update(config)
 
         return config
     except FileNotFoundError:
