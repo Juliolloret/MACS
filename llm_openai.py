@@ -22,6 +22,20 @@ class OpenAILLM(LLMClient):
         self.app_config = app_config
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.timeout = timeout
+        self._client = None
+        self._embeddings_client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = OpenAIClient(api_key=self.api_key, timeout=self.timeout)
+        return self._client
+
+    def get_embeddings_client(self):
+        if self._embeddings_client is None:
+            from langchain_openai import OpenAIEmbeddings
+            self._embeddings_client = OpenAIEmbeddings(client=self.client)
+        return self._embeddings_client
 
     def complete(self, *, system: str, prompt: str,
                  model: Optional[str] = None,
@@ -39,8 +53,7 @@ class OpenAILLM(LLMClient):
         ]:
             raise LLMError(f"OpenAI API key not configured for model {chosen_model}.")
         try:
-            client = OpenAIClient(api_key=self.api_key, timeout=self.timeout)
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=chosen_model,
                 messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
                 temperature=temp,
@@ -95,3 +108,12 @@ class OpenAILLM(LLMClient):
             raise LLMError(
                 f"API call with {chosen_model} failed ({err_name}): {e}"
             )
+
+    def close(self) -> None:
+        if self._client and hasattr(self._client, "close"):
+            try:
+                self._client.close()
+            except Exception:
+                pass
+        self._client = None
+        self._embeddings_client = None
