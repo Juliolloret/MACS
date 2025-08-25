@@ -2,6 +2,10 @@ import os
 import json
 from typing import Optional
 
+from pydantic import ValidationError
+
+from config_schema import validate_graph_definition
+
 # Attempt to import OpenAI library and its specific errors.
 # These are primarily used by call_openai_api.
 try:
@@ -72,6 +76,10 @@ def load_app_config(config_path="config.json", main_script_dir=None):
             config = json.load(f)
         log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
 
+        # Validate graph configuration if present
+        if config.get("graph_definition"):
+            validate_graph_definition(config["graph_definition"])
+
         # The dynamic loading of reportlab has been removed from this central utility.
         # Client code that needs reportlab should handle its own imports and availability checks.
 
@@ -86,6 +94,8 @@ def load_app_config(config_path="config.json", main_script_dir=None):
         log_status(f"[AppConfig] ERROR: Configuration file '{resolved_config_path}' not found.")
     except json.JSONDecodeError as e:
         log_status(f"[AppConfig] ERROR: Could not decode JSON from '{resolved_config_path}': {e}.")
+    except ValidationError as e:
+        log_status(f"[AppConfig] ERROR: Graph configuration validation failed: {e}")
     except Exception as e:
         log_status(f"[AppConfig] ERROR: An unexpected error occurred while loading config '{resolved_config_path}': {e}.")
     return None
