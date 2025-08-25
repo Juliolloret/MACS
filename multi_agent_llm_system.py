@@ -37,6 +37,7 @@ class GraphOrchestrator:
         self.app_config = app_config
         self.agents = {}
         self.adjacency_list = defaultdict(list)
+        self.incoming_edges_map = defaultdict(list)
         self.node_order = []
         self.llm = llm
         self._build_graph_and_determine_order()
@@ -62,6 +63,10 @@ class GraphOrchestrator:
             if from_node not in all_node_ids_in_config or to_node not in all_node_ids_in_config:
                 log_status(f"[GraphOrchestrator] ERROR: Edge references undefined node ID: {from_node} -> {to_node}")
                 raise ValueError(f"Edge references undefined node ID: {from_node} -> {to_node}")
+
+            # Build lookup of incoming edges for each destination node
+            self.incoming_edges_map[to_node].append(edge)
+
             if from_node in node_ids and to_node in node_ids:
                 self.adjacency_list[from_node].append(to_node)
                 in_degree[to_node] += 1
@@ -123,37 +128,36 @@ class GraphOrchestrator:
             # --- Input Gathering ---
             agent_inputs = {}
             has_input_error = False
-            for edge_def in self.graph_definition.get('edges', []):
-                if edge_def['to'] == node_id:
-                    from_node_id = edge_def['from']
-                    source_outputs = outputs_history.get(from_node_id)
+            for edge_def in self.incoming_edges_map.get(node_id, []):
+                from_node_id = edge_def['from']
+                source_outputs = outputs_history.get(from_node_id)
 
-                    if source_outputs is None:
-                        log_status(f"[GraphOrchestrator] INPUT_ERROR: Output from source node '{from_node_id}' not found for target '{node_id}'.")
-                        data_mapping = edge_def.get("data_mapping", {})
-                        for _, target_key in data_mapping.items():
-                            agent_inputs[target_key] = f"Error: Input from '{from_node_id}' missing."
-                            agent_inputs[f"{target_key}_error"] = True
-                        has_input_error = True
-                        continue
+                if source_outputs is None:
+                    log_status(f"[GraphOrchestrator] INPUT_ERROR: Output from source node '{from_node_id}' not found for target '{node_id}'.")
+                    data_mapping = edge_def.get("data_mapping", {})
+                    for _, target_key in data_mapping.items():
+                        agent_inputs[target_key] = f"Error: Input from '{from_node_id}' missing."
+                        agent_inputs[f"{target_key}_error"] = True
+                    has_input_error = True
+                    continue
 
-                    data_mapping = edge_def.get("data_mapping")
-                    if not data_mapping:
-                        log_status(f"[GraphOrchestrator] WARNING: No data_mapping for edge from '{from_node_id}' to '{node_id}'. Merging all outputs.")
-                        agent_inputs.update(source_outputs)
-                        if source_outputs.get("error"): has_input_error = True
-                    else:
-                        for src_key, target_key in data_mapping.items():
-                            if src_key in source_outputs:
-                                agent_inputs[target_key] = source_outputs[src_key]
-                                if source_outputs.get("error") or (isinstance(source_outputs.get(src_key), str) and source_outputs[src_key].startswith("Error:")):
-                                    agent_inputs[f"{target_key}_error"] = True
-                                    has_input_error = True
-                            else:
-                                log_status(f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'.")
-                                agent_inputs[target_key] = f"Error: Key '{src_key}' missing from '{from_node_id}'."
+                data_mapping = edge_def.get("data_mapping")
+                if not data_mapping:
+                    log_status(f"[GraphOrchestrator] WARNING: No data_mapping for edge from '{from_node_id}' to '{node_id}'. Merging all outputs.")
+                    agent_inputs.update(source_outputs)
+                    if source_outputs.get("error"): has_input_error = True
+                else:
+                    for src_key, target_key in data_mapping.items():
+                        if src_key in source_outputs:
+                            agent_inputs[target_key] = source_outputs[src_key]
+                            if source_outputs.get("error") or (isinstance(source_outputs.get(src_key), str) and source_outputs[src_key].startswith("Error:")):
                                 agent_inputs[f"{target_key}_error"] = True
                                 has_input_error = True
+                        else:
+                            log_status(f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'.")
+                            agent_inputs[target_key] = f"Error: Key '{src_key}' missing from '{from_node_id}'."
+                            agent_inputs[f"{target_key}_error"] = True
+                            has_input_error = True
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
             if isinstance(current_agent, ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:
