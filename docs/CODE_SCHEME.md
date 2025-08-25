@@ -5,70 +5,66 @@ This document provides an overview of how the MACS multi-agent research system o
 ## High-Level Flow
 
 ```
-                       ┌────────────────────────┐
-                       │      config.json       │
-                       │  graph + model config  │
-                       └──────────┬─────────────┘
-                                  │ load_app_config
-                                  ▼
-                       ┌────────────────────────┐
-                       │      LLM clients       │
-                       │  llm.py / llm_openai   │
-                       └──────────┬─────────────┘
-                                  │ shared instance
-                                  ▼
-                       ┌────────────────────────┐
-                       │       Agent base       │
-                       │ agents/base_agent.py   │
-                       │  - register decorator  │
-                       │  - execute(model,...)  │
-                       └──────────┬─────────────┘
-                                  │ subclasses
-                                  ▼
-  ┌───────────────────────────────────────────────────────────────────────────┐
-  │                        Agent implementations                              │
-  │ pdf_loader_agent.py → pdf_summarizer_agent.py → short_term_memory_agent.py │
-  │             ├──→ deep_research_summarizer_agent.py → web_researcher_agent.py │
-  │             └──→ long_term_memory_agent.py ─┐                               │
-  │ experimental_data_loader_agent.py ──────────┴────────────┐                   │
-  │                                   → knowledge_integrator_agent.py →        │
-  │                                   → hypothesis_generator_agent.py →        │
-  │                                   → experiment_designer_agent.py →         │
-  │                                   → observer_agent.py                      │
-  └───────────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-                       ┌────────────────────────┐
-                       │  GraphOrchestrator     │
-                       │ multi_agent_llm_system │
-                       │  - build DAG from config│
-                       │  - topo order nodes     │
-                       │  - manage data flows    │
-                       └──────────┬─────────────┘
-                                  │
-                                  ▼
-                       ┌────────────────────────┐
-                       │    CLI / GUI frontends │
-                       │ cli_test.py, gui.py    │
-                       │  - parse flags         │
-                       │  - run orchestrator    │
-                       └──────────┬─────────────┘
-                                  │
-                                  ▼
-                       ┌────────────────────────┐
-                       │      Output folders    │
-                       │ knowledge, synthesis…  │
-                       └────────────────────────┘
+                     ┌───────────────────────────┐
+                     │     CLI / GUI frontends   │
+                     │   gui.py / cli_test.py    │
+                     └─────────────┬─────────────┘
+                                   │ (Project settings, PDF paths, etc.)
+                                   ▼
+                     ┌───────────────────────────┐
+                     │  initial_input_provider   │
+                     │ (Virtual node in graph)   │
+                     └─────────────┬─────────────┘
+                                   │
+                                   ▼
+┌────────────────────►┌───────────────────────────┐◄─────────────────────┐
+│                     │     GraphOrchestrator     │                      │
+│                     │ multi_agent_llm_system.py │                      │
+│                     │ - Builds DAG from config  │                      │
+│(Data flow between   │ - Executes agents         │   (Agent instances)  │
+│      agents)        │ - Manages data I/O        │                      │
+│                     └─────────────┬─────────────┘                      │
+│                                   │ (Loads config)                     │
+│                                   ▼                                    │
+│                     ┌───────────────────────────┐                      │
+│                     │        config.json        │                      │
+│                     │ (Agent graph, prompts)    │                      │
+│                     └───────────────────────────┘                      │
+│                                                                        │
+└───────────────────┐ ┌────────────────────────────────────────────────┐ │
+                    │ │                  Agent Layer                   │ │
+                    └─► │ (Dynamically loaded from `agents/` package)    │ ◄─┘
+                        │                                                │
+                        │ PDFLoader → PDFSummarizer → ShortTermMemory    │
+                        │      │             └─────► DeepResearchSynth.  │
+                        │      └───────────────────► LongTermMemory      │
+                        │      └───────────────────► Exp. Data Loader    │
+                        │                  └─────────────────────────┐   │
+                        │                                            ▼   │
+                        │                                KnowledgeIntegrator │
+                        │                                            │   │
+                        │                                            ▼   │
+                        │                             HypothesisGenerator  │
+                        │                                            │   │
+                        │                                            ▼   │
+                        │                               ExperimentDesigner │
+                        └────────────────────────────────────────────────┘
 ```
 
 ## Execution Steps
 
-1. **Configuration** – runtime options, model and prompt keys, and the workflow graph are loaded from `config.json`.
-2. **LLM setup** – a single LLM client (real or fake) is initialized and shared across agents.
-3. **Agent registration** – subclasses of `Agent` self-register via a decorator, allowing lookup by type name.
-4. **Graph orchestration** – `GraphOrchestrator` builds a DAG from the config, resolves data edges, and executes nodes in topological order.
-5. **Agent pipeline** – PDFs are loaded and summarized, summaries are embedded in short-term memory, appended to long-term memory, queried for deep research synthesis, optionally enriched with web research and experimental data, integrated into a knowledge brief, used for hypothesis generation and experiment design, and finally reviewed by an observer agent.
-6. **Frontends** – CLI (`cli_test.py`) or GUI (`gui.py`) launch the orchestrator with user-selected settings.
-7. **Outputs** – each agent writes structured results to project directories for synthesis, hypotheses, experiments, etc.
+1. **Frontend Interaction** – The user launches the workflow via the `gui.py` or `cli_test.py` script, providing settings like the input PDF directory and output path.
+2. **Configuration Loading** – The orchestrator loads the `config.json` file, which defines the system prompts, model choices, and the all-important `graph_definition` (nodes and edges).
+3. **Graph Building** – The `GraphOrchestrator` in `multi_agent_llm_system.py` parses the `graph_definition`. It identifies all agent nodes and the connections between them, building a directed acyclic graph (DAG). An `InitialInputProvider` virtual node is used to feed the user's settings into the graph.
+4. **Agent Initialization** – For each node in the graph, the orchestrator dynamically loads the corresponding agent class from the `agents` package and creates an instance of it. A shared LLM client is passed to each agent.
+5. **Topological Execution** – The orchestrator determines the correct execution order of the agents by performing a topological sort of the DAG.
+6. **Agent Pipeline Execution** – The orchestrator executes the agents one by one, managing the data flow between them as defined by the edges in the graph. The typical pipeline is:
+    - PDFs are loaded and summarized.
+    - Summaries populate both a short-term (session) memory and a long-term (persistent) memory.
+    - A deep, cross-document synthesis is performed using the short-term memory.
+    - The synthesis, long-term memory, and optional experimental data are integrated into a final knowledge brief.
+    - This brief is used to generate hypotheses and design experiments.
+    - An observer agent reviews all outputs for errors.
+7. **Output Generation** – Each agent saves its results (summaries, briefs, hypotheses, etc.) to structured subfolders in the designated project output directory.
 
 This scheme provides a quick reference for understanding how MACS orchestrates its multi-agent workflow.
