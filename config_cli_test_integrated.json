@@ -48,7 +48,8 @@
         "config": {
           "loop_over": "loader_results",
           "model_key": "pdf_summarizer",
-          "system_message_key": "pdf_summarizer_sm"
+          "system_message_key": "pdf_summarizer_sm",
+          "parallel_execution": true
         }
       },
       {
