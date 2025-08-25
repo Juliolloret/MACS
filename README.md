@@ -17,6 +17,7 @@
 - Experimental Planning: Generates hypotheses and designs experiments automatically.
 - User-Friendly GUI: Easily configure and launch workflows with real-time monitoring.
 - Customizable Workflows: Adjust agent prompts, models, and workflow topology via config.json.
+- Graph Visualization: Export the agent workflow graph to aid debugging and understanding.
 - Extensible Architecture: Add new agents for specialized tasks.
 
 ## Table of Contents
@@ -61,7 +62,7 @@
     - `HypothesisGeneratorAgent`: Generates research hypotheses.
     - `ExperimentDesignerAgent`: Designs experiments for generated hypotheses.
     - `ObserverAgent`: Reviews outputs from all agents and reports any detected errors.
-  - **Graph Orchestrator:** Executes the workflow graph as defined in `config.json`, ensuring correct data flow and error handling.
+  - **Graph Orchestrator:** Executes the workflow graph as defined in `config.json`, ensuring correct data flow and error handling. It can also export the graph structure for visualization via Graphviz.
   - **Output Handling:** Saves synthesized outputs, hypotheses, and experiment designs into organized subfolders.
 - **Usage:** Can be called from the GUI or invoked directly for CLI testing.
 
