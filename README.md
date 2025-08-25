@@ -52,10 +52,12 @@
   - **Agents:** Each node in the workflow is an agent class specializing in a research task:
     - `PDFLoaderAgent`: Loads and extracts text from PDFs.
     - `PDFSummarizerAgent`: Summarizes single PDFs with LLMs.
-    - `MultiDocSynthesizerAgent`: Synthesizes knowledge across multiple summaries.
-    - `WebResearcherAgent`: Simulates web research based on synthesized understanding.
+    - `ShortTermMemoryAgent`: Embeds individual summaries into a vector store for semantic search.
+    - `LongTermMemoryAgent`: Persists summaries across runs for cumulative knowledge.
+    - `DeepResearchSummarizerAgent`: Queries short-term memory to build a cross-document understanding.
+    - `WebResearcherAgent`: Performs SDK-based web research using the deep research summary.
     - `ExperimentalDataLoaderAgent`: Loads and summarizes experimental data (if provided).
-    - `KnowledgeIntegratorAgent`: Integrates all knowledge into a unified brief.
+    - `KnowledgeIntegratorAgent`: Merges long-term memory, web research, and experimental data into a unified brief.
     - `HypothesisGeneratorAgent`: Generates research hypotheses.
     - `ExperimentDesignerAgent`: Designs experiments for generated hypotheses.
     - `ObserverAgent`: Reviews outputs from all agents and reports any detected errors.
@@ -124,14 +126,16 @@ Workflow configuration is managed via config.json. Users can alter the agent ord
 
 1. **PDF Loading:** Extracts text from all PDFs in the selected folder.
 2. **Summarization:** Each PDF is summarized by an LLM agent.
-3. **Multi-Document Synthesis:** Summaries are synthesized into a cross-document understanding.
-4. **Web Research (LLM-based):** (Optional) Adds simulated web research.
-5. **Experimental Data Integration:** (Optional) Loads and summarizes experimental results.
-6. **Knowledge Integration:** Combines all sources into an integrated knowledge brief.
-7. **Hypothesis Generation:** Proposes new hypotheses based on the brief.
-8. **Experiment Design:** Designs experiments for each hypothesis.
-9. **Observer Review:** The `ObserverAgent` scans all agent outputs and flags any errors.
-10. **Output:** All results are saved in structured subfolders in the project output directory.
+3. **Short-Term Memory:** Summaries are embedded into a vector store for semantic search.
+4. **Long-Term Memory:** Summaries are appended to a persistent knowledge base across runs.
+5. **Deep Research Summary:** The vector store is queried to produce a cross-document understanding.
+6. **Web Research:** (Optional) SDK-based web search expands on the deep research summary.
+7. **Experimental Data Integration:** (Optional) Loads and summarizes experimental results.
+8. **Knowledge Integration:** Merges long-term memory, web findings, and experimental data into an integrated brief.
+9. **Hypothesis Generation:** Proposes new hypotheses based on the brief.
+10. **Experiment Design:** Designs experiments for each hypothesis.
+11. **Observer Review:** The `ObserverAgent` scans all agent outputs and flags any errors.
+12. **Output:** All results are saved in structured subfolders in the project output directory.
 
 
 ---
