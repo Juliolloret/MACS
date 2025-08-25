@@ -136,11 +136,14 @@ class GraphOrchestrator:
                 source_outputs = outputs_history.get(from_node_id)
 
                 if source_outputs is None:
-                    log_status(f"[GraphOrchestrator] INPUT_ERROR: Output from source node '{from_node_id}' not found for target '{node_id}'.")
+                    log_status(
+                        f"[GraphOrchestrator] INPUT_ERROR: Output from source node '{from_node_id}' not found for target '{node_id}'."
+                    )
                     data_mapping = edge_def.get("data_mapping", {})
                     for _, target_key in data_mapping.items():
-                        agent_inputs[target_key] = f"Error: Input from '{from_node_id}' missing."
+                        agent_inputs[target_key] = None
                         agent_inputs[f"{target_key}_error"] = True
+                        agent_inputs["error"] = f"Input from '{from_node_id}' missing."
                     has_input_error = True
                     continue
 
@@ -153,13 +156,16 @@ class GraphOrchestrator:
                     for src_key, target_key in data_mapping.items():
                         if src_key in source_outputs:
                             agent_inputs[target_key] = source_outputs[src_key]
-                            if source_outputs.get("error") or (isinstance(source_outputs.get(src_key), str) and source_outputs[src_key].startswith("Error:")):
+                            if source_outputs.get("error"):
                                 agent_inputs[f"{target_key}_error"] = True
                                 has_input_error = True
                         else:
-                            log_status(f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'.")
-                            agent_inputs[target_key] = f"Error: Key '{src_key}' missing from '{from_node_id}'."
+                            log_status(
+                                f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
+                            )
+                            agent_inputs[target_key] = None
                             agent_inputs[f"{target_key}_error"] = True
+                            agent_inputs["error"] = f"Key '{src_key}' missing from '{from_node_id}'."
                             has_input_error = True
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
@@ -286,9 +292,7 @@ class GraphOrchestrator:
 
         def write_output_file(folder_key, filename, content):
             folder_path = project_output_paths.get(folder_key)
-            if content is not None and not (
-                    isinstance(content, str) and content.startswith("Error:")) and folder_path and os.path.exists(
-                    folder_path):
+            if content is not None and folder_path and os.path.exists(folder_path):
                 try:
                     with open(os.path.join(folder_path, filename), "w", encoding="utf-8") as f:
                         f.write(str(content))
@@ -297,10 +301,12 @@ class GraphOrchestrator:
                     log_status(f"ERROR writing file {os.path.join(folder_path, filename)}: {e}")
             elif not folder_path or not os.path.exists(folder_path):
                 log_status(
-                    f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'.")
-            elif content is None or (isinstance(content, str) and content.startswith("Error:")):
+                    f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
+                )
+            else:
                 log_status(
-                    f"INFO: No valid content to save for '{filename}' (content was None, empty or an error string).")
+                    f"INFO: No valid content to save for '{filename}' (content was None or empty)."
+                )
 
         mds_out = outputs_history.get("multi_doc_synthesizer", {}).get("multi_doc_synthesis_output")
         write_output_file("synthesis", "multi_document_synthesis.txt", mds_out)

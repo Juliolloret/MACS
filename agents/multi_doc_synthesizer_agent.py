@@ -2,6 +2,7 @@ import os
 from .base_agent import Agent
 from .registry import register_agent
 from utils import log_status
+from llm import LLMError
 
 @register_agent("MultiDocSynthesizerAgent")
 class MultiDocSynthesizerAgent(Agent):
@@ -43,12 +44,13 @@ class MultiDocSynthesizerAgent(Agent):
             f"{combined_summaries_text}\n\n"
             "Provide a coherent 'cross-document understanding' as per your role description."
         )
-        synthesis_output = self.llm.complete(
-            system=current_system_message,
-            prompt=prompt,
-            model=self.model_name,
-            temperature=temperature,
-        )
-        if synthesis_output.startswith("Error:"):
-            return {"multi_doc_synthesis_output": "", "error": synthesis_output}
+        try:
+            synthesis_output = self.llm.complete(
+                system=current_system_message,
+                prompt=prompt,
+                model=self.model_name,
+                temperature=temperature,
+            )
+        except LLMError as e:
+            return {"multi_doc_synthesis_output": "", "error": str(e)}
         return {"multi_doc_synthesis_output": synthesis_output}
