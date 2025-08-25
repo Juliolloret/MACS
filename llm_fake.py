@@ -1,11 +1,14 @@
 import json
+from typing import Optional
+from cache import Cache
 
 class FakeLLM:
-    def __init__(self, app_config=None, response_map=None):
+    def __init__(self, app_config=None, response_map=None, cache: Optional[Cache] = None):
         self.app_config = app_config
         self.client = self
         self.response_map = response_map or {}
         self._embedding_client = self
+        self._cache = cache or Cache()
 
     def get_response(self, system_message, user_message, model, temperature):
         if user_message in self.response_map:
@@ -24,7 +27,13 @@ class FakeLLM:
 
     def complete(self, system, prompt, model, temperature=0.1):
         # The user message is the prompt in the complete method
-        return self.get_response(system, prompt, model, temperature)
+        key = self._cache.make_key(model, system, prompt, temperature)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        result = self.get_response(system, prompt, model, temperature)
+        self._cache.set(key, result)
+        return result
 
     def get_embeddings_client(self):
         return self._embedding_client
