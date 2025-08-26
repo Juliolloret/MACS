@@ -1,3 +1,5 @@
+"""Graph mutation utilities used during adaptive optimisation."""
+
 from __future__ import annotations
 
 from typing import Any, Dict
