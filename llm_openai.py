@@ -1,20 +1,27 @@
-from typing import Optional, Dict
-import os
+"""OpenAI-based LLM client with lightweight caching."""
+
+from typing import Any, Dict, Optional
 import json
-from llm import LLMClient, LLMError
-from utils import log_status, get_model_name
+import os
+
 from cache import Cache, CachingEmbeddings
+from llm import LLMClient, LLMError
+from utils import get_model_name, log_status
 
 try:
-    from openai import OpenAI as OpenAIClient, APIConnectionError, APITimeoutError, RateLimitError, AuthenticationError, BadRequestError
+    from openai import (  # pylint: disable=import-error
+        APIConnectionError,
+        APITimeoutError,
+        AuthenticationError,
+        BadRequestError,
+        OpenAI,
+        RateLimitError,
+    )
     OPENAI_AVAILABLE = True
-except Exception:  # pragma: no cover - handled in tests without openai
+except ImportError:  # pragma: no cover - handled in tests without openai
     OPENAI_AVAILABLE = False
-    OpenAIClient = None
+    OpenAI = None  # type: ignore[invalid-name]
     APIConnectionError = APITimeoutError = RateLimitError = AuthenticationError = BadRequestError = Exception
-
-
-from typing import Optional, Dict, Any
 
 
 class OpenAILLM(LLMClient):
@@ -33,7 +40,7 @@ class OpenAILLM(LLMClient):
         cache_dir = app_config.get("system_variables", {}).get("cache_dir", ".cache")
         try:
             os.makedirs(cache_dir, exist_ok=True)
-        except Exception:
+        except OSError:
             # If directory can't be created, fall back to in-memory cache
             cache_dir = None
         responses_path = os.path.join(cache_dir, "llm_responses.json") if cache_dir else None
@@ -45,13 +52,16 @@ class OpenAILLM(LLMClient):
     def client(self):
         """Lazily create and return the underlying OpenAI client."""
         if self._client is None:
-            self._client = OpenAIClient(api_key=self.api_key, timeout=self.timeout)
+            self._client = OpenAI(api_key=self.api_key, timeout=self.timeout)
         return self._client
 
     def get_embeddings_client(self):
         """Return a caching embeddings client based on LangChain's wrapper."""
         if self._embeddings_client is None:
-            from langchain_openai import OpenAIEmbeddings
+            try:
+                from langchain_openai import OpenAIEmbeddings  # pylint: disable=import-error
+            except ImportError as exc:  # pragma: no cover - optional dependency
+                raise ImportError("langchain_openai library is required for embeddings") from exc
             base = OpenAIEmbeddings(client=self.client)
             self._embeddings_client = CachingEmbeddings(base, self._embedding_cache)
         return self._embeddings_client
@@ -59,7 +69,7 @@ class OpenAILLM(LLMClient):
     def complete(self, *, system: str, prompt: str,
                  model: Optional[str] = None,
                  temperature: Optional[float] = None,
-                 extra: Optional[Dict] = None) -> str:
+                 extra: Optional[Dict] = None) -> str:  # pylint: disable=too-many-arguments, too-many-locals
         """Send a chat completion request to the OpenAI API."""
         chosen_model = model if model else get_model_name(self.app_config)
         sys_msg = system if system else "You are a helpful assistant."
@@ -103,7 +113,7 @@ class OpenAILLM(LLMClient):
             log_status(f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'")
             self._response_cache.set(cache_key, result)
             return result
-        except Exception as e:  # pragma: no cover - network errors not triggered in tests
+        except Exception as e:  # pragma: no cover - network errors not triggered in tests  # pylint: disable=broad-exception-caught
             err_name = type(e).__name__
             if isinstance(
                 e,
@@ -119,28 +129,29 @@ class OpenAILLM(LLMClient):
                     f"[LLM] LLM_ERROR ({err_name}): API call with {chosen_model} failed: {e}"
                 )
                 detail = str(e)
-                if hasattr(e, "response") and hasattr(e.response, "text"):
+                response_text = getattr(getattr(e, "response", None), "text", None)
+                if response_text:
                     try:
-                        err_json = json.loads(e.response.text)
+                        err_json = json.loads(response_text)
                         detail = err_json.get("error", {}).get("message", detail)
-                    except Exception:
-                        detail = e.response.text[:500]
+                    except json.JSONDecodeError:
+                        detail = response_text[:500]
                 raise LLMError(
                     f"OpenAI API {err_name} for {chosen_model}: {detail}"
-                )
+                ) from e
             log_status(
                 f"[LLM] LLM_ERROR (General {err_name}): API call with {chosen_model} failed: {e}"
             )
             raise LLMError(
                 f"API call with {chosen_model} failed ({err_name}): {e}"
-            )
+            ) from e
 
     def close(self) -> None:
         """Release any resources held by the underlying SDK clients."""
         if self._client and hasattr(self._client, "close"):
             try:
                 self._client.close()
-            except Exception:
+            except Exception:  # pragma: no cover  # pylint: disable=broad-exception-caught
                 pass
         self._client = None
         self._embeddings_client = None
