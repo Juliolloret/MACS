@@ -68,3 +68,11 @@ This document provides an overview of how the MACS multi-agent research system o
 7. **Output Generation** – Each agent saves its results (summaries, briefs, hypotheses, etc.) to structured subfolders in the designated project output directory.
 
 This scheme provides a quick reference for understanding how MACS orchestrates its multi-agent workflow.
+
+## Adaptive Evolution
+
+The optional `adaptive` package adds an evaluation-driven evolution loop. Using
+`adaptive/adaptive_graph_runner.py`, MACS can execute the agent graph, evaluate
+the outputs, and mutate the graph definition for the next iteration. The cycle
+continues until an evaluation threshold is reached or a maximum number of steps
+is taken, enabling the workflow to evolve automatically.

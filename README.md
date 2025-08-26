@@ -145,6 +145,19 @@ MACS organizes research tasks into a graph of specialized agents defined in `con
 
 ---
 
+## Adaptive Evolution
+
+MACS now includes an **adaptive evolution cycle** that can automatically refine its
+agent graph. The runner in `adaptive/adaptive_graph_runner.py` executes the current
+workflow, evaluates the results, and mutates the configuration for the next step.
+This process repeats until a target quality threshold is achieved or a maximum
+number of iterations is reached, allowing the system to iteratively improve its
+performance.
+
+<img src="https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b" width="350" height="680"/>
+
+---
+
 ## Configuration
 
 **Modify `config.json` to:**
