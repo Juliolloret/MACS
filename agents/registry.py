@@ -1,9 +1,12 @@
-import pkgutil
+"""Registry utilities for managing built-in agents and external plugins."""
+
 import importlib
+import pkgutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Type
+
 from utils import log_status
 
 MACS_VERSION = "1.0"
@@ -61,16 +64,16 @@ def get_agent_class(name: str):
     return entry
 
 
-def load_agents(package_name: str = __name__):
+def load_agents(package_name: str = __package__):
     """Dynamically import modules ending with '_agent' to populate the registry."""
-    package = importlib.import_module(__package__)
+    package = importlib.import_module(package_name)
     package_path = package.__path__
 
-    log_status(f"--- Starting Agent Loading from package: '{__package__}' ---")
+    log_status(f"--- Starting Agent Loading from package: '{package_name}' ---")
 
     for _, module_name, _ in pkgutil.iter_modules(package_path):
         if module_name.endswith('_agent'):
-            full_module_name = f"{__package__}.{module_name}"
+            full_module_name = f"{package_name}.{module_name}"
             try:
                 importlib.import_module(full_module_name)
                 log_status(f"  [SUCCESS] Successfully imported agent module: '{module_name}'")
@@ -78,7 +81,9 @@ def load_agents(package_name: str = __name__):
                 log_status(f"  [FAILURE] Failed to import agent module '{module_name}'. Error: {e}")
                 continue
 
-    log_status(f"--- Agent Loading Complete. Registered agents: {list(AGENT_REGISTRY.keys())} ---")
+    log_status(
+        f"--- Agent Loading Complete. Registered agents: {list(AGENT_REGISTRY.keys())} ---"
+    )
 
 
 def load_plugins(path: str = 'agent_plugins'):

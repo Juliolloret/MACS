@@ -1,8 +1,12 @@
+"""Agent that produces summaries of PDF text content."""
+
 import os
-from .base_agent import Agent
-from .registry import register_agent
+
 from utils import log_status
 from llm import LLMError
+
+from .base_agent import Agent
+from .registry import register_agent
 
 @register_agent("PDFSummarizerAgent")
 class PDFSummarizerAgent(Agent):

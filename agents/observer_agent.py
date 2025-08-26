@@ -1,7 +1,11 @@
+"""Observer agent for reviewing agent outputs and reporting errors."""
+
 from typing import Dict
+
+from utils import log_status
+
 from .base_agent import Agent
 from .registry import register_agent
-from utils import log_status
 
 @register_agent("ObserverAgent")
 class ObserverAgent(Agent):
