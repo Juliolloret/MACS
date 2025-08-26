@@ -6,7 +6,10 @@ from llm import LLMError
 
 @register_agent("ExperimentalDataLoaderAgent")
 class ExperimentalDataLoaderAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Load and optionally summarise experimental data from a file."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Read experimental data and optionally summarise it using the LLM."""
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
             return {"experimental_data_summary": "", "error": current_system_message}

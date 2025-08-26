@@ -16,8 +16,12 @@ except Exception:  # pragma: no cover - handled in tests without openai
 
 from typing import Optional, Dict, Any
 
+
 class OpenAILLM(LLMClient):
+    """LLM client backed by the official OpenAI Python SDK."""
+
     def __init__(self, app_config: Dict[str, Any], api_key: Optional[str] = None, timeout: int = 120):
+        """Initialize the client and prepare response/embedding caches."""
         if not OPENAI_AVAILABLE:
             raise ImportError("openai library is required for OpenAILLM")
         self.app_config = app_config
@@ -39,11 +43,13 @@ class OpenAILLM(LLMClient):
 
     @property
     def client(self):
+        """Lazily create and return the underlying OpenAI client."""
         if self._client is None:
             self._client = OpenAIClient(api_key=self.api_key, timeout=self.timeout)
         return self._client
 
     def get_embeddings_client(self):
+        """Return a caching embeddings client based on LangChain's wrapper."""
         if self._embeddings_client is None:
             from langchain_openai import OpenAIEmbeddings
             base = OpenAIEmbeddings(client=self.client)
@@ -54,6 +60,7 @@ class OpenAILLM(LLMClient):
                  model: Optional[str] = None,
                  temperature: Optional[float] = None,
                  extra: Optional[Dict] = None) -> str:
+        """Send a chat completion request to the OpenAI API."""
         chosen_model = model if model else get_model_name(self.app_config)
         sys_msg = system if system else "You are a helpful assistant."
         temp = temperature
@@ -129,6 +136,7 @@ class OpenAILLM(LLMClient):
             )
 
     def close(self) -> None:
+        """Release any resources held by the underlying SDK clients."""
         if self._client and hasattr(self._client, "close"):
             try:
                 self._client.close()

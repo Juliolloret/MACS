@@ -6,7 +6,20 @@ class LLMError(Exception):
 
 
 class LLMClient(Protocol):
+    """Protocol describing the minimum interface for LLM backends."""
+
     def __init__(self, app_config: Dict[str, Any], api_key: Optional[str] = None, timeout: int = 120):
+        """Initialize the client.
+
+        Parameters
+        ----------
+        app_config:
+            Application configuration dictionary.
+        api_key:
+            Optional API key used for authentication.
+        timeout:
+            Maximum time in seconds to wait for network responses.
+        """
         ...
 
     def complete(
@@ -18,6 +31,7 @@ class LLMClient(Protocol):
         temperature: Optional[float] = None,
         extra: Optional[Dict] = None,
     ) -> str:
+        """Perform a chat completion request and return the model output."""
         ...
 
     def get_embeddings_client(self) -> Any:

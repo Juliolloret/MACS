@@ -6,7 +6,10 @@ from llm import LLMError
 
 @register_agent("HypothesisGeneratorAgent")
 class HypothesisGeneratorAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Produce research hypotheses from an integrated knowledge brief."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Generate a list of hypotheses and key opportunities."""
         num_hypotheses_to_generate = self.config_params.get("num_hypotheses", 3)
         try:
             num_hypotheses_to_generate = int(num_hypotheses_to_generate)

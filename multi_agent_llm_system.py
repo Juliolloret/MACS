@@ -34,6 +34,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # They are imported from their respective locations in 'utils.py' or the 'agents' package.
 
 class GraphOrchestrator:
+    """Execute a graph of agents according to a configuration definition."""
+
     def __init__(self, graph_definition_from_config, llm: LLMClient, app_config: Dict[str, Any]):
         # Validate and normalize the graph definition before proceeding
         self.graph_definition = validate_graph_definition(graph_definition_from_config)
@@ -164,6 +166,20 @@ class GraphOrchestrator:
             return dot_path
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
+        """Execute the graph starting from the supplied ``initial_inputs``.
+
+        Parameters
+        ----------
+        initial_inputs:
+            Data provided to the special ``initial_input_provider`` node.
+        project_base_output_dir:
+            Directory into which agents may write artefacts.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A mapping of node identifiers to their output dictionaries.
+        """
         outputs_history = {}
         log_status(f"[GraphOrchestrator] Starting workflow with initial inputs: {list(initial_inputs.keys())}")
 
@@ -408,6 +424,7 @@ class GraphOrchestrator:
 
 def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str, project_base_output_dir: str,
                               status_update_callback: callable, app_config: Dict[str, Any]):
+    """High-level convenience wrapper that executes an entire project workflow."""
     set_status_callback(status_update_callback)
 
     if not app_config:
