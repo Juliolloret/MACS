@@ -1,3 +1,5 @@
+"""Fake LLM implementation used solely for testing."""
+
 import json
 from typing import Optional
 from cache import Cache
@@ -14,7 +16,7 @@ class FakeLLM:
         self._embedding_client = self
         self._cache = cache or Cache()
 
-    def get_response(self, system_message, user_message, model, temperature):
+    def get_response(self, _system_message, user_message, _model, _temperature):
         """Return a deterministic response for ``user_message``."""
         if user_message in self.response_map:
             return self.response_map[user_message]
@@ -28,7 +30,7 @@ class FakeLLM:
                     }
                 ]
             })
-        return f"[FAKE] ok"
+        return "[FAKE] ok"
 
     def complete(self, system, prompt, model, temperature=0.1):
         """Simulate a completion call with simple caching."""
@@ -44,11 +46,11 @@ class FakeLLM:
         """Return a dummy embeddings client (self)."""
         return self._embedding_client
 
-    def embeddings(self, input, model):
+    def embeddings(self, _input, _model):
         """Return a dummy embedding structure."""
         return self
 
-    def create(self, input, model):
+    def create(self, _input, _model):
         """Return a dummy embedding structure."""
         return self
 
