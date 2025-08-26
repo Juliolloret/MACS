@@ -1,3 +1,5 @@
+"""Interfaces and protocol definitions for LLM backends."""
+
 from typing import Protocol, Optional, Dict, Any
 
 
@@ -8,7 +10,12 @@ class LLMError(Exception):
 class LLMClient(Protocol):
     """Protocol describing the minimum interface for LLM backends."""
 
-    def __init__(self, app_config: Dict[str, Any], api_key: Optional[str] = None, timeout: int = 120):
+    def __init__(
+        self,
+        app_config: Dict[str, Any],
+        api_key: Optional[str] = None,
+        timeout: int = 120,
+    ) -> None:
         """Initialize the client.
 
         Parameters
@@ -20,9 +27,9 @@ class LLMClient(Protocol):
         timeout:
             Maximum time in seconds to wait for network responses.
         """
-        ...
+        raise NotImplementedError
 
-    def complete(
+    def complete(  # pylint: disable=too-many-arguments
         self,
         *,
         system: str,
@@ -32,12 +39,12 @@ class LLMClient(Protocol):
         extra: Optional[Dict] = None,
     ) -> str:
         """Perform a chat completion request and return the model output."""
-        ...
+        raise NotImplementedError
 
     def get_embeddings_client(self) -> Any:
         """Returns a cached embedding client if available."""
-        ...
+        raise NotImplementedError
 
     def close(self) -> None:
         """Releases any underlying resources held by the client."""
-        ...
+        raise NotImplementedError
