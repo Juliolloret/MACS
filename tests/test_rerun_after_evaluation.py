@@ -1,10 +1,12 @@
+"""Tests for rerun-after-evaluation workflow utilities."""
+
 import json
-from pathlib import Path
 
 from adaptive import rerun_after_evaluation
 
 
 def test_update_database(tmp_path):
+    """Ensure database updates append experiment results correctly."""
     db_path = tmp_path / "db.json"
     rerun_after_evaluation.update_database(db_path, {"score": 0.5})
     data = json.loads(db_path.read_text())
@@ -15,6 +17,7 @@ def test_update_database(tmp_path):
 
 
 def test_rerun_with_evaluation(monkeypatch, tmp_path):
+    """Validate rerunning experiments using previous evaluation data."""
     calls = {}
 
     def fake_cycle(config, inputs, eval_fn, threshold, max_steps):
