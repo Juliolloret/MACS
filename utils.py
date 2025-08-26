@@ -63,8 +63,6 @@ def load_app_config(config_path="config.json", main_script_dir=None):
     module-level ``APP_CONFIG`` dictionary, mutating global state.
     Returns the config dictionary on success, None on failure.
     """
-    global openai_errors, OPENAI_SDK_AVAILABLE, APP_CONFIG
-
     if main_script_dir and not os.path.isabs(config_path):
         resolved_config_path = os.path.join(main_script_dir, config_path)
     else:
