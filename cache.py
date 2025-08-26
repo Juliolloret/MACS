@@ -1,8 +1,10 @@
+"""Utility classes for file-backed caching of embedding computations."""
+
 import os
 import json
 import hashlib
 from threading import Lock
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 class Cache:
     """Simple JSON-backed cache for deterministic computations."""
@@ -15,7 +17,7 @@ class Cache:
             try:
                 with open(cache_file, 'r', encoding='utf-8') as f:
                     self.data = json.load(f)
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 # Corrupted cache is ignored
                 self.data = {}
 
