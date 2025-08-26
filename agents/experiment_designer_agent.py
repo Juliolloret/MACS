@@ -1,7 +1,9 @@
-from .base_agent import Agent
-from .registry import register_agent
+"""Agent for designing experiments based on hypotheses."""
+
 from utils import log_status
 from llm import LLMError
+from .base_agent import Agent
+from .registry import register_agent
 
 @register_agent("ExperimentDesignerAgent")
 class ExperimentDesignerAgent(Agent):
