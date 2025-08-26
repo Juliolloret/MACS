@@ -5,7 +5,10 @@ from llm import LLMError
 
 @register_agent("KnowledgeIntegratorAgent")
 class KnowledgeIntegratorAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Combine outputs from multiple sources into a coherent brief."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Integrate various summaries into an overall knowledge brief."""
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
             return {"integrated_knowledge_brief": "", "error": current_system_message}

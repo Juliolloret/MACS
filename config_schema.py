@@ -3,12 +3,16 @@ from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
 class NodeDefinition(BaseModel):
+    """Schema describing a single node within the orchestration graph."""
+
     id: str
     type: str
     config: Dict[str, Any] = Field(default_factory=dict)
 
 
 class EdgeDefinition(BaseModel):
+    """Schema describing a connection between two nodes."""
+
     from_node: str = Field(..., alias="from")
     to_node: str = Field(..., alias="to")
     data_mapping: Dict[str, str] = Field(default_factory=dict)
@@ -17,6 +21,8 @@ class EdgeDefinition(BaseModel):
 
 
 class GraphDefinition(BaseModel):
+    """Container holding the full graph description."""
+
     nodes: List[NodeDefinition]
     edges: List[EdgeDefinition]
 

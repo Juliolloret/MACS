@@ -8,6 +8,7 @@ class ObserverAgent(Agent):
     """Reviews outputs from all agents and reports any errors found."""
 
     def execute(self, inputs: dict) -> dict:
+        """Scan the full workflow history and surface any reported errors."""
         outputs_history: Dict[str, dict] = inputs.get("outputs_history", {})
         errors_found = {}
         for node_id, output in outputs_history.items():
