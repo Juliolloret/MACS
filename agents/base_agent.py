@@ -1,3 +1,5 @@
+"""Base functionality for MACS agents that utilise a language model."""
+
 from typing import Optional, Dict, Any
 
 from llm import LLMClient
@@ -7,7 +9,7 @@ from utils import get_model_name, get_prompt_text, log_status
 class Agent:
     """Base class for all MACS agents that interact with an LLM."""
 
-    def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):
+    def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Initialise a generic agent.
 
         Parameters
@@ -59,7 +61,7 @@ class Agent:
                 return self.system_message
         return self.system_message
 
-    def execute(self, inputs: dict) -> dict:
+    def execute(self, _inputs: dict) -> dict:
         """Execute the agent's primary behaviour.
 
         Subclasses must override this method. The base implementation only
