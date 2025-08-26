@@ -1,12 +1,16 @@
+"""Agents that manage short- and long-term vector store memories."""
+
 import os
-import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-from langchain_community.vectorstores import FAISS
+try:
+    from langchain_community.vectorstores import FAISS  # pylint: disable=import-error
+except ImportError:
+    FAISS = None
 
+from utils import log_status
 from .base_agent import Agent
 from .registry import register_agent
-from utils import log_status
 
 
 @register_agent("ShortTermMemoryAgent")
@@ -16,13 +20,13 @@ class ShortTermMemoryAgent(Agent):
     and embedding information from other agents for semantic search.
     """
 
-    def __init__(self, agent_id, agent_type, config_params=None, llm=None, app_config=None):
+    def __init__(self, agent_id, agent_type, config_params=None, llm=None, app_config=None):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         super().__init__(agent_id, agent_type, config_params, llm, app_config)
         self.vector_store_path_key = self.config_params.get("vector_store_path_key")
         if not self.vector_store_path_key:
             log_status(
                 f"[{self.agent_id}] CRITICAL_WARNING: 'vector_store_path_key' not configured. "
-                f"The vector store path may not be saved correctly."
+                "The vector store path may not be saved correctly."
             )
 
     def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -50,6 +54,11 @@ class ShortTermMemoryAgent(Agent):
 
         if not valid_summaries:
             error_msg = "No valid summary strings found in 'individual_summaries'."
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"error": error_msg}
+
+        if FAISS is None:
+            error_msg = "langchain_community.vectorstores is required but not installed."
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
 
@@ -81,7 +90,7 @@ class ShortTermMemoryAgent(Agent):
 
             return {"vector_store_path": save_path, "individual_summaries": valid_summaries}
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             error_msg = f"Failed to generate or save embeddings: {e}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
@@ -94,7 +103,7 @@ class LongTermMemoryAgent(Agent):
     integrating new knowledge from workflow runs.
     """
 
-    def __init__(self, agent_id, agent_type, config_params=None, llm=None, app_config=None):
+    def __init__(self, agent_id, agent_type, config_params=None, llm=None, app_config=None):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         super().__init__(agent_id, agent_type, config_params, llm, app_config)
         self.storage_filename_key = self.config_params.get("storage_filename_key")
         if not self.storage_filename_key:
@@ -141,6 +150,11 @@ class LongTermMemoryAgent(Agent):
         if not valid_summaries:
             return {"error": "No valid summary strings to add to long-term memory."}
 
+        if FAISS is None:
+            error_msg = "langchain_community.vectorstores is required but not installed."
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"error": error_msg}
+
         try:
             embeddings = self.llm.get_embeddings_client()
             vector_store = None
@@ -169,7 +183,7 @@ class LongTermMemoryAgent(Agent):
 
             return {"long_term_memory_path": storage_path}
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             error_msg = f"Failed to update or save long-term memory: {e}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
