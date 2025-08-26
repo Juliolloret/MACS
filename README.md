@@ -76,7 +76,7 @@
   - **graph_definition:** Declarative description of the agent workflow (nodes and edges), specifying agent types, order, and data mappings.
 - **Customization:** Users can adjust models, prompt styles, and workflow topology without modifying code.
 
-<img width="1143" height="1920" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
+<img width="572" height="810" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
 
 ## Setup & Usage
 
