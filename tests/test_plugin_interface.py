@@ -1,10 +1,11 @@
-import pytest
+"""Tests for the plugin registration and loading utilities."""
+
+import pytest  # pylint: disable=import-error
 from agents.base_agent import Agent
 from agents.registry import (
     AGENT_REGISTRY,
     AgentPlugin,
     PluginMetadata,
-    MACS_VERSION,
     register_plugin,
     load_plugins,
     get_agent_class,
@@ -12,10 +13,11 @@ from agents.registry import (
 
 
 def test_register_and_load_plugin(tmp_path):
+    """Plugins can be registered from a directory and used."""
     plugin_dir = tmp_path / "plug"
     plugin_dir.mkdir()
     (plugin_dir / "__init__.py").write_text("")
-    plugin_code = f"""
+    plugin_code = """
 from agents.base_agent import Agent
 from agents.registry import AgentPlugin, PluginMetadata, MACS_VERSION
 
@@ -47,7 +49,11 @@ PLUGIN = AgentPlugin(
 
 
 def test_incompatible_plugin_raises():
+    """An incompatible plugin version results in a ``ValueError``."""
+
     class DummyAgent(Agent):
+        """Minimal stub for an incompatible plugin."""
+
         pass
 
     plugin = AgentPlugin(
