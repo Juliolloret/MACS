@@ -6,7 +6,10 @@ from llm import LLMError
 
 @register_agent("MultiDocSynthesizerAgent")
 class MultiDocSynthesizerAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Combine individual document summaries into a holistic synthesis."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Produce a cross-document synthesis from a list of summaries."""
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
             return {"multi_doc_synthesis_output": "", "error": current_system_message}

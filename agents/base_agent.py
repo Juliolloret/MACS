@@ -5,7 +5,24 @@ from utils import get_model_name, get_prompt_text, log_status
 
 
 class Agent:
+    """Base class for all MACS agents that interact with an LLM."""
+
     def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):
+        """Initialise a generic agent.
+
+        Parameters
+        ----------
+        agent_id: Any
+            Identifier used in the orchestration graph.
+        agent_type: Any
+            Human readable type name of the agent.
+        config_params: dict | None
+            Optional configuration dictionary for the agent.
+        llm: LLMClient | None
+            Instance implementing :class:`LLMClient` used to perform LLM calls.
+        app_config: Dict[str, Any] | None
+            Global application configuration.
+        """
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.config_params = config_params if config_params else {}
@@ -30,6 +47,7 @@ class Agent:
                 f"[AgentInit] WARNING: System message for Agent ID='{self.agent_id}' (Key: '{system_message_key}') is empty.")
 
     def get_formatted_system_message(self, format_kwargs: Optional[Dict[str, Any]] = None) -> str:
+        """Return the system message with optional string formatting."""
         if self.system_message.startswith("ERROR:"):
             return self.system_message
         if format_kwargs:
@@ -42,6 +60,11 @@ class Agent:
         return self.system_message
 
     def execute(self, inputs: dict) -> dict:
+        """Execute the agent's primary behaviour.
+
+        Subclasses must override this method. The base implementation only
+        reports configuration errors.
+        """
         if self.system_message.startswith("ERROR:"):
             return {
                 "error": f"Agent {self.agent_id} cannot execute due to configuration error for system message (key: '{self.config_params.get('system_message_key')}'): {self.system_message}"}

@@ -26,9 +26,22 @@ class Cache:
         return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
 
     def get(self, key: str) -> Any:
+        """Retrieve a value from the cache.
+
+        Parameters
+        ----------
+        key: str
+            Hash key previously produced by :meth:`make_key`.
+
+        Returns
+        -------
+        Any
+            The cached value or ``None`` if the key is absent.
+        """
         return self.data.get(key)
 
     def set(self, key: str, value: Any) -> None:
+        """Store a value in the cache and persist it if backed by a file."""
         with self._lock:
             self.data[key] = value
             if self.cache_file:
@@ -45,6 +58,7 @@ class CachingEmbeddings:
         self._cache = cache
 
     def embed_query(self, text: str):
+        """Return an embedding for ``text`` using caching to avoid repeats."""
         key = self._cache.make_key('embed_query', text)
         cached = self._cache.get(key)
         if cached is not None:
@@ -54,6 +68,7 @@ class CachingEmbeddings:
         return result
 
     def embed_documents(self, texts: list[str]):
+        """Compute embeddings for a list of documents with memoization."""
         results: list[Any] = [None] * len(texts)
         missing = []
         missing_idx = []

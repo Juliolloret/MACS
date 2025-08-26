@@ -6,7 +6,10 @@ from llm import LLMError
 
 @register_agent("PDFSummarizerAgent")
 class PDFSummarizerAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Summarise the text extracted from a single PDF document."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Generate a concise summary for the PDF text in ``inputs``."""
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
             return {"summary": "", "error": current_system_message,

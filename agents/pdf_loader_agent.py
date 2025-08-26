@@ -5,7 +5,10 @@ from utils import log_status, PyPDF2  # PyPDF2 needed for PyPDF2.PdfReader
 
 @register_agent("PDFLoaderAgent")
 class PDFLoaderAgent(Agent):
+    """Extract raw text from a PDF document."""
+
     def execute(self, inputs: dict) -> dict:  # Type hint for dict matches common usage
+        """Read the PDF specified in ``inputs`` and return its text content."""
         pdf_path = inputs.get("pdf_path")
         if not pdf_path:
             return {"pdf_text_content": "", "error": "PDF path not provided."}

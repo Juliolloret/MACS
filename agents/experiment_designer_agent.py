@@ -5,7 +5,10 @@ from llm import LLMError
 
 @register_agent("ExperimentDesignerAgent")
 class ExperimentDesignerAgent(Agent):
-    def execute(self, inputs: dict) -> dict: # Type hint for dict
+    """Generate experimental protocols for a list of hypotheses."""
+
+    def execute(self, inputs: dict) -> dict:  # Type hint for dict
+        """Produce experiment designs for each hypothesis in ``inputs``."""
         current_system_message = self.get_formatted_system_message()
         if current_system_message.startswith("ERROR:"):
             return {"experiment_designs_list": [], "error": current_system_message}
