@@ -1,3 +1,5 @@
+"""Utilities for working with JSON files in the adaptive workflow."""
+
 from __future__ import annotations
 
 import json
