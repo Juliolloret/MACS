@@ -1,18 +1,25 @@
+"""Graph orchestration utilities for coordinating multiple agents."""
+
 import os
-import json
 from collections import defaultdict, deque
 import traceback
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from llm import LLMClient
 
+try:
+    from graphviz import Digraph
+    from graphviz.backend import ExecutableNotFound
+except ImportError:
+    Digraph = None
+    ExecutableNotFound = None
+
 # Import utilities from utils.py
 from utils import (
-    APP_CONFIG,
-    load_app_config,
     log_status,
     set_status_callback,
+    load_app_config,  # pylint: disable=unused-import
 )
 
 # Configuration schema validation
@@ -20,7 +27,7 @@ from config_schema import validate_graph_definition
 
 # Imports for refactored Agent classes
 # Core agent utilities
-from agents import Agent, get_agent_class
+from agents import get_agent_class
 from agents.experimental_data_loader_agent import ExperimentalDataLoaderAgent
 # SDK Models are now in agents.sdk_models; WebResearcherAgent imports them directly.
 
@@ -82,7 +89,8 @@ class GraphOrchestrator:
             self.node_order.append(u)
             for v_neighbor in self.adjacency_list.get(u, []):
                 in_degree[v_neighbor] -= 1
-                if in_degree[v_neighbor] == 0: queue.append(v_neighbor)
+                if in_degree[v_neighbor] == 0:
+                    queue.append(v_neighbor)
         if len(self.node_order) != len(node_ids):
             processed_nodes = set(self.node_order)
             missing_nodes = node_ids - processed_nodes
@@ -108,19 +116,19 @@ class GraphOrchestrator:
                 raise ValueError(f"Unknown agent type: {agent_type_name} for node {agent_id}")
             try:
                 self.agents[agent_id] = agent_class(agent_id, agent_type_name, agent_config_params, llm=self.llm, app_config=self.app_config)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 log_status(
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
                 raise
         
-    def visualize(self, output_path: str, format: str = "png") -> str:
+    def visualize(self, output_path: str, output_format: str = "png") -> str:
         """Generate a visual representation of the agent graph.
 
         Parameters
         ----------
         output_path: str
             Path (without extension) where the visualization will be written.
-        format: str
+        output_format: str
             Graphviz output format, e.g., ``'png'`` or ``'pdf'``.
 
         Returns
@@ -128,29 +136,7 @@ class GraphOrchestrator:
         str
             The path to the generated visualization file or the saved DOT file.
         """
-        try:
-            from graphviz import Digraph
-            from graphviz.backend import ExecutableNotFound
-
-            dot = Digraph(comment="Agent Graph", format=format)
-            for node in self.graph_definition.get("nodes", []):
-                node_id = node.get("id")
-                label = node.get("type", node_id)
-                dot.node(node_id, label)
-
-            for edge in self.graph_definition.get("edges", []):
-                dot.edge(edge.get("from"), edge.get("to"))
-
-            try:
-                output_file = dot.render(output_path, cleanup=True)
-                log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
-                return output_file
-            except ExecutableNotFound:
-                dot_path = dot.save(output_path + ".gv")
-                log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
-                return dot_path
-
-        except ImportError:
+        if Digraph is None or ExecutableNotFound is None:
             dot_lines = ["digraph AgentGraph {"]
             for node in self.graph_definition.get("nodes", []):
                 node_id = node["id"]
@@ -163,6 +149,24 @@ class GraphOrchestrator:
             with open(dot_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(dot_lines))
             log_status(f"[GraphOrchestrator] INFO: graphviz package not available. DOT file saved to {dot_path}")
+            return dot_path
+
+        dot = Digraph(comment="Agent Graph", format=output_format)
+        for node in self.graph_definition.get("nodes", []):
+            node_id = node.get("id")
+            label = node.get("type", node_id)
+            dot.node(node_id, label)
+
+        for edge in self.graph_definition.get("edges", []):
+            dot.edge(edge.get("from"), edge.get("to"))
+
+        try:
+            output_file = dot.render(output_path, cleanup=True)
+            log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
+            return output_file
+        except ExecutableNotFound:
+            dot_path = dot.save(output_path + ".gv")
+            log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
             return dot_path
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
@@ -180,6 +184,7 @@ class GraphOrchestrator:
         Dict[str, Any]
             A mapping of node identifiers to their output dictionaries.
         """
+        # pylint: disable=too-many-locals, too-many-branches, too-many-statements, too-many-nested-blocks
         outputs_history = {}
         log_status(f"[GraphOrchestrator] Starting workflow with initial inputs: {list(initial_inputs.keys())}")
 
@@ -198,7 +203,6 @@ class GraphOrchestrator:
 
             # --- Input Gathering ---
             agent_inputs = {}
-            has_input_error = False
             for edge_def in self.incoming_edges_map.get(node_id, []):
                 from_node_id = edge_def['from']
                 source_outputs = outputs_history.get(from_node_id)
@@ -212,21 +216,18 @@ class GraphOrchestrator:
                         agent_inputs[target_key] = None
                         agent_inputs[f"{target_key}_error"] = True
                         agent_inputs["error"] = f"Input from '{from_node_id}' missing."
-                    has_input_error = True
                     continue
 
                 data_mapping = edge_def.get("data_mapping")
                 if not data_mapping:
                     log_status(f"[GraphOrchestrator] WARNING: No data_mapping for edge from '{from_node_id}' to '{node_id}'. Merging all outputs.")
                     agent_inputs.update(source_outputs)
-                    if source_outputs.get("error"): has_input_error = True
                 else:
                     for src_key, target_key in data_mapping.items():
                         if src_key in source_outputs:
                             agent_inputs[target_key] = source_outputs[src_key]
                             if source_outputs.get("error"):
                                 agent_inputs[f"{target_key}_error"] = True
-                                has_input_error = True
                         else:
                             log_status(
                                 f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
@@ -234,7 +235,6 @@ class GraphOrchestrator:
                             agent_inputs[target_key] = None
                             agent_inputs[f"{target_key}_error"] = True
                             agent_inputs["error"] = f"Key '{src_key}' missing from '{from_node_id}'."
-                            has_input_error = True
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
             if isinstance(current_agent, ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:
@@ -269,12 +269,17 @@ class GraphOrchestrator:
 
                     item_input_key = current_agent.config_params.get("loop_item_input_key")
 
-                    def build_iteration_inputs(item):
+                    def build_iteration_inputs(
+                        item,
+                        base_inputs=agent_inputs,
+                        key=item_input_key,
+                        loop_key=loop_over_key,
+                    ):
                         iteration_inputs = {
-                            k: v for k, v in agent_inputs.items() if k != loop_over_key
+                            k: v for k, v in base_inputs.items() if k != loop_key
                         }
-                        if item_input_key:
-                            iteration_inputs[item_input_key] = item
+                        if key:
+                            iteration_inputs[key] = item
                         elif isinstance(item, dict):
                             iteration_inputs.update(item)
                         else:
@@ -294,7 +299,7 @@ class GraphOrchestrator:
                                 idx = futures[future]
                                 try:
                                     loop_outputs[idx] = future.result()
-                                except Exception as e:
+                                except Exception as e:  # pylint: disable=broad-exception-caught
                                     loop_outputs[idx] = {
                                         "error": f"Parallel execution failed: {e}"
                                     }
@@ -309,7 +314,7 @@ class GraphOrchestrator:
                     # Standard execution for non-looping nodes
                     node_output = current_agent.execute(agent_inputs)
 
-            except Exception as agent_exec_e:
+            except Exception as agent_exec_e:  # pylint: disable=broad-exception-caught
                 detailed_traceback = traceback.format_exc()
                 log_status(f"[GraphOrchestrator] NODE_EXECUTION_CRITICAL_ERROR: Node '{node_id}' failed during execute(): {agent_exec_e}\n{detailed_traceback}")
                 node_output = {"error": f"Agent execution for '{node_id}' failed critically: {agent_exec_e}"}
@@ -365,7 +370,7 @@ class GraphOrchestrator:
                     with open(os.path.join(folder_path, filename), "w", encoding="utf-8") as f:
                         f.write(str(content))
                     log_status(f"Saved '{filename}' to '{folder_path}'")
-                except Exception as e:
+                except OSError as e:
                     log_status(f"ERROR writing file {os.path.join(folder_path, filename)}: {e}")
             elif not folder_path or not os.path.exists(folder_path):
                 log_status(
@@ -381,7 +386,8 @@ class GraphOrchestrator:
         web_research_out = outputs_history.get("web_researcher", {}).get("web_summary")
         write_output_file("synthesis", "web_research_summary.txt", web_research_out)
         exp_data_out = outputs_history.get("experimental_data_loader", {}).get("experimental_data_summary", "N/A")
-        if exp_data_out != "N/A": write_output_file("synthesis", "experimental_data_summary.txt", exp_data_out)
+        if exp_data_out != "N/A":
+            write_output_file("synthesis", "experimental_data_summary.txt", exp_data_out)
         ikb_out = outputs_history.get("knowledge_integrator", {}).get("integrated_knowledge_brief")
         write_output_file("synthesis", "integrated_knowledge_brief.txt", ikb_out)
         hypo_gen_node_out = outputs_history.get("hypothesis_generator", {})
@@ -407,16 +413,18 @@ class GraphOrchestrator:
                 design = design_info.get("experiment_design", "")
                 err = design_info.get("error")
                 safe_hypo_part = "".join(c if c.isalnum() else "_" for c in str(hypo)[:50]).strip('_')
-                if not safe_hypo_part: safe_hypo_part = f"hypo_text_{i + 1}"
+                if not safe_hypo_part:
+                    safe_hypo_part = f"hypo_text_{i + 1}"
                 fname = f"exp_design_{i + 1}_{safe_hypo_part}.txt"
                 file_content = f"Hypothesis: {hypo}\n\n"
-                if err: file_content += f"Error in design generation: {err}\n\n"
+                if err:
+                    file_content += f"Error in design generation: {err}\n\n"
                 file_content += f"Experiment Design:\n{design}\n"
                 try:
                     with open(os.path.join(exp_path, fname), "w", encoding="utf-8") as f:
                         f.write(file_content)
                     log_status(f"Saved experiment design '{fname}' to '{exp_path}'")
-                except Exception as e:
+                except OSError as e:
                     log_status(f"ERROR writing experiment design file {os.path.join(exp_path, fname)}: {e}")
         elif not exp_designs_list:
             log_status("INFO: No experiment designs were generated to save.")
@@ -493,13 +501,10 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
     except ValueError as ve:
         log_status(f"[MainWorkflow] ORCHESTRATION_SETUP_ERROR: {ve}")
         return {"error": f"Orchestration setup failed: {ve}"}
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         detailed_traceback = traceback.format_exc()
         log_status(f"[MainWorkflow] UNEXPECTED_ORCHESTRATION_ERROR: Orchestration failed: {e}\n{detailed_traceback}")
         return {"error": f"Unexpected error during orchestration: {e}"}
     finally:
         if llm and hasattr(llm, "close"):
             llm.close()
-
-
-
