@@ -1,10 +1,22 @@
+"""Tests for the :class:`GraphOrchestrator` and related agents."""
+
 import unittest
 import os
 import shutil
 import time
 from unittest.mock import patch, MagicMock
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
+
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+except ImportError:  # pragma: no cover - optional dependency
+    canvas = None
+    letter = None
+
+import builtins
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from multi_agent_llm_system import GraphOrchestrator, load_app_config
 from utils import APP_CONFIG
@@ -12,33 +24,50 @@ from llm_fake import FakeLLM
 from agents.base_agent import Agent
 from agents.registry import register_agent
 
+
 @register_agent("A")
 class AgentA(Agent):
-    def execute(self, inputs):
+    """Test agent A."""
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        """Return a fixed output."""
         return {"out1": "output from A"}
+
 
 @register_agent("B")
 class AgentB(Agent):
-    def execute(self, inputs):
+    """Test agent B."""
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        """Return a fixed output."""
         return {"out2": "output from B"}
+
 
 @register_agent("C")
 class AgentC(Agent):
-    def execute(self, inputs):
+    """Test agent C."""
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        """Return a fixed output."""
         return {"out3": "output from C"}
 
 
 @register_agent("SleepAgent")
 class SleepAgent(Agent):
-    def execute(self, inputs):
+    """Agent that sleeps for a specified duration."""
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        """Sleep for the given duration and return it."""
         duration = inputs.get("duration", 0.1)
         time.sleep(duration)
         return {"slept": duration}
 
 
 class TestGraphOrchestrator(unittest.TestCase):
+    """Integration tests for the graph orchestrator."""
 
     def setUp(self):
+        """Create output directory and set environment variables."""
         self.test_outputs_dir = "test_outputs"
         os.makedirs(self.test_outputs_dir, exist_ok=True)
         # The new agents require a dummy API key to be set, even for tests.
@@ -46,12 +75,14 @@ class TestGraphOrchestrator(unittest.TestCase):
         APP_CONFIG.clear()
 
     def tearDown(self):
+        """Remove generated files and clear environment variables."""
         if os.path.exists(self.test_outputs_dir):
             shutil.rmtree(self.test_outputs_dir)
         del os.environ["OPENAI_API_KEY"]
         APP_CONFIG.clear()
 
     def test_topological_sort(self):
+        """The orchestrator executes nodes in topological order."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -82,6 +113,7 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual(outputs_history["c"], {"out3": "output from C"})
 
     def test_visualize_graph(self):
+        """Visualization creates a graph file."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -101,14 +133,16 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
 
 
-    @patch('os.path.exists')
-    @patch('agents.deep_research_summarizer_agent.FAISS')
-    @patch('agents.memory_agent.FAISS')
-    def test_full_graph_run_with_memory_agents(self, mock_faiss_memory, mock_faiss_deep_research, mock_os_path_exists):
-        """
-        Tests a full run of the graph defined in config.json with the new memory agents.
-        Mocks FAISS to avoid file system and embedding issues.
-        """
+    @patch("os.path.exists")
+    @patch("agents.deep_research_summarizer_agent.FAISS")
+    @patch("agents.memory_agent.FAISS")
+    def test_full_graph_run_with_memory_agents(
+        self, mock_faiss_memory, mock_faiss_deep_research, mock_os_path_exists
+    ):
+        """Run the full graph with memory agents, mocking FAISS."""
+        if canvas is None:
+            self.skipTest("reportlab is required for this test")
+
         # Configure the mock for os.path.exists
         mock_os_path_exists.return_value = True
 
@@ -116,7 +150,9 @@ class TestGraphOrchestrator(unittest.TestCase):
         mock_vector_store = MagicMock()
         mock_faiss_memory.from_texts.return_value = mock_vector_store
         mock_faiss_deep_research.load_local.return_value = mock_vector_store
-        mock_vector_store.similarity_search.return_value = [MagicMock(page_content="Relevant summary from search.")]
+        mock_vector_store.similarity_search.return_value = [
+            MagicMock(page_content="Relevant summary from search.")
+        ]
 
         # Load the actual application config
         app_config = load_app_config()
@@ -138,33 +174,40 @@ class TestGraphOrchestrator(unittest.TestCase):
         initial_inputs = {
             "all_pdf_paths": [dummy_pdf_path],
             "experimental_data_file_path": None,
-            "user_query": "What is the main takeaway from the documents?"
+            "user_query": "What is the main takeaway from the documents?",
         }
 
         # Execute the orchestrator
         outputs_history = orchestrator.run(
-            initial_inputs=initial_inputs,
-            project_base_output_dir=self.test_outputs_dir
+            initial_inputs=initial_inputs, project_base_output_dir=self.test_outputs_dir
         )
 
         # Assertions
         self.assertIsNotNone(outputs_history)
         # Check that PDF loader ran without error
-        self.assertNotIn("error", outputs_history.get("pdf_loader_node", {}).get("results", [{}])[0])
+        self.assertNotIn(
+            "error",
+            outputs_history.get("pdf_loader_node", {}).get("results", [{}])[0],
+        )
         # Check that memory agents ran without error
         self.assertNotIn("error", outputs_history.get("short_term_memory_node", {}))
         self.assertNotIn("error", outputs_history.get("long_term_memory_node", {}))
         # Check that the summarizer produced output
-        self.assertIn("deep_research_summary", outputs_history.get("deep_research_summarizer", {}))
+        self.assertIn(
+            "deep_research_summary", outputs_history.get("deep_research_summarizer", {})
+        )
         self.assertNotIn("error", outputs_history.get("deep_research_summarizer", {}))
 
         # Verify that FAISS methods were called
         mock_faiss_memory.from_texts.assert_called_once()
         mock_vector_store.save_local.assert_called()
         mock_faiss_deep_research.load_local.assert_called_once()
-        mock_vector_store.similarity_search.assert_called_once_with("What is the main takeaway from the documents?", k=3)
+        mock_vector_store.similarity_search.assert_called_once_with(
+            "What is the main takeaway from the documents?", k=3
+        )
 
     def test_parallel_loop_execution(self):
+        """Parallel loop execution reduces total run time."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -192,6 +235,7 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual(len(outputs.get("sleeper", {}).get("results", [])), 2)
 
     def test_parallel_loop_execution_order(self):
+        """Parallel loop execution preserves result order."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -217,6 +261,7 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual([r.get("slept") for r in results], durations)
 
     def test_visualize_graph_without_graphviz(self):
+        """visualize() falls back to .gv when graphviz is unavailable."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -232,7 +277,6 @@ class TestGraphOrchestrator(unittest.TestCase):
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
         output_base = os.path.join(self.test_outputs_dir, "graph_no_gv")
-        import builtins
         real_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
