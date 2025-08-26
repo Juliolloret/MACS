@@ -1,3 +1,5 @@
+"""Unit tests for the KnowledgeIntegratorAgent."""
+
 import os
 import unittest
 
@@ -6,7 +8,10 @@ from llm_fake import FakeLLM
 
 
 class TestKnowledgeIntegratorAgent(unittest.TestCase):
+    """Tests for KnowledgeIntegratorAgent."""
+
     def setUp(self):
+        """Create the agent and configure environment for tests."""
         os.environ["OPENAI_API_KEY"] = "dummy_key"
         app_config = {"system_variables": {"models": {}}, "agent_prompts": {}}
         self.agent = KnowledgeIntegratorAgent(
@@ -18,9 +23,11 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         )
 
     def tearDown(self):
+        """Clean up environment variables after tests."""
         del os.environ["OPENAI_API_KEY"]
 
     def test_integrates_sources(self):
+        """Agent integrates multiple sources into a knowledge brief."""
         inputs = {
             "multi_doc_synthesis": "docs",
             "web_research_summary": "web",
@@ -32,6 +39,7 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         self.assertNotIn("error", result)
 
     def test_handles_upstream_errors(self):
+        """Agent handles upstream error flags without failing."""
         inputs = {
             "multi_doc_synthesis_error": True,
             "web_research_summary_error": True,
