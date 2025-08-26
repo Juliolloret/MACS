@@ -1,6 +1,9 @@
+"""Agent that integrates multiple knowledge sources into a coherent brief."""
+
+from llm import LLMError
+
 from .base_agent import Agent
 from .registry import register_agent
-from llm import LLMError
 # log_status is available via base_agent.py, or if not, would need to be imported if used directly here
 
 @register_agent("KnowledgeIntegratorAgent")
