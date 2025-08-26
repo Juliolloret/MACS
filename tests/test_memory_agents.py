@@ -1,3 +1,5 @@
+"""Tests for short- and long-term memory agents."""
+
 import os
 import tempfile
 import unittest
@@ -7,7 +9,10 @@ from llm_fake import FakeLLM
 
 
 class TestMemoryAgents(unittest.TestCase):
+    """Verify the behavior of memory agents using a fake LLM."""
+
     def setUp(self):
+        """Configure a fake LLM and environment for tests."""
         os.environ["OPENAI_API_KEY"] = "dummy_key"
         self.app_config = {
             "system_variables": {
@@ -17,26 +22,37 @@ class TestMemoryAgents(unittest.TestCase):
             },
             "agent_prompts": {},
         }
+
         class FakeLLMWithEmbeddings(FakeLLM):
+            """Fake LLM providing deterministic embeddings for testing."""
+
             class DummyEmbeddings:
-                def __call__(self, text):
+                """Simple embeddings client returning constant vectors."""
+
+                def __call__(self, _text):
+                    """Return a constant embedding regardless of input."""
                     return [0.1, 0.2, 0.3]
 
                 def embed_documents(self, texts):
+                    """Embed a list of documents."""
                     return [self(text) for text in texts]
 
-                def embed_query(self, text):
+                def embed_query(self, _text):
+                    """Embed a single query."""
                     return [0.1, 0.2, 0.3]
 
             def get_embeddings_client(self):
+                """Return the dummy embeddings client."""
                 return self.DummyEmbeddings()
 
         self.llm = FakeLLMWithEmbeddings(self.app_config)
 
     def tearDown(self):
+        """Remove test environment configuration."""
         del os.environ["OPENAI_API_KEY"]
 
     def test_short_term_memory_saves_vector_store(self):
+        """Short term agent saves summaries and returns vector store path."""
         agent = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",
@@ -54,6 +70,7 @@ class TestMemoryAgents(unittest.TestCase):
             self.assertEqual(result["individual_summaries"], ["A", "B"])
 
     def test_short_term_memory_handles_invalid_input(self):
+        """Short term agent reports an error when given invalid input."""
         agent = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",
@@ -65,6 +82,7 @@ class TestMemoryAgents(unittest.TestCase):
         self.assertIn("error", result)
 
     def test_long_term_memory_updates_store(self):
+        """Long term agent saves summaries to persistent storage."""
         agent = LongTermMemoryAgent(
             "ltm",
             "LongTermMemoryAgent",
@@ -81,6 +99,7 @@ class TestMemoryAgents(unittest.TestCase):
             self.assertTrue(os.path.exists(result["long_term_memory_path"]))
 
     def test_short_to_long_term_pipeline(self):
+        """Pipeline from short-term to long-term memory operates correctly."""
         stm = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",
