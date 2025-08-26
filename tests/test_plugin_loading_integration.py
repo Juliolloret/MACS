@@ -1,11 +1,14 @@
+"""Integration tests for dynamic plugin loading."""
+
 import os
-import pytest
+
 from agents.registry import AGENT_REGISTRY, load_plugins
 from multi_agent_llm_system import GraphOrchestrator
 from llm_fake import FakeLLM
 
 
 def test_plugin_agent_runs(tmp_path):
+    """Dynamically loaded plugin can be executed by the orchestrator."""
     os.environ["OPENAI_API_KEY"] = "dummy"
     plugin_dir = tmp_path / "plugin"
     plugin_dir.mkdir()
