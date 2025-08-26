@@ -1,8 +1,10 @@
+"""Pydantic models describing the orchestration graph schema."""
+
 from typing import Any, Dict, List
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
-class NodeDefinition(BaseModel):
+class NodeDefinition(BaseModel):  # pylint: disable=too-few-public-methods
     """Schema describing a single node within the orchestration graph."""
 
     id: str
@@ -10,7 +12,7 @@ class NodeDefinition(BaseModel):
     config: Dict[str, Any] = Field(default_factory=dict)
 
 
-class EdgeDefinition(BaseModel):
+class EdgeDefinition(BaseModel):  # pylint: disable=too-few-public-methods
     """Schema describing a connection between two nodes."""
 
     from_node: str = Field(..., alias="from")
@@ -20,7 +22,7 @@ class EdgeDefinition(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class GraphDefinition(BaseModel):
+class GraphDefinition(BaseModel):  # pylint: disable=too-few-public-methods
     """Container holding the full graph description."""
 
     nodes: List[NodeDefinition]
@@ -28,6 +30,7 @@ class GraphDefinition(BaseModel):
 
     @model_validator(mode="after")
     def check_edges_reference_known_nodes(self):
+        """Ensure that every edge references existing node identifiers."""
         node_ids = {node.id for node in self.nodes}
         for edge in self.edges:
             if edge.from_node not in node_ids or edge.to_node not in node_ids:
