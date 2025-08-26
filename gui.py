@@ -1,26 +1,43 @@
-import sys
+"""Graphical user interface for the Multi-Agent Research Assistant."""
+
+# pylint: disable=missing-function-docstring, import-error, broad-exception-caught
+
+import datetime
 import os
+import sys
 import threading
 import time  # Added for small delay in closeEvent
-import datetime
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QFileDialog, QTextEdit, QMessageBox,
-    QGroupBox, QSizePolicy, QFrame
-)
-from PyQt6.QtCore import pyqtSignal, QObject, Qt, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor
+import traceback
+
+try:
+    from PyQt6.QtCore import QTimer, QObject, pyqtSignal
+    from PyQt6.QtGui import QFont
+    from PyQt6.QtWidgets import (
+        QApplication,
+        QFileDialog,
+        QLabel,
+        QMessageBox,
+        QPushButton,
+        QTextEdit,
+        QGroupBox,
+        QHBoxLayout,
+        QLineEdit,
+        QVBoxLayout,
+        QWidget,
+    )
+except ImportError as import_error:  # pragma: no cover
+    raise ImportError("PyQt6 is required to run the GUI.") from import_error
 
 # --- Import the backend logic ---
-backend_imported_successfully = False
-backend_import_error_message = ""
+BACKEND_IMPORTED_SUCCESSFULLY = False
+BACKEND_IMPORT_ERROR_MESSAGE = ""
 try:
     # This assumes multi_agent_llm_system.py is in the same directory or PYTHONPATH
     import multi_agent_llm_system as backend
 
-    backend_imported_successfully = True
+    BACKEND_IMPORTED_SUCCESSFULLY = True
 except ImportError as e:
-    backend_import_error_message = f"Initial import failed: {e}\n"
+    BACKEND_IMPORT_ERROR_MESSAGE = f"Initial import failed: {e}\n"
     # Attempt to add the script's directory to sys.path for local imports
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
@@ -28,22 +45,34 @@ except ImportError as e:
     try:
         import multi_agent_llm_system as backend
 
-        backend_imported_successfully = True
-        backend_import_error_message = ""
+        BACKEND_IMPORTED_SUCCESSFULLY = True
+        BACKEND_IMPORT_ERROR_MESSAGE = ""
     except ImportError as e2:
-        backend_import_error_message += f"Second import attempt failed: {e2}\nCould not import backend script 'multi_agent_llm_system.py'. Ensure it's in the same directory or PYTHONPATH.\nCurrent sys.path: {sys.path}"
+        BACKEND_IMPORT_ERROR_MESSAGE += (
+            "Second import attempt failed: "
+            f"{e2}\nCould not import backend script 'multi_agent_llm_system.py'. "
+            "Ensure it's in the same directory or PYTHONPATH.\nCurrent sys.path: "
+            f"{sys.path}"
+        )
 
 
 # --- Worker Signals for Threading ---
+
+
 class WorkerSignals(QObject):
+    """Signals used by background worker threads."""
+
     finished_all = pyqtSignal()
     error = pyqtSignal(tuple)  # (exception_type, exception_value, traceback_str, context_info)
     progress = pyqtSignal(str)
     pdf_processed = pyqtSignal(
-        str)  # May be less relevant for fully integrated mode, but can signal individual PDF loading/summarizing steps
+        str
+    )  # May be less relevant for fully integrated mode, but can signal individual PDF loading/summarizing steps
 
 
 class AgentAppGUI(QWidget):
+    """Main application window for the Research Assistant GUI."""
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Multi-Agent Research Assistant - Integrated Analysis")
@@ -58,10 +87,13 @@ class AgentAppGUI(QWidget):
         self.signals.error.connect(self.on_workflow_error)
         self.signals.pdf_processed.connect(self.on_single_pdf_processed)
 
-        self.backend_ok = backend_imported_successfully
+        self.backend_ok = BACKEND_IMPORTED_SUCCESSFULLY
         if not self.backend_ok:
-            QMessageBox.critical(self, "Critical Backend Import Error",
-                                 backend_import_error_message + "\nThe application will have limited functionality.")
+            QMessageBox.critical(
+                self,
+                "Critical Backend Import Error",
+                BACKEND_IMPORT_ERROR_MESSAGE + "\nThe application will have limited functionality.",
+            )
 
         self.init_ui()
 
@@ -391,7 +423,7 @@ class AgentAppGUI(QWidget):
                 self.signals.progress.emit("[GUI] Integrated processing cancelled before start.")
                 return
 
-            self.signals.progress.emit(f"\n[GUI] Starting integrated analysis for the project...")
+            self.signals.progress.emit("\n[GUI] Starting integrated analysis for the project...")
 
             result = backend.run_project_orchestration(
                 pdf_file_paths=pdf_file_paths_list,
@@ -402,11 +434,11 @@ class AgentAppGUI(QWidget):
             )
 
             if self.stop_event.is_set():
-                self.signals.progress.emit(f"[GUI] Integrated project processing was interrupted.")
+                self.signals.progress.emit("[GUI] Integrated project processing was interrupted.")
             elif result and result.get("error"):
                 self.signals.error.emit(("ProjectError", result.get("error"), "See logs for details", "Project Level"))
             else:
-                self.signals.progress.emit(f"[GUI] Integrated project analysis finished successfully.")
+                self.signals.progress.emit("[GUI] Integrated project analysis finished successfully.")
 
         except Exception as e:
             if self.stop_event.is_set():
@@ -446,11 +478,12 @@ class AgentAppGUI(QWidget):
         self.processing_thread = None
 
     def on_workflow_error(self, error_tuple):
-        exctype, value, tb_str, context_info = error_tuple
+        _exc_type, value, tb_str, context_info = error_tuple
         self.log_status_to_gui(f"[GUI] ERROR during '{context_info}': {value}")
         self.log_status_to_gui(f"[GUI] Traceback for '{context_info}':\n{tb_str}")
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # pylint: disable=invalid-name
+        """Handle window close events, attempting to stop worker threads."""
         if self.processing_thread and self.processing_thread.is_alive():
             reply = QMessageBox.question(self, 'Confirm Quit',
                                          "An analysis is currently processing. Are you sure you want to quit? Attempting to stop gracefully.",
@@ -464,7 +497,7 @@ class AgentAppGUI(QWidget):
                 time.sleep(0.1)
 
                 if self.processing_thread.is_alive():
-                    self.log_status_to_gui(f"[GUI] Waiting for worker thread to join (max 5s)...")
+                    self.log_status_to_gui("[GUI] Waiting for worker thread to join (max 5s)...")
                     self.processing_thread.join(timeout=5.0)
 
                 if self.processing_thread.is_alive():
@@ -484,11 +517,13 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 
-    if not backend_imported_successfully:
+    if not BACKEND_IMPORTED_SUCCESSFULLY:
         error_box = QMessageBox()
         error_box.setIcon(QMessageBox.Icon.Critical)
         error_box.setText("Critical Backend Import Error")
-        error_box.setInformativeText(backend_import_error_message + "\nThe application cannot start correctly.")
+        error_box.setInformativeText(
+            BACKEND_IMPORT_ERROR_MESSAGE + "\nThe application cannot start correctly."
+        )
         error_box.setWindowTitle("Application Startup Error")
         error_box.exec()
         sys.exit(1)
