@@ -1,106 +1,123 @@
-import os
+"""Utility helpers for configuration management and OpenAI interactions."""
+
+from __future__ import annotations
+
 import json
+import os
 from typing import Optional
 
-from pydantic import ValidationError
+try:
+    from pydantic import ValidationError
+except ImportError:  # pragma: no cover - pydantic is optional at runtime
+    ValidationError = Exception  # type: ignore
 
 from config_schema import validate_graph_definition
+from llm import LLMError
 
-# Attempt to import OpenAI library and its specific errors.
-# These are primarily used by call_openai_api.
-try:
-    from openai import OpenAI as OpenAI_lib, APIConnectionError, APITimeoutError, RateLimitError, \
-        AuthenticationError, BadRequestError
+try:  # Expose PyPDF2 for agents that rely on it without importing here
+    import PyPDF2  # pylint: disable=unused-import
+except ImportError:  # pragma: no cover
+    PyPDF2 = None  # type: ignore
+
+# Attempt to import OpenAI library and its specific errors. These are primarily
+# used by ``call_openai_api``.
+try:  # pragma: no cover - the SDK may not be installed in test environments
+    from openai import (
+        APIConnectionError,
+        APITimeoutError,
+        AuthenticationError,
+        BadRequestError,
+        RateLimitError,
+    )
     OPENAI_SDK_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - handled gracefully at runtime
     OPENAI_SDK_AVAILABLE = False
-    OpenAI_lib = None # Placeholder if not available
-    APIConnectionError = APITimeoutError = RateLimitError = AuthenticationError = BadRequestError = Exception # Fallback to base Exception
+    APIConnectionError = APITimeoutError = RateLimitError = AuthenticationError = BadRequestError = (  # type: ignore
+        Exception
+    )
 
-# --- Global Variables / Placeholders ---
-# These will be initialized or updated by load_app_config
-OpenAI = None
-try:
-    import PyPDF2
-except ImportError:
-    PyPDF2 = None
 openai_errors = {
     "APIConnectionError": APIConnectionError,
     "APITimeoutError": APITimeoutError,
     "RateLimitError": RateLimitError,
     "AuthenticationError": AuthenticationError,
-    "BadRequestError": BadRequestError
+    "BadRequestError": BadRequestError,
 } if OPENAI_SDK_AVAILABLE else {}
 
 
-APP_CONFIG = {}
-STATUS_CALLBACK = print
+APP_CONFIG: dict = {}
+_STATUS_CALLBACK = {"func": print}
 
 UTIL_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# --- Utility Function Definitions ---
 
 def set_status_callback(callback_func):
-    """Sets a global callback for status updates."""
-    global STATUS_CALLBACK
-    STATUS_CALLBACK = callback_func
+    """Set the status callback used by :func:`log_status`."""
+
+    _STATUS_CALLBACK["func"] = callback_func
+
 
 def log_status(message: str):
-    """Logs a message using the globally defined status callback."""
-    if callable(STATUS_CALLBACK):
-        STATUS_CALLBACK(message)
+    """Log ``message`` using the configured status callback."""
+
+    callback = _STATUS_CALLBACK.get("func", print)
+    if callable(callback):
+        callback(message)
     else:
-        print(message) # Fallback to print if callback is not callable
+        print(message)
 
 
-def load_app_config(config_path="config.json", main_script_dir=None):
+def load_app_config(config_path: str = "config.json", main_script_dir: Optional[str] = None):
+    """Load and validate the application configuration.
+
+    The configuration is stored in the module-level ``APP_CONFIG`` dictionary.
+    Returns the loaded configuration on success, otherwise ``None``.
     """
-    Loads the application configuration from a JSON file.
-    Dynamically imports PyPDF2 and reportlab if available.
-    Uses main_script_dir to resolve relative config_path if provided,
-    otherwise assumes config_path is absolute or relative to where
-    load_app_config is called. The loaded configuration is stored in the
-    module-level ``APP_CONFIG`` dictionary, mutating global state.
-    Returns the config dictionary on success, None on failure.
-    """
+
     if main_script_dir and not os.path.isabs(config_path):
         resolved_config_path = os.path.join(main_script_dir, config_path)
     else:
         resolved_config_path = config_path
 
-    log_status(f"[AppConfig] Attempting to load configuration from: '{resolved_config_path}'")
+    log_status(
+        f"[AppConfig] Attempting to load configuration from: '{resolved_config_path}'"
+    )
     try:
-        with open(resolved_config_path, 'r', encoding='utf-8') as f:
+        with open(resolved_config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
-        log_status(f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'.")
+        log_status(
+            f"[AppConfig] Successfully loaded configuration from '{resolved_config_path}'."
+        )
 
-        # Validate graph configuration if present
         if config.get("graph_definition"):
             validate_graph_definition(config["graph_definition"])
 
-        # The dynamic loading of reportlab has been removed from this central utility.
-        # Client code that needs reportlab should handle its own imports and availability checks.
-
-        # Store the loaded configuration in the module-level APP_CONFIG so
-        # subsequent calls can rely on the global state without manually
-        # updating it.
         APP_CONFIG.clear()
         APP_CONFIG.update(config)
 
         return config
     except FileNotFoundError:
-        log_status(f"[AppConfig] ERROR: Configuration file '{resolved_config_path}' not found.")
-    except json.JSONDecodeError as e:
-        log_status(f"[AppConfig] ERROR: Could not decode JSON from '{resolved_config_path}': {e}.")
-    except ValidationError as e:
-        log_status(f"[AppConfig] ERROR: Graph configuration validation failed: {e}")
-    except Exception as e:
-        log_status(f"[AppConfig] ERROR: An unexpected error occurred while loading config '{resolved_config_path}': {e}.")
+        log_status(
+            f"[AppConfig] ERROR: Configuration file '{resolved_config_path}' not found."
+        )
+    except json.JSONDecodeError as exc:
+        log_status(
+            f"[AppConfig] ERROR: Could not decode JSON from '{resolved_config_path}': {exc}."
+        )
+    except ValidationError as exc:
+        log_status(
+            f"[AppConfig] ERROR: Graph configuration validation failed: {exc}"
+        )
+    except OSError as exc:
+        log_status(
+            f"[AppConfig] ERROR: OS error occurred while loading config '{resolved_config_path}': {exc}."
+        )
     return None
 
 
 def get_model_name(app_config: dict, model_key: Optional[str] = None) -> str:
-    """Retrieves a model name from the provided config, falling back to default if not found."""
+    """Retrieve a model name from the provided config, with a sensible default."""
+
     if not app_config:
         return "gpt-4o"
     models_config = app_config.get("system_variables", {}).get("models", {})
@@ -110,50 +127,50 @@ def get_model_name(app_config: dict, model_key: Optional[str] = None) -> str:
 
 
 def get_prompt_text(app_config: dict, prompt_key: Optional[str]) -> str:
-    """Retrieves a prompt text from the provided config by its key."""
+    """Retrieve prompt text from ``app_config`` using ``prompt_key``."""
+
     if prompt_key is None:
         return ""
     if not app_config:
-        log_status(f"[Utils] ERROR: get_prompt_text called for '{prompt_key}' but app_config is not provided.")
+        log_status(
+            f"[Utils] ERROR: get_prompt_text called for '{prompt_key}' but app_config is not provided."
+        )
         return f"ERROR: Config not provided, prompt key '{prompt_key}' unavailable."
 
     prompts_config = app_config.get("agent_prompts", {})
     if prompt_key not in prompts_config:
-        log_status(f"[AppConfig] ERROR: Prompt key '{prompt_key}' not found in agent_prompts.")
+        log_status(
+            f"[AppConfig] ERROR: Prompt key '{prompt_key}' not found in agent_prompts."
+        )
         return f"ERROR: Prompt key '{prompt_key}' not found."
 
     prompt_text = prompts_config.get(prompt_key)
     if prompt_text is None:
-        log_status(f"[AppConfig] WARNING: Prompt key '{prompt_key}' has null value in config. Returning empty string.")
+        log_status(
+            f"[AppConfig] WARNING: Prompt key '{prompt_key}' has null value in config. Returning empty string."
+        )
         return ""
     return prompt_text
-
-
-from llm import LLMError
 
 
 def call_openai_api(
     prompt: str,
     system_message: str = "You are a helpful assistant.",
-    agent_name: str = "LLM",
+    _agent_name: str = "LLM",
     model_name: Optional[str] = None,
     temperature: float = 0.5,
 ) -> str:
-    """Deprecated wrapper around OpenAILLM for backward compatibility."""
+    """Deprecated wrapper around :class:`llm_openai.OpenAILLM` for backward compatibility."""
+
     try:
-        from llm_openai import OpenAILLM
-    except ImportError as e:
-        raise LLMError("OpenAI library is not available.") from e
+        from llm_openai import OpenAILLM  # pylint: disable=import-outside-toplevel
+    except ImportError as exc:  # pragma: no cover - handled in tests
+        raise LLMError("OpenAI library is not available.") from exc
 
     api_key = APP_CONFIG.get("system_variables", {}).get("openai_api_key")
     timeout = float(
         APP_CONFIG.get("system_variables", {}).get("openai_api_timeout_seconds", 120)
     )
-    # BUGFIX: OpenAILLM requires the application configuration during
-    # initialisation.  The previous implementation omitted this argument,
-    # resulting in a ``TypeError`` being raised when ``call_openai_api`` was
-    # invoked.  We now pass the global ``APP_CONFIG`` so the wrapper behaves
-    # as intended.
     llm = OpenAILLM(app_config=APP_CONFIG, api_key=api_key, timeout=int(timeout))
     return llm.complete(
         system=system_message,
@@ -161,3 +178,4 @@ def call_openai_api(
         model=model_name,
         temperature=temperature,
     )
+
