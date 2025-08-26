@@ -1,11 +1,16 @@
+"""Agent for performing deep research summaries using a FAISS vector store."""
+
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
-from langchain_community.vectorstores import FAISS
+try:
+    from langchain_community.vectorstores import FAISS
+except ImportError:  # pragma: no cover
+    FAISS = None  # type: ignore[assignment]
 
+from utils import log_status
 from .base_agent import Agent
 from .registry import register_agent
-from utils import log_status
 
 
 @register_agent("DeepResearchSummarizerAgent")
@@ -15,7 +20,9 @@ class DeepResearchSummarizerAgent(Agent):
     and synthesizing the results with an LLM.
     """
 
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
     def __init__(self, agent_id, agent_type, config_params=None, llm=None, app_config=None):
+        """Initialize the summarizer agent."""
         super().__init__(agent_id, agent_type, config_params, llm, app_config)
         self.top_k = self.config_params.get("top_k", 3)
 
@@ -42,6 +49,13 @@ class DeepResearchSummarizerAgent(Agent):
         if not os.path.exists(vector_store_path):
             log_status(f"[{self.agent_id}] ERROR: Vector store not found at path: {vector_store_path}")
             return {"error": f"Vector store not found at path: {vector_store_path}"}
+
+        if FAISS is None:
+            error_msg = (
+                "langchain_community.vectorstores is not available. Install the package to enable FAISS support."
+            )
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"error": error_msg}
 
         try:
             log_status(f"[{self.agent_id}] INFO: Loading FAISS vector store from '{vector_store_path}'.")
@@ -75,7 +89,7 @@ class DeepResearchSummarizerAgent(Agent):
 
             return {"deep_research_summary": response}
 
-        except Exception as e:
-            error_msg = f"Failed during deep research summarization: {e}"
+        except (OSError, ValueError, RuntimeError) as exc:
+            error_msg = f"Failed during deep research summarization: {exc}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
