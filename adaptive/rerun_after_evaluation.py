@@ -1,12 +1,12 @@
-from __future__ import annotations
-
 """Re-run a graph after evaluating experimental results.
 
 This module provides a small utility for continuing an adaptive experimentation
-cycle once laboratory results have been gathered.  The evaluation results are
+cycle once laboratory results have been gathered. The evaluation results are
 recorded in a simple JSON "database" and the graph is executed again to propose
 new experimental conditions.
 """
+
+from __future__ import annotations
 
 import argparse
 from typing import Any, Dict
@@ -39,7 +39,7 @@ def rerun_with_evaluation(
     *,
     threshold: float,
     max_steps: int,
-) -> None:
+) -> None:  # pylint: disable=too-many-arguments
     """Update the experiment database and run the adaptive cycle again."""
     run_inputs = load_json(inputs_path)
     evaluation_result = load_json(evaluation_path)
