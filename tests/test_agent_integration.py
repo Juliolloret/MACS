@@ -1,3 +1,5 @@
+"""Integration tests verifying agent collaboration."""
+
 import os
 import unittest
 
@@ -9,7 +11,10 @@ from llm_fake import FakeLLM
 
 
 class TestAgentIntegration(unittest.TestCase):
+    """Validate that core agents can run through an entire pipeline."""
+
     def setUp(self):
+        """Prepare fake agents and configuration for testing."""
         os.environ["OPENAI_API_KEY"] = "dummy_key"
         self.app_config = {
             "system_variables": {"models": {}},
@@ -49,9 +54,11 @@ class TestAgentIntegration(unittest.TestCase):
         )
 
     def tearDown(self):
+        """Remove fake API key from environment."""
         del os.environ["OPENAI_API_KEY"]
 
     def test_pipeline(self):
+        """Ensure each agent processes and passes data as expected."""
         summaries = [
             {"summary": "First", "original_pdf_path": "doc1.pdf"},
             {"summary": "Second", "original_pdf_path": "doc2.pdf"},
