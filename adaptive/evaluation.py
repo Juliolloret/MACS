@@ -1,3 +1,10 @@
+"""Helper functions for evaluating adaptive graph outputs.
+
+This module exposes :func:`evaluate_target_function`, a small utility used by
+the adaptive workflow to decide whether further mutation of the graph is
+required based on the score returned from a run.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional

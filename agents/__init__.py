@@ -1,3 +1,5 @@
+"""Convenience imports and registry initialisation for agent classes."""
+
 from .registry import (
     AGENT_REGISTRY,
     AgentPlugin,
