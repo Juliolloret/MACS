@@ -1,9 +1,19 @@
+"""Utilities for running an adaptive agent graph.
+
+This module provides a command line interface and helper functions for executing
+and iteratively adapting an agent graph based on evaluation feedback. The
+``adaptive_cycle`` function orchestrates the graph execution and optionally
+updates the graph definition after each iteration.
+"""
+
 from __future__ import annotations
 
 import argparse
 import importlib
 from typing import Any, Callable, Dict, Optional
 
+from llm_fake import FakeLLM
+from llm_openai import OpenAILLM
 from multi_agent_llm_system import GraphOrchestrator
 
 from .evaluation import evaluate_target_function
@@ -18,19 +28,14 @@ def _create_llm_client(app_config: Dict[str, Any]):
     timeout = float(system_vars.get("openai_api_timeout_seconds", 120))
 
     if llm_client_type == "openai" and api_key and "YOUR" not in api_key:
-        from llm_openai import OpenAILLM
-
         return OpenAILLM(app_config=app_config, api_key=api_key, timeout=int(timeout))
-    else:
-        from llm_fake import FakeLLM
-
-        return FakeLLM(app_config=app_config)
+    return FakeLLM(app_config=app_config)
 
 
 def adaptive_cycle(
     config_path: str,
     inputs: Dict[str, Any],
-    evaluate: Callable[[Dict[str, Any], Dict[str, Any], float, int], Optional[Dict[str, Any]]],
+    evaluate_fn: Callable[[Dict[str, Any], Dict[str, Any], float, int], Optional[Dict[str, Any]]],
     *,
     threshold: float,
     max_steps: int,
@@ -52,7 +57,7 @@ def adaptive_cycle(
             if hasattr(llm, "close"):
                 llm.close()
 
-        new_graph = evaluate(final_outputs, graph_definition, threshold, step)
+        new_graph = evaluate_fn(final_outputs, graph_definition, threshold, step)
         if not new_graph:
             break
 
@@ -85,12 +90,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_inputs = load_json(args.inputs)
-    evaluate = evaluate_target_function if not args.eval_hook else _resolve_callable(args.eval_hook)
+    evaluate_fn = evaluate_target_function if not args.eval_hook else _resolve_callable(args.eval_hook)
 
     adaptive_cycle(
         args.config,
         run_inputs,
-        evaluate,
+        evaluate_fn,
         threshold=args.threshold,
         max_steps=args.max_steps,
     )
