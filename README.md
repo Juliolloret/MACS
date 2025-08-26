@@ -76,7 +76,7 @@
   - **graph_definition:** Declarative description of the agent workflow (nodes and edges), specifying agent types, order, and data mappings.
 - **Customization:** Users can adjust models, prompt styles, and workflow topology without modifying code.
 
-<img width="2286" height="3840" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
+<img width="1143" height="1920" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
 
 ## Setup & Usage
 
@@ -151,10 +151,8 @@ MACS now includes an **adaptive evolution cycle** that can automatically refine 
 agent graph. The runner in `adaptive/adaptive_graph_runner.py` executes the current
 workflow, evaluates the results, and mutates the configuration for the next step.
 This process repeats until a target quality threshold is achieved or a maximum
-number of iterations is reached, allowing the system to iteratively improve its
-performance.
-
-<img src="https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b" width="350" height="680"/>
+number of iterations is reached, allowing the system to improve its
+performance iteratively.
 
 ---
 
