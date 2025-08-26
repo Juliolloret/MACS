@@ -1,8 +1,11 @@
+"""Tests for the helper function that invokes the OpenAI API."""
+
 import llm_openai
 from utils import call_openai_api, APP_CONFIG
 
 
 def test_call_openai_api_passes_app_config(monkeypatch):
+    """Ensure call_openai_api forwards configuration and parameters correctly."""
     # Prepare application configuration
     APP_CONFIG.clear()
     APP_CONFIG.update({
@@ -14,13 +17,17 @@ def test_call_openai_api_passes_app_config(monkeypatch):
 
     captured = {}
 
-    class DummyLLM:
+    class DummyLLM:  # pylint: disable=too-few-public-methods
+        """Simple stand-in for the real OpenAI LLM class."""
+
         def __init__(self, app_config, api_key=None, timeout=0):
+            """Record constructor arguments for later assertions."""
             captured["app_config"] = app_config
             captured["api_key"] = api_key
             captured["timeout"] = timeout
 
         def complete(self, system, prompt, model=None, temperature=None):
+            """Record completion parameters and return a dummy response."""
             captured["system"] = system
             captured["prompt"] = prompt
             captured["model"] = model
