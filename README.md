@@ -78,6 +78,7 @@
 
 <img src="https://github.com/user-attachments/assets/34fc348b-cbfb-48ca-a187-b5b2b94f7f9b" width="350" height="680"/>
 
+<img width="2286" height="3840" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
 
 ## Setup & Usage
 
