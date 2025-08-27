@@ -52,3 +52,60 @@ def test_call_openai_api_passes_app_config(monkeypatch):
     assert captured["prompt"] == "hello"
     assert captured["model"] == "test-model"
     assert captured["temperature"] == 0.3
+
+
+def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
+    """GPT-5 rejects explicit temperature values; ensure we don't send one."""
+    APP_CONFIG.clear()
+    APP_CONFIG.update({
+        "system_variables": {
+            "openai_api_key": "test-key",
+            "openai_api_timeout_seconds": 10,
+        }
+    })
+
+    captured = {}
+
+    class DummyCompletions:  # pylint: disable=too-few-public-methods
+        def create(self, **kwargs):  # noqa: D401
+            captured["temperature"] = kwargs.get("temperature")
+
+            class Message:  # pylint: disable=too-few-public-methods
+                content = "hi"
+
+            class Choice:  # pylint: disable=too-few-public-methods
+                message = Message()
+
+            class Resp:  # pylint: disable=too-few-public-methods
+                choices = [Choice()]
+
+            return Resp()
+
+    class DummyClient:  # pylint: disable=too-few-public-methods
+        def __init__(self, api_key=None, timeout=None):
+            self.chat = type("Chat", (), {"completions": DummyCompletions()})()
+
+    class DummyCache:  # pylint: disable=too-few-public-methods
+        def __init__(self, path=None):
+            pass
+
+        def make_key(self, *args, **kwargs):  # noqa: D401
+            return "key"
+
+        def get(self, key):  # noqa: D401
+            return None
+
+        def set(self, key, value):  # noqa: D401
+            pass
+
+    monkeypatch.setattr(llm_openai, "OpenAI", DummyClient)
+    monkeypatch.setattr(llm_openai, "Cache", DummyCache)
+
+    call_openai_api(
+        prompt="hi",
+        system_message="sys",
+        model_name="gpt-5",
+        temperature=0.4,
+    )
+
+    assert captured["temperature"] is None
