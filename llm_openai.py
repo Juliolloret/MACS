@@ -74,6 +74,11 @@ class OpenAILLM(LLMClient):
         chosen_model = model if model else get_model_name(self.app_config)
         sys_msg = system if system else "You are a helpful assistant."
         temp = temperature
+        # GPT-5 only supports the default temperature of 1 and rejects explicit
+        # values. To avoid "unsupported value" errors, omit the temperature
+        # parameter entirely when targeting GPT-5 models.
+        if chosen_model and chosen_model.startswith("gpt-5"):
+            temp = None
         if chosen_model and "o4-mini" in chosen_model and temp is None:
             temp = 1.0
         if not self.api_key or self.api_key in [
@@ -88,11 +93,16 @@ class OpenAILLM(LLMClient):
             log_status(f"[LLM] CACHE_HIT: Model='{chosen_model}'")
             return cached
         try:
-            response = self.client.chat.completions.create(
-                model=chosen_model,
-                messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                temperature=temp,
-            )
+            params = {
+                "model": chosen_model,
+                "messages": [
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": prompt},
+                ],
+            }
+            if temp is not None:
+                params["temperature"] = temp
+            response = self.client.chat.completions.create(**params)
             if not response.choices:
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices."
