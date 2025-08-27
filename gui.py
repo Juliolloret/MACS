@@ -2,6 +2,35 @@
 
 # pylint: disable=missing-function-docstring, import-error, broad-exception-caught
 
+import os
+import subprocess
+import sys
+
+def install_dependencies():
+    """
+    Checks for a requirements.txt file and installs the packages if they are not already satisfied.
+    """
+    requirements_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
+    if not os.path.exists(requirements_path):
+        print("[Dependency Check] requirements.txt not found. Skipping installation.")
+        return
+
+    print("[Dependency Check] Checking and installing dependencies from requirements.txt...")
+    try:
+        # Using pip check to see if dependencies are met.
+        # This is faster than checking each package individually if everything is already installed.
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_path])
+        print("[Dependency Check] All dependencies are satisfied.")
+    except subprocess.CalledProcessError:
+        print("[Dependency Check] Failed to install dependencies. Please install them manually using 'pip install -r requirements.txt'")
+        # Depending on how critical the dependencies are, you might want to exit.
+        # For now, we'll just print a warning and continue.
+    except FileNotFoundError:
+        print("[Dependency Check] 'pip' command not found. Please ensure pip is installed and in your PATH.")
+
+# Run the dependency check right away
+install_dependencies()
+
 import datetime
 import os
 import sys
