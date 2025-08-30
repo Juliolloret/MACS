@@ -365,20 +365,19 @@ class GraphOrchestrator:
 
         def write_output_file(folder_key, filename, content):
             folder_path = project_output_paths.get(folder_key)
-            if content is not None and folder_path and os.path.exists(folder_path):
+            if folder_path and os.path.exists(folder_path):
                 try:
                     with open(os.path.join(folder_path, filename), "w", encoding="utf-8") as f:
-                        f.write(str(content))
-                    log_status(f"Saved '{filename}' to '{folder_path}'")
+                        if content is not None:
+                            f.write(str(content))
+                    log_status(
+                        f"Saved '{filename}' to '{folder_path}'" + (" (empty)" if content in [None, ""] else "")
+                    )
                 except OSError as e:
                     log_status(f"ERROR writing file {os.path.join(folder_path, filename)}: {e}")
-            elif not folder_path or not os.path.exists(folder_path):
-                log_status(
-                    f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
-                )
             else:
                 log_status(
-                    f"INFO: No valid content to save for '{filename}' (content was None or empty)."
+                    f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
                 )
 
         mds_out = outputs_history.get("multi_doc_synthesizer", {}).get("multi_doc_synthesis_output")
