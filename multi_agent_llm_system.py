@@ -363,16 +363,21 @@ class GraphOrchestrator:
                     except OSError as e:
                         log_status(f"ERROR creating output subfolder {full_path}: {e}")
 
-        def write_output_file(folder_key, filename, content):
+        def write_output_file(folder_key, filename, content, error=None):
             folder_path = project_output_paths.get(folder_key)
             if folder_path and os.path.exists(folder_path):
                 file_path = os.path.join(folder_path, filename)
                 try:
-                    data_to_write = "No content generated." if content in [None, ""] else str(content)
+                    if content in [None, ""]:
+                        data_to_write = f"Error: {error}" if error else "No content generated."
+                    else:
+                        data_to_write = str(content)
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(data_to_write)
                     log_status(
-                        f"Saved '{filename}' to '{folder_path}'" + (" (placeholder written)" if content in [None, ""] else "")
+                        f"Saved '{filename}' to '{folder_path}'" + (
+                            " (placeholder written)" if content in [None, ""] and not error else ""
+                        )
                     )
                 except OSError as e:
                     log_status(f"ERROR writing file {file_path}: {e}")
@@ -381,20 +386,51 @@ class GraphOrchestrator:
                     f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
                 )
 
-        mds_out = outputs_history.get("multi_doc_synthesizer", {}).get("multi_doc_synthesis_output")
-        write_output_file("synthesis", "multi_document_synthesis.txt", mds_out)
-        web_research_out = outputs_history.get("web_researcher", {}).get("web_summary")
-        write_output_file("synthesis", "web_research_summary.txt", web_research_out)
-        exp_data_out = outputs_history.get("experimental_data_loader", {}).get("experimental_data_summary", "N/A")
+        mds_node_out = outputs_history.get("multi_doc_synthesizer", {})
+        write_output_file(
+            "synthesis",
+            "multi_document_synthesis.txt",
+            mds_node_out.get("multi_doc_synthesis_output"),
+            mds_node_out.get("error"),
+        )
+        web_node_out = outputs_history.get("web_researcher", {})
+        write_output_file(
+            "synthesis",
+            "web_research_summary.txt",
+            web_node_out.get("web_summary"),
+            web_node_out.get("error"),
+        )
+        exp_node_out = outputs_history.get("experimental_data_loader", {})
+        exp_data_out = exp_node_out.get("experimental_data_summary", "N/A")
         if exp_data_out != "N/A":
-            write_output_file("synthesis", "experimental_data_summary.txt", exp_data_out)
-        ikb_out = outputs_history.get("knowledge_integrator", {}).get("integrated_knowledge_brief")
-        write_output_file("synthesis", "integrated_knowledge_brief.txt", ikb_out)
+            write_output_file(
+                "synthesis",
+                "experimental_data_summary.txt",
+                exp_data_out,
+                exp_node_out.get("error"),
+            )
+        ikb_node_out = outputs_history.get("knowledge_integrator", {})
+        write_output_file(
+            "synthesis",
+            "integrated_knowledge_brief.txt",
+            ikb_node_out.get("integrated_knowledge_brief"),
+            ikb_node_out.get("error"),
+        )
         hypo_gen_node_out = outputs_history.get("hypothesis_generator", {})
         raw_blob = hypo_gen_node_out.get("hypotheses_output_blob")
-        write_output_file("hypotheses", "hypotheses_raw_llm_output.json", raw_blob)
+        write_output_file(
+            "hypotheses",
+            "hypotheses_raw_llm_output.json",
+            raw_blob,
+            hypo_gen_node_out.get("error"),
+        )
         key_ops = hypo_gen_node_out.get("key_opportunities")
-        write_output_file("hypotheses", "key_research_opportunities.txt", key_ops)
+        write_output_file(
+            "hypotheses",
+            "key_research_opportunities.txt",
+            key_ops,
+            hypo_gen_node_out.get("error"),
+        )
         hypo_list = hypo_gen_node_out.get("hypotheses_list", [])
         if hypo_list:
             hypo_list_content = ""
@@ -405,7 +441,8 @@ class GraphOrchestrator:
                 else:
                     hypo_list_content += f"{i + 1}. {h_item}\n\n"
             write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
-        exp_designs_list = outputs_history.get("experiment_designer", {}).get("experiment_designs_list", [])
+        exp_designer_out = outputs_history.get("experiment_designer", {})
+        exp_designs_list = exp_designer_out.get("experiment_designs_list", [])
         exp_path = project_output_paths.get("experiments")
         if exp_designs_list and exp_path and os.path.exists(exp_path):
             for i, design_info in enumerate(exp_designs_list):
@@ -426,7 +463,9 @@ class GraphOrchestrator:
                     log_status(f"Saved experiment design '{fname}' to '{exp_path}'")
                 except OSError as e:
                     log_status(f"ERROR writing experiment design file {os.path.join(exp_path, fname)}: {e}")
-        elif not exp_designs_list:
+        elif exp_designer_out.get("error") and exp_path and os.path.exists(exp_path):
+            write_output_file("experiments", "experiment_designs_error.txt", "", exp_designer_out.get("error"))
+        else:
             log_status("INFO: No experiment designs were generated to save.")
 
 
