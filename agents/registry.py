@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Type
 
+from importlib import metadata
 from utils import log_status
 
 MACS_VERSION = "1.0"
@@ -86,25 +87,69 @@ def load_agents(package_name: str = __package__):
     )
 
 
-def load_plugins(path: str = 'agent_plugins'):
-    """Discover and load third-party agent plugins from a directory."""
+def load_plugins(path: str = "agent_plugins"):
+    """Discover and load third-party agent plugins from a directory or entry points."""
     plugins_path = Path(path)
-    if not plugins_path.exists():
-        return
-
-    sys.path.insert(0, str(plugins_path.resolve()))
-    for module_info in pkgutil.iter_modules([str(plugins_path)]):
-        try:
-            module = importlib.import_module(module_info.name)
-        except ImportError as e:
-            log_status(f"  [FAILURE] Failed to import plugin module '{module_info.name}'. Error: {e}")
-            continue
-
-        plugin = getattr(module, "PLUGIN", None)
-        if plugin:
+    if plugins_path.exists():
+        sys.path.insert(0, str(plugins_path.resolve()))
+        for module_info in pkgutil.iter_modules([str(plugins_path)]):
             try:
-                register_plugin(plugin)
-                log_status(f"  [PLUGIN] Registered plugin agent '{plugin.metadata.name}'")
-            except ValueError as e:
-                log_status(f"  [INCOMPATIBLE] {e}")
-    sys.path.pop(0)
+                module = importlib.import_module(module_info.name)
+            except ImportError as e:
+                log_status(
+                    f"  [FAILURE] Failed to import plugin module '{module_info.name}'. Error: {e}"
+                )
+                continue
+
+            plugin = getattr(module, "PLUGIN", None)
+            if plugin:
+                try:
+                    register_plugin(plugin)
+                    log_status(
+                        f"  [PLUGIN] Registered plugin agent '{plugin.metadata.name}'"
+                    )
+                except ValueError as e:
+                    log_status(f"  [INCOMPATIBLE] {e}")
+        sys.path.pop(0)
+
+    try:
+        entry_points = metadata.entry_points()
+        if hasattr(entry_points, "select"):
+            plugin_eps = entry_points.select(group="macs.plugins")
+        else:
+            plugin_eps = entry_points.get("macs.plugins", [])
+        for ep in plugin_eps:
+            try:
+                plugin = ep.load()
+            except ImportError as e:
+                log_status(
+                    f"  [FAILURE] Failed to load plugin entry point '{ep.name}'. Error: {e}"
+                )
+                continue
+
+            if plugin:
+                try:
+                    register_plugin(plugin)
+                    log_status(
+                        f"  [PLUGIN] Registered plugin agent '{plugin.metadata.name}'"
+                    )
+                except ValueError as e:
+                    log_status(f"  [INCOMPATIBLE] {e}")
+    except Exception as e:  # pragma: no cover - defensive
+        log_status(f"  [FAILURE] Entry point discovery failed: {e}")
+
+
+def list_plugins():
+    """Return metadata for all registered agents and plugins."""
+    plugins = []
+    for entry in AGENT_REGISTRY.values():
+        metadata_obj = entry.get("metadata")
+        if metadata_obj:
+            plugins.append(
+                {
+                    "name": metadata_obj.name,
+                    "version": metadata_obj.version,
+                    "author": metadata_obj.author,
+                }
+            )
+    return plugins
