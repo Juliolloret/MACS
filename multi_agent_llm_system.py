@@ -368,8 +368,8 @@ class GraphOrchestrator:
             if folder_path and os.path.exists(folder_path):
                 try:
                     with open(os.path.join(folder_path, filename), "w", encoding="utf-8") as f:
-                        if content is not None:
-                            f.write(str(content))
+                        text = str(content) if content not in [None, ""] else "No content generated."
+                        f.write(text)
                     log_status(
                         f"Saved '{filename}' to '{folder_path}'" + (" (empty)" if content in [None, ""] else "")
                     )
@@ -395,21 +395,20 @@ class GraphOrchestrator:
         key_ops = hypo_gen_node_out.get("key_opportunities")
         write_output_file("hypotheses", "key_research_opportunities.txt", key_ops)
         hypo_list = hypo_gen_node_out.get("hypotheses_list", [])
-        if hypo_list:
-            hypo_list_content = ""
-            # The structure of hypo_list can be a list of strings or dicts
-            for i, h_item in enumerate(hypo_list):
-                if isinstance(h_item, dict):
-                    hypo_list_content += f"{i + 1}. {h_item.get('hypothesis', 'N/A')}\n\n"
-                else:
-                    hypo_list_content += f"{i + 1}. {h_item}\n\n"
-            write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
+        hypo_list_content = ""
+        # The structure of hypo_list can be a list of strings or dicts
+        for i, h_item in enumerate(hypo_list):
+            if isinstance(h_item, dict):
+                hypo_list_content += f"{i + 1}. {h_item.get('hypothesis', 'N/A')}\n\n"
+            else:
+                hypo_list_content += f"{i + 1}. {h_item}\n\n"
+        write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
         exp_designs_list = outputs_history.get("experiment_designer", {}).get("experiment_designs_list", [])
         exp_path = project_output_paths.get("experiments")
         if exp_designs_list and exp_path and os.path.exists(exp_path):
             for i, design_info in enumerate(exp_designs_list):
                 hypo = design_info.get("hypothesis_processed", f"Hypothesis_N/A_{i + 1}")
-                design = design_info.get("experiment_design", "")
+                design = design_info.get("experiment_design", "") or "No experiment design generated."
                 err = design_info.get("error")
                 safe_hypo_part = "".join(c if c.isalnum() else "_" for c in str(hypo)[:50]).strip('_')
                 if not safe_hypo_part:
