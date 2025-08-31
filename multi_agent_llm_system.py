@@ -366,15 +366,16 @@ class GraphOrchestrator:
         def write_output_file(folder_key, filename, content):
             folder_path = project_output_paths.get(folder_key)
             if folder_path and os.path.exists(folder_path):
+                file_path = os.path.join(folder_path, filename)
                 try:
-                    with open(os.path.join(folder_path, filename), "w", encoding="utf-8") as f:
-                        if content is not None:
-                            f.write(str(content))
+                    data_to_write = "No content generated." if content in [None, ""] else str(content)
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(data_to_write)
                     log_status(
-                        f"Saved '{filename}' to '{folder_path}'" + (" (empty)" if content in [None, ""] else "")
+                        f"Saved '{filename}' to '{folder_path}'" + (" (placeholder written)" if content in [None, ""] else "")
                     )
                 except OSError as e:
-                    log_status(f"ERROR writing file {os.path.join(folder_path, filename)}: {e}")
+                    log_status(f"ERROR writing file {file_path}: {e}")
             else:
                 log_status(
                     f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
