@@ -198,6 +198,8 @@ PLUGIN = AgentPlugin(
 
 `load_plugins()` automatically discovers modules in this folder, registers compatible agents, and checks the `macs_version` field for compatibility.
 
+For a light-hearted example, check out `agent_plugins/skynet_agent.py`, which playfully references Skynet becoming self-aware.
+
 
 
 
