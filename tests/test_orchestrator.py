@@ -63,6 +63,29 @@ class SleepAgent(Agent):
         return {"slept": duration}
 
 
+@register_agent("FailAgent")
+class FailAgent(Agent):
+    """Agent that raises an exception when executed."""
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        raise RuntimeError("failure")
+
+
+@register_agent("FlakyAgent")
+class FlakyAgent(Agent):
+    """Agent that fails once before succeeding."""
+
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+        super().__init__(*args, **kwargs)
+        self.attempts = 0
+
+    def execute(self, inputs):  # pylint: disable=unused-argument
+        self.attempts += 1
+        if self.attempts < 2:
+            raise RuntimeError("flaky")
+        return {"out": "success"}
+
+
 class TestGraphOrchestrator(unittest.TestCase):
     """Integration tests for the graph orchestrator."""
 
@@ -288,6 +311,75 @@ class TestGraphOrchestrator(unittest.TestCase):
             path = orchestrator.visualize(output_base)
         self.assertTrue(path.endswith(".gv"))
         self.assertTrue(os.path.exists(path))
+
+    def test_failure_policy_continue_override(self):
+        """Node-level policy override allows continuing after failure."""
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "fail", "type": "FailAgent", "config": {"failure_policy": "continue"}},
+                    {"id": "c", "type": "C"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "fail"},
+                    {"from": "fail", "to": "c"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(
+            config["graph_definition"], llm, app_config, failure_policy="abort"
+        )
+        outputs = orchestrator.run({}, self.test_outputs_dir)
+        self.assertIn("fail", outputs)
+        self.assertIn("c", outputs)
+
+    def test_failure_policy_abort(self):
+        """Global abort policy stops execution on error."""
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "fail", "type": "FailAgent"},
+                    {"id": "c", "type": "C"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "fail"},
+                    {"from": "fail", "to": "c"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(
+            config["graph_definition"], llm, app_config, failure_policy="abort"
+        )
+        outputs = orchestrator.run({}, self.test_outputs_dir)
+        self.assertIn("fail", outputs)
+        self.assertNotIn("c", outputs)
+
+    def test_failure_policy_retry(self):
+        """Retry policy re-executes nodes on failure."""
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {
+                        "id": "flaky",
+                        "type": "FlakyAgent",
+                        "config": {"failure_policy": "retry", "retries": 1},
+                    }
+                ],
+                "edges": [],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+        outputs = orchestrator.run({}, self.test_outputs_dir)
+        self.assertEqual(outputs.get("flaky"), {"out": "success"})
+        self.assertEqual(orchestrator.agents["flaky"].attempts, 2)
 
 if __name__ == '__main__':
     unittest.main()
