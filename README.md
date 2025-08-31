@@ -111,9 +111,21 @@ python gui.py
 
 #### Command-Line Interface (CLI)
 
-For testing and automation, you can run the system directly from the command line. The `cli_test.py` script provides a template for this.
+Run MACS directly from the terminal using `cli.py`:
 
-1.  **Configure for CLI:** The script uses `config_cli_test_integrated.json`. If this file doesn't exist, the script will create a template for you. **You must edit this file to add a valid OpenAI API key.**
+```bash
+python cli.py --config config.json --pdf-dir path/to/pdfs --experimental-data path/to/data.txt --out-dir project_output
+```
+
+Add `--adaptive` to enable the adaptive orchestration cycle:
+
+```bash
+python cli.py --config config.json --pdf-dir path/to/pdfs --experimental-data path/to/data.txt --out-dir project_output --adaptive
+```
+
+For a self-contained test harness, the repository also includes `cli_test.py`.
+
+1.  **Configure for CLI testing:** The script uses `config_cli_test_integrated.json`. If this file doesn't exist, the script will create a template for you. **You must edit this file to add a valid OpenAI API key.**
 2.  **Run the test script:**
     ```bash
     python cli_test.py
