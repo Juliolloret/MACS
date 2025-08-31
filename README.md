@@ -208,7 +208,16 @@ PLUGIN = AgentPlugin(
 )
 ```
 
-`load_plugins()` automatically discovers modules in this folder, registers compatible agents, and checks the `macs_version` field for compatibility.
+`load_plugins()` automatically discovers modules in this folder, registers compatible agents, and checks the `macs_version` field for compatibility.  
+Additionally, plugins can be distributed as Python packages that expose a
+`macs.plugins` entry point. After installing such a package with `pip`, the
+plugin will be detected automatically.
+
+To see all registered agents and plugins, run:
+
+```bash
+python cli.py --list-plugins
+```
 
 For a light-hearted example, check out `agent_plugins/skynet_agent.py`, which playfully references Skynet becoming self-aware.
 
