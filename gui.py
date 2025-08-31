@@ -28,8 +28,6 @@ def install_dependencies():
     except FileNotFoundError:
         print("[Dependency Check] 'pip' command not found. Please ensure pip is installed and in your PATH.")
 
-# Run the dependency check right away
-install_dependencies()
 
 import datetime
 import os
@@ -543,6 +541,19 @@ class AgentAppGUI(QWidget):
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run the Multi-Agent Research Assistant GUI.")
+    parser.add_argument(
+        "--install-deps",
+        action="store_true",
+        help="Install dependencies from requirements.txt before launching the GUI.",
+    )
+    cli_args = parser.parse_args()
+
+    if cli_args.install_deps:
+        install_dependencies()
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 
