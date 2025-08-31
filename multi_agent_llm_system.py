@@ -43,10 +43,31 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 class GraphOrchestrator:
     """Execute a graph of agents according to a configuration definition."""
 
-    def __init__(self, graph_definition_from_config, llm: LLMClient, app_config: Dict[str, Any]):
+    def __init__(
+        self,
+        graph_definition_from_config,
+        llm: LLMClient,
+        app_config: Dict[str, Any],
+        failure_policy: str = "continue",
+    ):
+        """Create a new orchestrator.
+
+        Parameters
+        ----------
+        graph_definition_from_config : dict
+            Graph definition describing nodes and edges.
+        llm : LLMClient
+            Language model client used by agents.
+        app_config : Dict[str, Any]
+            Global application configuration.
+        failure_policy : str, optional
+            Default failure handling policy. One of ``"continue"``,
+            ``"abort"`` or ``"retry"``. Defaults to ``"continue"``.
+        """
         # Validate and normalize the graph definition before proceeding
         self.graph_definition = validate_graph_definition(graph_definition_from_config)
         self.app_config = app_config
+        self.failure_policy = failure_policy
         self.agents = {}
         self.adjacency_list = defaultdict(list)
         self.incoming_edges_map = defaultdict(list)
@@ -247,82 +268,97 @@ class GraphOrchestrator:
                 agent_inputs["project_base_output_dir"] = project_base_output_dir
                 log_status(f"[{node_id}] INFO: Injected 'project_base_output_dir' for persistent storage.")
 
-
             log_status(f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k,v in agent_inputs.items()])} }}")
 
-            # --- Execution ---
+            policy = current_agent.config_params.get("failure_policy", self.failure_policy)
+            retries = current_agent.config_params.get("retries", 0)
+            max_attempts = retries + 1 if policy == "retry" else 1
+
             node_output = {}
-            try:
-                # A more generic looping mechanism
-                loop_over_key = current_agent.config_params.get("loop_over")
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    loop_over_key = current_agent.config_params.get("loop_over")
 
-                # Check if the key for looping exists in the initial_inputs for root nodes
-                if loop_over_key and loop_over_key in initial_inputs and not agent_inputs:
-                    agent_inputs[loop_over_key] = initial_inputs[loop_over_key]
+                    if loop_over_key and loop_over_key in initial_inputs and not agent_inputs:
+                        agent_inputs[loop_over_key] = initial_inputs[loop_over_key]
 
-                if loop_over_key and loop_over_key in agent_inputs and isinstance(agent_inputs[loop_over_key], list):
-                    input_list = agent_inputs[loop_over_key]
-                    loop_outputs = [None] * len(input_list)
-                    log_status(
-                        f"[{node_id}] LOOP_START: Iterating over {len(input_list)} items from '{loop_over_key}'."
-                    )
-
-                    item_input_key = current_agent.config_params.get("loop_item_input_key")
-
-                    def build_iteration_inputs(
-                        item,
-                        base_inputs=agent_inputs,
-                        key=item_input_key,
-                        loop_key=loop_over_key,
+                    if (
+                        loop_over_key
+                        and loop_over_key in agent_inputs
+                        and isinstance(agent_inputs[loop_over_key], list)
                     ):
-                        iteration_inputs = {
-                            k: v for k, v in base_inputs.items() if k != loop_key
-                        }
-                        if key:
-                            iteration_inputs[key] = item
-                        elif isinstance(item, dict):
-                            iteration_inputs.update(item)
-                        else:
-                            iteration_inputs["item"] = item
-                        return iteration_inputs
+                        input_list = agent_inputs[loop_over_key]
+                        loop_outputs = [None] * len(input_list)
+                        log_status(
+                            f"[{node_id}] LOOP_START: Iterating over {len(input_list)} items from '{loop_over_key}'."
+                        )
 
-                    if current_agent.config_params.get("parallel_execution"):
-                        max_workers = current_agent.config_params.get("max_workers")
-                        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                            futures = {
-                                executor.submit(
-                                    current_agent.execute, build_iteration_inputs(item)
-                                ): idx
-                                for idx, item in enumerate(input_list)
+                        item_input_key = current_agent.config_params.get("loop_item_input_key")
+
+                        def build_iteration_inputs(
+                            item,
+                            base_inputs=agent_inputs,
+                            key=item_input_key,
+                            loop_key=loop_over_key,
+                        ):
+                            iteration_inputs = {
+                                k: v for k, v in base_inputs.items() if k != loop_key
                             }
-                            for future in as_completed(futures):
-                                idx = futures[future]
-                                try:
-                                    loop_outputs[idx] = future.result()
-                                except Exception as e:  # pylint: disable=broad-exception-caught
-                                    loop_outputs[idx] = {
-                                        "error": f"Parallel execution failed: {e}"
-                                    }
-                    else:
-                        for i, item in enumerate(input_list):
-                            log_status(f"[{node_id}] -> Loop {i+1}/{len(input_list)}")
-                            loop_outputs[i] = current_agent.execute(
-                                build_iteration_inputs(item)
-                            )
-                    node_output = {"results": loop_outputs}
-                else:
-                    # Standard execution for non-looping nodes
-                    node_output = current_agent.execute(agent_inputs)
+                            if key:
+                                iteration_inputs[key] = item
+                            elif isinstance(item, dict):
+                                iteration_inputs.update(item)
+                            else:
+                                iteration_inputs["item"] = item
+                            return iteration_inputs
 
-            except Exception as agent_exec_e:  # pylint: disable=broad-exception-caught
-                detailed_traceback = traceback.format_exc()
-                log_status(f"[GraphOrchestrator] NODE_EXECUTION_CRITICAL_ERROR: Node '{node_id}' failed during execute(): {agent_exec_e}\n{detailed_traceback}")
-                node_output = {"error": f"Agent execution for '{node_id}' failed critically: {agent_exec_e}"}
+                        if current_agent.config_params.get("parallel_execution"):
+                            max_workers = current_agent.config_params.get("max_workers")
+                            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                                futures = {
+                                    executor.submit(
+                                        current_agent.execute, build_iteration_inputs(item)
+                                    ): idx
+                                    for idx, item in enumerate(input_list)
+                                }
+                                for future in as_completed(futures):
+                                    idx = futures[future]
+                                    try:
+                                        loop_outputs[idx] = future.result()
+                                    except Exception as e:  # pylint: disable=broad-exception-caught
+                                        loop_outputs[idx] = {
+                                            "error": f"Parallel execution failed: {e}"
+                                        }
+                        else:
+                            for i, item in enumerate(input_list):
+                                log_status(f"[{node_id}] -> Loop {i+1}/{len(input_list)}")
+                                loop_outputs[i] = current_agent.execute(
+                                    build_iteration_inputs(item)
+                                )
+                        node_output = {"results": loop_outputs}
+                    else:
+                        node_output = current_agent.execute(agent_inputs)
+
+                except Exception as agent_exec_e:  # pylint: disable=broad-exception-caught
+                    detailed_traceback = traceback.format_exc()
+                    log_status(
+                        f"[GraphOrchestrator] NODE_EXECUTION_CRITICAL_ERROR: Node '{node_id}' failed during execute(): {agent_exec_e}\n{detailed_traceback}"
+                    )
+                    node_output = {
+                        "error": f"Agent execution for '{node_id}' failed critically: {agent_exec_e}"
+                    }
+
+                if node_output.get("error") and policy == "retry" and attempt < max_attempts:
+                    log_status(f"[{node_id}] RETRY_ATTEMPT_{attempt} failed; retrying...")
+                    continue
+                break
 
             outputs_history[node_id] = node_output
             log_status(f"[{node_id}] RESULT: {{ {', '.join([f'{k}: {str(v)[:70]}...' for k,v in node_output.items()])} }}")
             if node_output.get("error"):
                 log_status(f"[GraphOrchestrator] NODE_EXECUTION_ERROR_REPORTED: Node '{node_id}': {node_output['error']}")
+                if policy == "abort":
+                    return outputs_history
 
         # --- Observer Agent (if configured) ---
         observer_agent = self.agents.get("observer")
