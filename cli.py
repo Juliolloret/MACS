@@ -35,7 +35,6 @@ def main() -> None:
     parser.add_argument(
         "--pdf-dir",
         nargs="+",
-        required=True,
         help="One or more directories containing PDF files.",
     )
     parser.add_argument(
@@ -46,7 +45,6 @@ def main() -> None:
     )
     parser.add_argument(
         "--out-dir",
-        required=True,
         help="Directory where outputs will be written.",
     )
     parser.add_argument(
@@ -54,7 +52,26 @@ def main() -> None:
         action="store_true",
         help="Run adaptive orchestration cycle instead of single pass.",
     )
+    parser.add_argument(
+        "--list-plugins",
+        action="store_true",
+        help="List available agents and plugins and exit.",
+    )
     args = parser.parse_args()
+
+    if args.list_plugins:
+        from agents.registry import load_agents, load_plugins, list_plugins
+
+        load_agents()
+        load_plugins()
+        for info in list_plugins():
+            author = f" by {info['author']}" if info["author"] else ""
+            print(f"{info['name']} ({info['version']}){author}")
+        return
+
+    if not args.pdf_dir or not args.out_dir:
+        print("--pdf-dir and --out-dir are required unless --list-plugins is provided.")
+        return
 
     pdf_file_paths = _collect_pdf_paths(args.pdf_dir)
     if not pdf_file_paths:

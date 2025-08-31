@@ -2,6 +2,7 @@
 
 import pytest  # pylint: disable=import-error
 from agents.base_agent import Agent
+import importlib.metadata as md
 from agents.registry import (
     AGENT_REGISTRY,
     AgentPlugin,
@@ -9,6 +10,7 @@ from agents.registry import (
     register_plugin,
     load_plugins,
     get_agent_class,
+    list_plugins,
 )
 
 
@@ -63,3 +65,53 @@ def test_incompatible_plugin_raises():
 
     with pytest.raises(ValueError):
         register_plugin(plugin)
+
+
+def test_list_plugins_reports_registered(monkeypatch):
+    """`list_plugins` returns metadata for registered agents."""
+
+    class DummyAgent(Agent):
+        pass
+
+    plugin = AgentPlugin(
+        agent_class=DummyAgent,
+        metadata=PluginMetadata(name="dummy", version="0.1", author="me"),
+    )
+    prev_registry = AGENT_REGISTRY.copy()
+    try:
+        register_plugin(plugin)
+        info = list_plugins()
+        assert {"name": "dummy", "version": "0.1", "author": "me"} in info
+    finally:
+        AGENT_REGISTRY.clear()
+        AGENT_REGISTRY.update(prev_registry)
+
+
+def test_load_plugins_from_entry_points(monkeypatch):
+    """Plugins exposed via entry points are discovered."""
+
+    class EPAgent(Agent):
+        pass
+
+    ep_plugin = AgentPlugin(
+        agent_class=EPAgent,
+        metadata=PluginMetadata(name="ep_agent", version="0.2"),
+    )
+
+    class DummyEP:
+        name = "ep_agent"
+
+        def load(self):
+            return ep_plugin
+
+    def fake_entry_points():
+        return {"macs.plugins": [DummyEP()]}
+
+    monkeypatch.setattr(md, "entry_points", fake_entry_points)
+    prev_registry = AGENT_REGISTRY.copy()
+    try:
+        load_plugins("nonexistent")
+        assert "ep_agent" in AGENT_REGISTRY
+    finally:
+        AGENT_REGISTRY.clear()
+        AGENT_REGISTRY.update(prev_registry)
