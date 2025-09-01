@@ -45,6 +45,14 @@ class LLMClient(Protocol):
         """Returns a cached embedding client if available."""
         raise NotImplementedError
 
+    def get_last_token_usage(self) -> int:
+        """Return the number of tokens used in the most recent completion call."""
+        raise NotImplementedError
+
+    def get_total_tokens_used(self) -> int:
+        """Return the cumulative number of tokens used by this client."""
+        raise NotImplementedError
+
     def close(self) -> None:
         """Releases any underlying resources held by the client."""
         raise NotImplementedError
