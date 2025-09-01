@@ -123,14 +123,10 @@ class OpenAILLM(LLMClient):
             self.last_token_usage = usage
             self.total_tokens_used += usage
 
-            outputs = []
-            for item in getattr(response, "output", []) or []:
-                for content in getattr(item, "content", []) or []:
-                    text_val = getattr(getattr(content, "text", None), "value", None)
-                    if text_val:
-                        outputs.append(text_val)
-
-            if not outputs:
+            output_items = getattr(response, "output", None)
+            try:
+                result = output_items[0].content[0].text.strip()  # type: ignore[index]
+            except (TypeError, AttributeError, IndexError):
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no textual output."
                 )
@@ -138,7 +134,6 @@ class OpenAILLM(LLMClient):
                     f"OpenAI API response had no textual output for model {chosen_model}."
                 )
 
-            result = "".join(outputs).strip()
             snippet = result[:150].replace("\n", " ")
             log_status(
                 f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'"
