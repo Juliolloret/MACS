@@ -9,6 +9,7 @@ updates the graph definition after each iteration.
 from __future__ import annotations
 
 import argparse
+import os
 from typing import Any, Dict, List
 
 from llm_fake import FakeLLM
@@ -45,6 +46,12 @@ def adaptive_cycle(
     evaluators = load_evaluation_plugins(config.get("evaluation_plugins"))
     final_outputs: Dict[str, Any] = {}
 
+    history_dir = os.path.join(os.path.dirname(config_path), "config_history")
+    os.makedirs(history_dir, exist_ok=True)
+    save_json(os.path.join(history_dir, "config_1.json"), config)
+
+    cycle_records: List[Dict[str, Any]] = []
+
     for step in range(1, max_steps + 1):
         llm = _create_llm_client(config)
         orchestrator = GraphOrchestrator(graph_definition, llm, config)
@@ -57,20 +64,36 @@ def adaptive_cycle(
             if hasattr(llm, "close"):
                 llm.close()
 
-        scores: List[float] = []
+        metric_scores: Dict[str, float] = {}
         for evaluator in evaluators:
-            scores.append(
-                evaluator.evaluate(final_outputs, graph_definition, threshold, step)
-            )
-        if not scores:
-            scores.append(float(final_outputs.get("score", 0.0)))
+            score = evaluator.evaluate(final_outputs, graph_definition, threshold, step)
+            metric_scores[evaluator.__class__.__name__] = score
+        if not metric_scores:
+            metric_scores["score"] = float(final_outputs.get("score", 0.0))
+        scores = list(metric_scores.values())
         aggregated = sum(scores) / len(scores)
+
+        cycle_records.append(
+            {
+                "cycle_id": step,
+                "config_file": f"config_{step}.json",
+                "results": final_outputs,
+                "metrics": metric_scores,
+                "aggregated_score": aggregated,
+            }
+        )
+
         if aggregated >= threshold:
             break
 
         graph_definition = mutate_graph_definition(graph_definition, step)
         config["graph_definition"] = graph_definition
-        save_json(config_path, config)
+        save_json(os.path.join(history_dir, f"config_{step + 1}.json"), config)
+
+    ranked = sorted(cycle_records, key=lambda r: r["aggregated_score"], reverse=True)
+    for idx, rec in enumerate(ranked, 1):
+        rec["rank"] = idx
+    save_json(os.path.join(history_dir, "cycles.json"), ranked)
 
     return final_outputs
 
