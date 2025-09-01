@@ -27,7 +27,19 @@ Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Y
 
 5. **Test Your Changes**
 
-   - Make sure all tests pass before submitting a pull request.
+   Before submitting a pull request, please run the full integration test to ensure your changes haven't broken core functionality.
+
+   1.  **Install Test Dependencies:** The test requires `reportlab`.
+       ```bash
+       pip install reportlab
+       ```
+   2.  **Configure the Test:** The integration test uses `config_cli_test_integrated.json`. If it doesn't exist, the test will create it. You **must** add a valid OpenAI API key to this file for the test to run correctly.
+
+   3.  **Run the Integration Test:**
+       ```bash
+       python cli_test.py
+       ```
+       This script runs the entire multi-agent pipeline with dummy data and saves the output to a timestamped directory. Review the output to ensure everything works as expected.
 
 6. **Commit and Push**
    ```bash
