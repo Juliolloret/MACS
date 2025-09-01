@@ -26,6 +26,7 @@
 - [Components](#components)
 - [Setup & Usage](#setup--usage)
 - [Workflow Details](#workflow-details)
+- [Run History and Reproducibility](#run-history-and-reproducibility)
 - [Configuration](#configuration)
 - [Extending & Contributing](#extending--contributing)
 - [Credits](#credits)
@@ -165,6 +166,24 @@ workflow, evaluates the results, and mutates the configuration for the next step
 This process repeats until a target quality threshold is achieved or a maximum
 number of iterations is reached, allowing the system to improve its
 performance iteratively.
+
+---
+
+## Run History and Reproducibility
+
+Each orchestration run is assigned a unique `run_id`. The configuration and
+key runtime parameters for that run are stored in
+`storage/run_history.jsonl`. Use the helpers in `storage.run_history` to
+inspect past runs or to rerun a previous configuration:
+
+```python
+from storage.run_history import get_run
+record = get_run("<run_id>")
+config = record["config"]
+# pass `config` back into `run_project_orchestration` to reproduce the run
+```
+
+See [docs/run_history.md](docs/run_history.md) for more details.
 
 ---
 
