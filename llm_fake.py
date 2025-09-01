@@ -1,8 +1,16 @@
 """Fake LLM implementation used solely for testing."""
 
 import json
-from typing import Optional
+from typing import List, Optional
 from cache import Cache
+
+
+class FakeEmbeddings:
+    """Fake embeddings client for testing."""
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Return a list of fake embeddings."""
+        return [[0.1, 0.2, 0.3] for _ in texts]
 
 
 class FakeLLM:
@@ -13,7 +21,7 @@ class FakeLLM:
         self.app_config = app_config
         self.client = self
         self.response_map = response_map or {}
-        self._embedding_client = self
+        self._embedding_client = FakeEmbeddings()
         self._cache = cache or Cache()
         self.last_token_usage = 0
         self.total_tokens_used = 0
@@ -55,26 +63,8 @@ class FakeLLM:
         return result
 
     def get_embeddings_client(self):
-        """Return a dummy embeddings client (self)."""
+        """Return a dummy embeddings client."""
         return self._embedding_client
-
-    def embeddings(self, _input, _model):
-        """Return a dummy embedding structure."""
-        return self
-
-    def create(self, _input, _model):
-        """Return a dummy embedding structure."""
-        return self
-
-    @property
-    def data(self):
-        """Fake attribute mimicking the OpenAI embeddings response payload."""
-        return [self]
-
-    @property
-    def embedding(self):
-        """Return a constant embedding vector."""
-        return [[0.1, 0.2, 0.3]]
 
     def get_last_token_usage(self):
         """Return token count from the most recent completion."""
