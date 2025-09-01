@@ -70,11 +70,8 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
         def create(self, **kwargs):  # noqa: D401
             captured["temperature"] = kwargs.get("temperature")
 
-            class Text:  # pylint: disable=too-few-public-methods
-                value = "hi"
-
             class Content:  # pylint: disable=too-few-public-methods
-                text = Text()
+                text = "hi"
 
             class Output:  # pylint: disable=too-few-public-methods
                 content = [Content()]
