@@ -30,7 +30,7 @@ When adding new modules, strive to keep the hierarchy shallow and file names des
    ```bash
    pip install -r requirements.txt
    ```
-3. **LLM Credentials** – Some agents rely on external LLM providers such as OpenAI. Set environment variables (e.g. `OPENAI_API_KEY`) before running tests or the CLI.
+3. **LLM Credentials** – Some agents rely on external LLM providers such as OpenAI. Set environment variables (e.g. `OPENAI_API_KEY`, `OPENAI_PROMPT_ID`, `OPENAI_CONVERSATION_ID`) before running tests or the CLI.
 4. **Optional Tools** – For development you may also install linters like `ruff` or formatters like `black`.
 
 ---
