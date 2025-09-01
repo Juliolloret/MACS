@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, List
 from utils import log_status
 
 RUN_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "run_history.jsonl")
+RUN_CONFIG_DIR = os.path.join(os.path.dirname(__file__), "run_configs")
 
 def generate_run_id() -> str:
     """Return a new unique identifier for a run."""
@@ -29,8 +30,14 @@ def save_run(run_id: str, app_config: Dict[str, Any], extra: Optional[Dict[str, 
         "timestamp": datetime.utcnow().isoformat(),
         # Explicitly capture prompt IDs if present
         "prompt_ids": app_config.get("system_variables", {}).get("prompt_ids"),
-        "config": app_config,
     }
+
+    os.makedirs(RUN_CONFIG_DIR, exist_ok=True)
+    config_path = os.path.join(RUN_CONFIG_DIR, f"{run_id}.json")
+    with open(config_path, "w", encoding="utf-8") as cf:
+        json.dump(app_config, cf)
+    record["config_path"] = os.path.relpath(config_path, os.path.dirname(RUN_HISTORY_PATH))
+
     if extra:
         record["extra"] = extra
 
@@ -50,6 +57,13 @@ def get_run(run_id: str) -> Optional[Dict[str, Any]]:
                 continue
             rec = json.loads(line)
             if rec.get("run_id") == run_id:
+                cfg_rel_path = rec.get("config_path")
+                if cfg_rel_path:
+                    cfg_abs_path = os.path.join(os.path.dirname(RUN_HISTORY_PATH), cfg_rel_path)
+                    if os.path.exists(cfg_abs_path):
+                        with open(cfg_abs_path, "r", encoding="utf-8") as cf:
+                            rec["config"] = json.load(cf)
+                    rec["config_path"] = cfg_abs_path
                 return rec
     return None
 

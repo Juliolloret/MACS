@@ -171,10 +171,10 @@ performance iteratively.
 
 ## Run History and Reproducibility
 
-Each orchestration run is assigned a unique `run_id`. The configuration and
-key runtime parameters for that run are stored in
-`storage/run_history.jsonl`. Use the helpers in `storage.run_history` to
-inspect past runs or to rerun a previous configuration:
+Each orchestration run is assigned a unique `run_id`. Metadata about the run is
+stored in `storage/run_history.jsonl`, and the full configuration is written to
+`storage/run_configs/<run_id>.json`. Use the helpers in `storage.run_history`
+to inspect past runs or to rerun a previous configuration:
 
 ```python
 from storage.run_history import get_run
