@@ -17,7 +17,7 @@
 - Experimental Planning: Generates hypotheses and designs experiments automatically.
 - User-Friendly GUI: Easily configure and launch workflows with real-time monitoring.
 - Customizable Workflows: Adjust agent prompts, models, and workflow topology via config.json.
-- Graph Visualization: Export the agent workflow graph to aid debugging and understanding.
+- Graph Visualization: Export the agent workflow graph to aid debugging and understanding. Visualizations highlight the node currently under execution and, after completion, annotate each node with execution time and token usage.
 - Extensible Architecture: Add new agents for specialized tasks.
 
 ## Table of Contents
@@ -52,6 +52,7 @@
 - **Purpose:** Core backend that loads and executes the multi-agent workflow defined in `config.json`.
 - **Key Elements:**
   - **Graph Orchestrator:** The central component that builds a directed acyclic graph (DAG) of agents from the configuration file. It executes the agents in the correct topological order, managing the flow of data between them. It can also export the graph structure for visualization via Graphviz.
+    Visual outputs highlight the node under execution and summarize per-node runtime and token usage.
   - **Dynamic Agent Loading:** Agents are not hardcoded in the orchestrator. Instead, agent classes are dynamically loaded from the `agents` package based on the `type` specified for each node in the `config.json` graph.
   - **Agent Network:** The default workflow consists of specialized agents, including:
     - `PDFLoaderAgent`: Loads and extracts text from PDF files.
