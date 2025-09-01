@@ -25,6 +25,7 @@
 - [Overview](#overview)
 - [Components](#components)
 - [Setup & Usage](#setup--usage)
+- [Testing](#testing)
 - [Workflow Details](#workflow-details)
 - [Run History and Reproducibility](#run-history-and-reproducibility)
 - [Configuration](#configuration)
@@ -149,19 +150,32 @@ print(response.output_text)
 
 See [docs/RESPONSES_API_MIGRATION.md](docs/RESPONSES_API_MIGRATION.md) for more details.
 
-For a self-contained test harness, the repository also includes `cli_test.py`.
+---
+## Testing
+The repository includes a self-contained integration test script, `cli_test.py`, which validates the end-to-end functionality of the multi-agent orchestration pipeline.
 
-1.  **Configure for CLI testing:** The script uses `config_cli_test_integrated.json`. If this file doesn't exist, the script will create a template for you. **You must edit this file to add a valid OpenAI API key.**
-2.  **Run the test script:**
+### How to Run the Test
+1.  **Install Test Dependencies:** The test script requires the `reportlab` library to generate dummy PDF files for testing. Ensure it is installed:
+    ```bash
+    pip install reportlab
+    ```
+
+2.  **Configure for Testing:** The script uses a dedicated configuration file, `config_cli_test_integrated.json`.
+    - If this file doesn't exist, the script will create a template for you automatically when you run it for the first time.
+    - **You must edit this file to add a valid OpenAI API key** to the `openai_api_key` field. Otherwise, all LLM-related tests will fail.
+
+3.  **Run the Test Script:**
     ```bash
     python cli_test.py
     ```
-    This will:
-    - Create dummy PDF files and experimental data in the `cli_test_multi_input_pdfs/` and `cli_test_experimental_data/` directories.
-    - Run the full orchestration pipeline using the settings from `config_cli_test_integrated.json`.
-    - Save all outputs to a timestamped folder, e.g., `cli_test_integrated_project_output_YYYYMMDD_HHMMSS/`.
 
-*Note: The agent workflow in the default `config_cli_test_integrated.json` may differ slightly from the primary `config.json` used by the GUI.*
+### What the Test Does
+- **Creates Dummy Data:** Generates temporary PDF files and experimental data in the `cli_test_multi_input_pdfs/` and `cli_test_experimental_data/` directories.
+- **Executes the Pipeline:** Runs the full multi-agent workflow defined in `config_cli_test_integrated.json`.
+- **Saves Outputs:** Stores all generated artifacts (summaries, hypotheses, etc.) in a timestamped output folder, e.g., `cli_test_integrated_project_output_YYYYMMDD_HHMMSS/`.
+- **Prints Status:** Displays real-time status updates and a final summary of the test run.
+
+*Note: The agent workflow in the default `config_cli_test_integrated.json` may differ slightly from the primary `config.json` used by the GUI. See the [Developer Notes](CONTRIBUTING.md#developer-notes) in the Contributing Guide for more details.*
 
 ---
 
