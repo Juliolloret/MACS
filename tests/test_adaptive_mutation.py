@@ -1,7 +1,6 @@
 """Tests that adaptive_cycle mutates and saves graph definition when score low."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -16,7 +15,7 @@ class DummyEvaluator:
 
 
 def test_mutation_triggers_and_saves_graph(monkeypatch, tmp_path):
-    """Mutation is called and config is saved after first iteration."""
+    """Mutation is called and all configs are stored with history."""
 
     config = {"graph_definition": {"metadata": {}}, "evaluation_plugins": []}
     config_path = tmp_path / "config.json"
@@ -57,17 +56,24 @@ def test_mutation_triggers_and_saves_graph(monkeypatch, tmp_path):
         adaptive_graph_runner, "mutate_graph_definition", fake_mutate
     )
 
-    saved_configs = []
-
-    def fake_save_json(path, data):
-        saved_configs.append(json.loads(json.dumps(data)))
-        Path(path).write_text(json.dumps(data))
-
-    monkeypatch.setattr(adaptive_graph_runner, "save_json", fake_save_json)
-
     adaptive_graph_runner.adaptive_cycle(
         str(config_path), inputs, threshold=1.0, max_steps=2
     )
 
+    history_dir = tmp_path / "config_history"
+    c1 = json.loads((history_dir / "config_1.json").read_text())
+    c2 = json.loads((history_dir / "config_2.json").read_text())
+    c3 = json.loads((history_dir / "config_3.json").read_text())
+
+    assert "step" not in c1["graph_definition"].get("metadata", {})
+    assert c2["graph_definition"]["metadata"]["step"] == 1
+    assert c3["graph_definition"]["metadata"]["step"] == 2
+
+    cycles = json.loads((history_dir / "cycles.json").read_text())
+    assert cycles[0]["cycle_id"] == 1
+    assert cycles[1]["cycle_id"] == 2
+    assert cycles[0]["rank"] == 1
+    assert cycles[0]["metrics"] == {"DummyEvaluator": 0.0}
+
     assert mutate_calls == [1, 2]
-    assert saved_configs[0]["graph_definition"]["metadata"]["step"] == 1
+    assert json.loads(config_path.read_text()) == config
