@@ -12,7 +12,6 @@ import argparse
 from typing import Any, Dict
 
 from .adaptive_graph_runner import adaptive_cycle
-from .evaluation import evaluate_target_function
 from .json_utils import load_json, save_json
 
 
@@ -48,7 +47,6 @@ def rerun_with_evaluation(
     adaptive_cycle(
         config_path,
         run_inputs,
-        evaluate_target_function,
         threshold=threshold,
         max_steps=max_steps,
     )

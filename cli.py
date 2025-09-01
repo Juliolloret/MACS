@@ -80,7 +80,6 @@ def main() -> None:
 
     if args.adaptive:
         from adaptive.adaptive_graph_runner import adaptive_cycle
-        from adaptive.evaluation import evaluate_target_function
 
         inputs = {
             "initial_inputs": {
@@ -92,7 +91,6 @@ def main() -> None:
         adaptive_cycle(
             config_path=args.config,
             inputs=inputs,
-            evaluate_fn=evaluate_target_function,
             threshold=1.0,
             max_steps=5,
         )
