@@ -47,6 +47,8 @@ class OpenAILLM(LLMClient):
         embeds_path = os.path.join(cache_dir, "embeddings.json") if cache_dir else None
         self._response_cache = Cache(responses_path)
         self._embedding_cache = Cache(embeds_path)
+        self.last_token_usage = 0
+        self.total_tokens_used = 0
 
     @property
     def client(self):
@@ -103,6 +105,9 @@ class OpenAILLM(LLMClient):
             if temp is not None:
                 params["temperature"] = temp
             response = self.client.chat.completions.create(**params)
+            usage = getattr(getattr(response, "usage", None), "total_tokens", 0)
+            self.last_token_usage = usage
+            self.total_tokens_used += usage
             if not response.choices:
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices."
@@ -155,6 +160,14 @@ class OpenAILLM(LLMClient):
             raise LLMError(
                 f"API call with {chosen_model} failed ({err_name}): {e}"
             ) from e
+
+    def get_last_token_usage(self) -> int:
+        """Return the token usage of the most recent completion."""
+        return self.last_token_usage
+
+    def get_total_tokens_used(self) -> int:
+        """Return the cumulative token usage for this client."""
+        return self.total_tokens_used
 
     def close(self) -> None:
         """Release any resources held by the underlying SDK clients."""

@@ -1,6 +1,8 @@
 """Graph orchestration utilities for coordinating multiple agents."""
 
 import os
+import time
+import json
 from collections import defaultdict, deque
 import traceback
 from typing import Dict, Any
@@ -73,6 +75,7 @@ class GraphOrchestrator:
         self.incoming_edges_map = defaultdict(list)
         self.node_order = []
         self.llm = llm
+        self.node_metrics = {}
         self._build_graph_and_determine_order()
         self._initialize_agents()
 
@@ -142,7 +145,7 @@ class GraphOrchestrator:
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
                 raise
         
-    def visualize(self, output_path: str, output_format: str = "png") -> str:
+    def visualize(self, output_path: str, output_format: str = "png", highlight_node_id: str | None = None) -> str:
         """Generate a visual representation of the agent graph.
 
         Parameters
@@ -151,6 +154,8 @@ class GraphOrchestrator:
             Path (without extension) where the visualization will be written.
         output_format: str
             Graphviz output format, e.g., ``'png'`` or ``'pdf'``.
+        highlight_node_id: str | None
+            Optional node identifier to highlight in the visualization.
 
         Returns
         -------
@@ -162,7 +167,8 @@ class GraphOrchestrator:
             for node in self.graph_definition.get("nodes", []):
                 node_id = node["id"]
                 label = node.get("type", node_id)
-                dot_lines.append(f'    "{node_id}" [label="{label}"];')
+                attrs = " style=filled fillcolor=yellow" if node_id == highlight_node_id else ""
+                dot_lines.append(f'    "{node_id}" [label="{label}"{attrs}];')
             for edge in self.graph_definition.get("edges", []):
                 dot_lines.append(f'    "{edge.get("from")}" -> "{edge.get("to")}";')
             dot_lines.append("}")
@@ -176,7 +182,10 @@ class GraphOrchestrator:
         for node in self.graph_definition.get("nodes", []):
             node_id = node.get("id")
             label = node.get("type", node_id)
-            dot.node(node_id, label)
+            if node_id == highlight_node_id:
+                dot.node(node_id, label, style="filled", fillcolor="yellow")
+            else:
+                dot.node(node_id, label)
 
         for edge in self.graph_definition.get("edges", []):
             dot.edge(edge.get("from"), edge.get("to"))
@@ -207,6 +216,8 @@ class GraphOrchestrator:
         """
         # pylint: disable=too-many-locals, too-many-branches, too-many-statements, too-many-nested-blocks
         outputs_history = {}
+        self.node_metrics = {}
+        os.makedirs(project_base_output_dir, exist_ok=True)
         log_status(f"[GraphOrchestrator] Starting workflow with initial inputs: {list(initial_inputs.keys())}")
 
         for node_id in self.node_order:
@@ -221,6 +232,11 @@ class GraphOrchestrator:
                 continue
 
             log_status(f"\n[GraphOrchestrator] EXECUTING_NODE: '{node_id}' (Type: {current_agent.agent_type})")
+            # Visualize with the current node highlighted
+            self.visualize(
+                os.path.join(project_base_output_dir, f"graph_{node_id}"),
+                highlight_node_id=node_id,
+            )
 
             # --- Input Gathering ---
             agent_inputs = {}
@@ -275,6 +291,12 @@ class GraphOrchestrator:
             max_attempts = retries + 1 if policy == "retry" else 1
 
             node_output = {}
+            start_time = time.time()
+            tokens_before = (
+                self.llm.get_total_tokens_used()
+                if hasattr(self.llm, "get_total_tokens_used")
+                else 0
+            )
             for attempt in range(1, max_attempts + 1):
                 try:
                     loop_over_key = current_agent.config_params.get("loop_over")
@@ -353,6 +375,19 @@ class GraphOrchestrator:
                     continue
                 break
 
+            elapsed = time.time() - start_time
+            tokens_after = (
+                self.llm.get_total_tokens_used()
+                if hasattr(self.llm, "get_total_tokens_used")
+                else 0
+            )
+            self.node_metrics[node_id] = {
+                "execution_time_sec": elapsed,
+                "tokens_used": tokens_after - tokens_before,
+            }
+            log_status(
+                f"[GraphOrchestrator] NODE_METRICS: '{node_id}' time={elapsed:.2f}s tokens={tokens_after - tokens_before}"
+            )
             outputs_history[node_id] = node_output
             log_status(f"[{node_id}] RESULT: {{ {', '.join([f'{k}: {str(v)[:70]}...' for k,v in node_output.items()])} }}")
             if node_output.get("error"):
@@ -372,6 +407,15 @@ class GraphOrchestrator:
             log_status("[GraphOrchestrator] INFO: 'observer' agent not configured; skipping global error review.")
 
         self._save_consolidated_outputs(outputs_history, project_base_output_dir)
+        metrics_path = os.path.join(project_base_output_dir, "node_metrics.json")
+        try:
+            with open(metrics_path, "w", encoding="utf-8") as f:
+                json.dump(self.node_metrics, f, indent=2)
+            log_status(f"[GraphOrchestrator] METRICS_SAVED: {metrics_path}")
+        except OSError as e:
+            log_status(f"[GraphOrchestrator] ERROR saving metrics to {metrics_path}: {e}")
+        # Final visualization after workflow completion
+        self.visualize(os.path.join(project_base_output_dir, "graph_final"))
         log_status("\n[GraphOrchestrator] INFO: INTEGRATED workflow execution completed.")
         return outputs_history
 
@@ -561,6 +605,8 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         # --- End LLM Client Factory ---
 
         orchestrator = GraphOrchestrator(app_config.get("graph_definition"), llm, app_config)
+        # Visualize the graph before execution begins
+        orchestrator.visualize(os.path.join(project_base_output_dir, "graph_initial"))
 
         initial_inputs = {
             "all_pdf_paths": pdf_file_paths,
