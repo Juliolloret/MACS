@@ -25,6 +25,21 @@ class KnowledgeIntegratorAgent(Agent):
         experimental_data_summary = inputs.get(
             "experimental_data_summary", "N/A (No experimental data provided or error upstream.)"
         )
+        deep_research_summary = inputs.get(
+            "deep_research_summary", "N/A (No deep research summary provided or error upstream.)"
+        )
+        long_term_memory = inputs.get("long_term_memory")
+
+        missing_dependencies = []
+        if inputs.get("deep_research_summary_error"):
+            missing_dependencies.append("deep_research_summary")
+        if long_term_memory is None:
+            missing_dependencies.append("long_term_memory")
+        if missing_dependencies:
+            return {
+                "integrated_knowledge_brief": "",
+                "error": "Missing required dependencies: " + ", ".join(missing_dependencies),
+            }
 
         # Check for upstream errors and prepend to content if necessary
         if inputs.get("multi_doc_synthesis_error"):
