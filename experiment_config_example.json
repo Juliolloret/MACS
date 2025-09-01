@@ -1,0 +1,18 @@
+{
+  "system_variables": {
+    "openai_api_key": "YOUR_KEY"
+  },
+  "graph_definition": {
+    "nodes": [],
+    "edges": []
+  },
+  "evaluation_plugins": [
+    "agent_plugins.sample_evaluator:SampleEvaluator"
+  ],
+  "experiment_optimization": {
+    "threshold_variable": "score",
+    "experiment_db_path": "path/to/experiments.db",
+    "metrics": ["score"],
+    "mutation_strategy": "basic"
+  }
+}
