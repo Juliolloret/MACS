@@ -183,6 +183,9 @@ runs = list_runs()
 record = get_run(runs[-1]["run_id"])
 config = record["config"]
 prompt_ids = record.get("prompt_ids")
+
+# alternatively load every record with its config
+runs_with_config = list_runs(include_config=True)
 # pass `config` back into `run_project_orchestration` to reproduce the run
 ```
 
