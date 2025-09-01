@@ -108,6 +108,16 @@ To experiment with adaptive runs, execute:
 python adaptive/adaptive_graph_runner.py --config config.json
 ```
 
+### Evaluation Plugins
+
+Adaptive runs can use custom evaluation plugins to score graph outputs. An
+evaluation plugin implements an ``evaluate(outputs, graph_def, threshold, step)``
+method and returns a numeric score. Plugins can be referenced in
+``config.json`` using ``evaluation_plugins`` with entries like
+``"agent_plugins.sample_evaluator:SampleEvaluator"`` or exposed via the
+``macs.evaluators`` entry point. When multiple plugins are provided, their
+scores are averaged to decide whether the graph should mutate further.
+
 ---
 
 ## 8. Coding Style
