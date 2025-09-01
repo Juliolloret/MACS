@@ -89,7 +89,16 @@ class OpenAILLM(LLMClient):
             "KEY",
         ]:
             raise LLMError(f"OpenAI API key not configured for model {chosen_model}.")
-        cache_key = self._response_cache.make_key(chosen_model, sys_msg, prompt, temp)
+
+        prompt_id = None
+        conversation_id = None
+        if extra:
+            prompt_id = extra.get("prompt_id")
+            conversation_id = extra.get("conversation_id")
+
+        cache_key = self._response_cache.make_key(
+            chosen_model, sys_msg, prompt, temp, prompt_id, conversation_id
+        )
         cached = self._response_cache.get(cache_key)
         if cached is not None:
             log_status(f"[LLM] CACHE_HIT: Model='{chosen_model}'")
@@ -97,35 +106,43 @@ class OpenAILLM(LLMClient):
         try:
             params = {
                 "model": chosen_model,
-                "messages": [
+                "input": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": prompt},
                 ],
             }
             if temp is not None:
                 params["temperature"] = temp
-            response = self.client.chat.completions.create(**params)
+            if prompt_id:
+                params["prompt_id"] = prompt_id
+            if conversation_id:
+                params["conversation_id"] = conversation_id
+
+            response = self.client.responses.create(**params)
             usage = getattr(getattr(response, "usage", None), "total_tokens", 0)
             self.last_token_usage = usage
             self.total_tokens_used += usage
-            if not response.choices:
+
+            outputs = []
+            for item in getattr(response, "output", []) or []:
+                for content in getattr(item, "content", []) or []:
+                    text_val = getattr(getattr(content, "text", None), "value", None)
+                    if text_val:
+                        outputs.append(text_val)
+
+            if not outputs:
                 log_status(
-                    f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no choices."
+                    f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no textual output."
                 )
                 raise LLMError(
-                    f"OpenAI API response had no choices for model {chosen_model}."
+                    f"OpenAI API response had no textual output for model {chosen_model}."
                 )
-            content = response.choices[0].message.content
-            if not isinstance(content, str):
-                log_status(
-                    f"[LLM] LLM_CALL_ERROR_UNEXPECTED_CONTENT_TYPE: Model='{chosen_model}' returned content of type {type(content)}"
-                )
-                raise LLMError(
-                    f"OpenAI API returned unexpected content type for model {chosen_model}."
-                )
-            result = content.strip()
-            snippet = result[:150].replace('\n', ' ')
-            log_status(f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'")
+
+            result = "".join(outputs).strip()
+            snippet = result[:150].replace("\n", " ")
+            log_status(
+                f"[LLM] LLM_CALL_SUCCESS: Model='{chosen_model}', Response(start): '{snippet}...'"
+            )
             self._response_cache.set(cache_key, result)
             return result
         except Exception as e:  # pragma: no cover - network errors not triggered in tests  # pylint: disable=broad-exception-caught
