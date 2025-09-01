@@ -66,24 +66,31 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
 
     captured = {}
 
-    class DummyCompletions:  # pylint: disable=too-few-public-methods
+    class DummyResponses:  # pylint: disable=too-few-public-methods
         def create(self, **kwargs):  # noqa: D401
             captured["temperature"] = kwargs.get("temperature")
 
-            class Message:  # pylint: disable=too-few-public-methods
-                content = "hi"
+            class Text:  # pylint: disable=too-few-public-methods
+                value = "hi"
 
-            class Choice:  # pylint: disable=too-few-public-methods
-                message = Message()
+            class Content:  # pylint: disable=too-few-public-methods
+                text = Text()
+
+            class Output:  # pylint: disable=too-few-public-methods
+                content = [Content()]
+
+            class Usage:  # pylint: disable=too-few-public-methods
+                total_tokens = 0
 
             class Resp:  # pylint: disable=too-few-public-methods
-                choices = [Choice()]
+                output = [Output()]
+                usage = Usage()
 
             return Resp()
 
     class DummyClient:  # pylint: disable=too-few-public-methods
         def __init__(self, api_key=None, timeout=None):
-            self.chat = type("Chat", (), {"completions": DummyCompletions()})()
+            self.responses = DummyResponses()
 
     class DummyCache:  # pylint: disable=too-few-public-methods
         def __init__(self, path=None):
