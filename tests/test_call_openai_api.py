@@ -64,11 +64,14 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
         }
     })
 
-    captured = {}
+    captured = {"create_calls": 0}
 
     class DummyResponses:  # pylint: disable=too-few-public-methods
         def create(self, **kwargs):  # noqa: D401
+            captured["create_calls"] += 1
             captured["temperature"] = kwargs.get("temperature")
+            captured["model"] = kwargs.get("model")
+            captured["input"] = kwargs.get("input")
 
             class Content:  # pylint: disable=too-few-public-methods
                 text = "hi"
@@ -90,26 +93,41 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
             self.responses = DummyResponses()
 
     class DummyCache:  # pylint: disable=too-few-public-methods
+        store = {}
+
         def __init__(self, path=None):
-            pass
+            self.path = path
 
         def make_key(self, *args, **kwargs):  # noqa: D401
             return "key"
 
         def get(self, key):  # noqa: D401
-            return None
+            return type(self).store.get(key)
 
         def set(self, key, value):  # noqa: D401
-            pass
+            type(self).store[key] = value
 
     monkeypatch.setattr(llm_openai, "OpenAI", DummyClient)
     monkeypatch.setattr(llm_openai, "Cache", DummyCache)
 
-    call_openai_api(
+    result1 = call_openai_api(
+        prompt="hi",
+        system_message="sys",
+        model_name="gpt-5",
+        temperature=0.4,
+    )
+    result2 = call_openai_api(
         prompt="hi",
         system_message="sys",
         model_name="gpt-5",
         temperature=0.4,
     )
 
+    assert result1 == result2 == "hi"
     assert captured["temperature"] is None
+    assert captured["model"] == "gpt-5"
+    assert captured["input"] == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "hi"},
+    ]
+    assert captured["create_calls"] == 1
