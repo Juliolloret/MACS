@@ -14,13 +14,17 @@ from utils import load_app_config
 def _collect_pdf_paths(directories: List[str]) -> List[str]:
     """Gather all PDF files from the provided directories."""
     pdf_paths: List[str] = []
+    seen = set()
     for directory in directories:
         if not os.path.isdir(directory):
             continue
         for root, _dirs, files in os.walk(directory):
             for name in files:
                 if name.lower().endswith(".pdf"):
-                    pdf_paths.append(os.path.join(root, name))
+                    path = os.path.join(root, name)
+                    if path not in seen:
+                        seen.add(path)
+                        pdf_paths.append(path)
     return pdf_paths
 
 
