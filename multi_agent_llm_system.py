@@ -148,7 +148,12 @@ class GraphOrchestrator:
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
                 raise
         
-    def visualize(self, output_path: str, output_format: str = "png", highlight_node_id: str | None = None) -> str:
+    def visualize(
+        self,
+        output_path: str,
+        output_format: str = "png",
+        highlight_node_id: str | None = None,
+    ) -> str:
         """Generate a visual representation of the agent graph.
 
         Parameters
@@ -170,6 +175,9 @@ class GraphOrchestrator:
             for node in self.graph_definition.get("nodes", []):
                 node_id = node["id"]
                 label = node.get("type", node_id)
+                metrics = self.node_metrics.get(node_id)
+                if metrics:
+                    label += f"\\n{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
                 attrs = " style=filled fillcolor=yellow" if node_id == highlight_node_id else ""
                 dot_lines.append(f'    "{node_id}" [label="{label}"{attrs}];')
             for edge in self.graph_definition.get("edges", []):
@@ -185,6 +193,9 @@ class GraphOrchestrator:
         for node in self.graph_definition.get("nodes", []):
             node_id = node.get("id")
             label = node.get("type", node_id)
+            metrics = self.node_metrics.get(node_id)
+            if metrics:
+                label += f"\n{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
             if node_id == highlight_node_id:
                 dot.node(node_id, label, style="filled", fillcolor="yellow")
             else:
@@ -222,7 +233,8 @@ class GraphOrchestrator:
         self.node_metrics = {}
         os.makedirs(project_base_output_dir, exist_ok=True)
         # Visualize the initial graph once we know execution can start
-        self.visualize(os.path.join(project_base_output_dir, "graph_initial"))
+        if self.node_order:
+            self.visualize(os.path.join(project_base_output_dir, "graph_initial"))
         log_status(f"[GraphOrchestrator] Starting workflow with initial inputs: {list(initial_inputs.keys())}")
 
         for node_id in self.node_order:
