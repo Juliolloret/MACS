@@ -15,6 +15,8 @@ class FakeLLM:
         self.response_map = response_map or {}
         self._embedding_client = self
         self._cache = cache or Cache()
+        self.last_token_usage = 0
+        self.total_tokens_used = 0
 
     def get_response(
         self,
@@ -43,9 +45,13 @@ class FakeLLM:
         key = self._cache.make_key(model, system, prompt, temperature)
         cached = self._cache.get(key)
         if cached is not None:
+            self.last_token_usage = len(prompt.split())
+            self.total_tokens_used += self.last_token_usage
             return cached
         result = self.get_response(system, prompt, model, temperature)
         self._cache.set(key, result)
+        self.last_token_usage = len(prompt.split())
+        self.total_tokens_used += self.last_token_usage
         return result
 
     def get_embeddings_client(self):
@@ -69,6 +75,14 @@ class FakeLLM:
     def embedding(self):
         """Return a constant embedding vector."""
         return [[0.1, 0.2, 0.3]]
+
+    def get_last_token_usage(self):
+        """Return token count from the most recent completion."""
+        return self.last_token_usage
+
+    def get_total_tokens_used(self):
+        """Return cumulative token usage for this client."""
+        return self.total_tokens_used
 
     def close(self) -> None:
         """No-op close method for API compatibility."""
