@@ -94,10 +94,13 @@
    pip install -r requirements.txt
    ```
 
-   *Dependencies include PyQt6, openai, PyPDF2, reportlab, etc.*
+   *Dependencies include PyQt6, openai>=1.x, PyPDF2, reportlab, etc.*
 
 3. **Configure OpenAI API Key:**
    - Add your API key to the `openai_api_key` field in `config.json`.
+4. **Prompts & Conversations (optional):**
+   - The project uses the OpenAI Responses API. If migrating from the Assistants API, replace any `OPENAI_ASSISTANT_ID`/`OPENAI_THREAD_ID` environment variables with `OPENAI_PROMPT_ID`/`OPENAI_CONVERSATION_ID`.
+   - Prompt IDs can also be supplied in `system_variables.prompt_ids` inside `config.json`.
 
 ### Running the Application
 
@@ -123,6 +126,28 @@ Add `--adaptive` to enable the adaptive orchestration cycle:
 ```bash
 python cli.py --config config.json --pdf-dir path/to/pdfs --experimental-data path/to/data.txt --out-dir project_output --adaptive
 ```
+
+### Prompts, Conversations, and Responses
+
+The OpenAI Responses API replaces Assistants and Threads. A basic call looks like:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+response = client.responses.create(
+    model="gpt-4.1-mini",
+    input=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Write a haiku about MACS."},
+    ],
+    prompt_id="pr_123",
+    conversation_id="cv_456",
+)
+print(response.output_text)
+```
+
+See [docs/RESPONSES_API_MIGRATION.md](docs/RESPONSES_API_MIGRATION.md) for more details.
 
 For a self-contained test harness, the repository also includes `cli_test.py`.
 
