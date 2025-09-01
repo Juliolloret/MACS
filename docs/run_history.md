@@ -38,6 +38,9 @@ all_runs = list_runs()
 last_run = get_run(all_runs[-1]["run_id"])
 config = last_run["config"]
 prompt_ids = last_run.get("prompt_ids")
+
+# or load configurations for all runs in one step
+all_runs_with_config = list_runs(include_config=True)
 ```
 
 The retrieved `config` can be supplied directly to `run_project_orchestration`
