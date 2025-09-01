@@ -9,14 +9,14 @@ updates the graph definition after each iteration.
 from __future__ import annotations
 
 import argparse
-import importlib
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, List
 
 from llm_fake import FakeLLM
 from llm_openai import OpenAILLM
 from multi_agent_llm_system import GraphOrchestrator
 
-from .evaluation import evaluate_target_function
+from .evaluation import load_evaluation_plugins
+from .mutation import mutate_graph_definition
 from .json_utils import load_json, save_json
 
 
@@ -35,7 +35,6 @@ def _create_llm_client(app_config: Dict[str, Any]):
 def adaptive_cycle(
     config_path: str,
     inputs: Dict[str, Any],
-    evaluate_fn: Callable[[Dict[str, Any], Dict[str, Any], float, int], Optional[Dict[str, Any]]],
     *,
     threshold: float,
     max_steps: int,
@@ -43,6 +42,7 @@ def adaptive_cycle(
     """Run the adaptive orchestration cycle."""
     config = load_json(config_path)
     graph_definition = config.get("graph_definition", {})
+    evaluators = load_evaluation_plugins(config.get("evaluation_plugins"))
     final_outputs: Dict[str, Any] = {}
 
     for step in range(1, max_steps + 1):
@@ -57,22 +57,22 @@ def adaptive_cycle(
             if hasattr(llm, "close"):
                 llm.close()
 
-        new_graph = evaluate_fn(final_outputs, graph_definition, threshold, step)
-        if not new_graph:
+        scores: List[float] = []
+        for evaluator in evaluators:
+            scores.append(
+                evaluator.evaluate(final_outputs, graph_definition, threshold, step)
+            )
+        if not scores:
+            scores.append(float(final_outputs.get("score", 0.0)))
+        aggregated = sum(scores) / len(scores)
+        if aggregated >= threshold:
             break
 
-        graph_definition = new_graph
+        graph_definition = mutate_graph_definition(graph_definition, step)
         config["graph_definition"] = graph_definition
         save_json(config_path, config)
 
     return final_outputs
-
-
-def _resolve_callable(path: str) -> Callable[[Dict[str, Any], Dict[str, Any], float, int], Optional[Dict[str, Any]]]:
-    """Resolve a callable from a ``module:function`` string."""
-    module_name, func_name = path.split(":")
-    module = importlib.import_module(module_name)
-    return getattr(module, func_name)
 
 
 if __name__ == "__main__":
@@ -84,18 +84,14 @@ if __name__ == "__main__":
         required=True,
         help="Path to JSON file with 'initial_inputs' and 'project_base_output_dir'.",
     )
-    parser.add_argument("--eval-hook", type=str, default="", help="Evaluation hook specified as 'module:function'.")
     parser.add_argument("--threshold", type=float, default=1.0, help="Evaluation threshold for termination.")
     parser.add_argument("--max-steps", type=int, default=5, help="Maximum number of adaptation steps.")
     args = parser.parse_args()
 
     run_inputs = load_json(args.inputs)
-    evaluate_fn = evaluate_target_function if not args.eval_hook else _resolve_callable(args.eval_hook)
-
     adaptive_cycle(
         args.config,
         run_inputs,
-        evaluate_fn,
         threshold=args.threshold,
         max_steps=args.max_steps,
     )

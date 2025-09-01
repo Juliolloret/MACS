@@ -20,8 +20,8 @@ def test_rerun_with_evaluation(monkeypatch, tmp_path):
     """Validate rerunning experiments using previous evaluation data."""
     calls = {}
 
-    def fake_cycle(config, inputs, eval_fn, threshold, max_steps):
-        calls["args"] = (config, inputs, eval_fn, threshold, max_steps)
+    def fake_cycle(config, inputs, threshold, max_steps):
+        calls["args"] = (config, inputs, threshold, max_steps)
 
     monkeypatch.setattr(rerun_after_evaluation, "adaptive_cycle", fake_cycle)
 
@@ -50,6 +50,5 @@ def test_rerun_with_evaluation(monkeypatch, tmp_path):
     args = calls["args"]
     assert args[0] == str(config_path)
     assert args[1] == {"initial_inputs": {}, "project_base_output_dir": "."}
-    assert callable(args[2])
-    assert args[3] == 0.8
-    assert args[4] == 2
+    assert args[2] == 0.8
+    assert args[3] == 2
