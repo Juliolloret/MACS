@@ -2,9 +2,10 @@
 
 Every call to `run_project_orchestration` is assigned a unique `run_id`. A
 record of the run is appended to `storage/run_history.jsonl`, while the full
-configuration used for that run is written to a separate JSON file. This
-allows past runs to be inspected or replayed without turning the history log
-into a large database of configs.
+configuration used for that run is written to a separate JSON file. The
+`run_id` is also returned in the orchestration results so it can be captured
+immediately by calling code. This setup allows past runs to be inspected or
+replayed without turning the history log into a large database of configs.
 
 ## Recording Runs
 
@@ -36,6 +37,7 @@ from storage.run_history import get_run, list_runs
 all_runs = list_runs()
 last_run = get_run(all_runs[-1]["run_id"])
 config = last_run["config"]
+prompt_ids = last_run.get("prompt_ids")
 ```
 
 The retrieved `config` can be supplied directly to `run_project_orchestration`
