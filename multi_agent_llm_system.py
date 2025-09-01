@@ -27,6 +27,9 @@ from utils import (
 # Configuration schema validation
 from config_schema import validate_graph_definition
 
+# Run history utilities
+from storage.run_history import generate_run_id, save_run
+
 # Imports for refactored Agent classes
 # Core agent utilities
 from agents import get_agent_class
@@ -561,6 +564,19 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         log_status(f"[MainWorkflow] ERROR: {final_error_msg}")
         return {"error": final_error_msg}
 
+    # Record run configuration before execution
+    run_id = generate_run_id()
+    save_run(
+        run_id,
+        app_config,
+        {
+            "pdf_file_paths": pdf_file_paths,
+            "experimental_data_path": experimental_data_path,
+            "project_base_output_dir": project_base_output_dir,
+        },
+    )
+    log_status(f"[MainWorkflow] INFO: Assigned run_id '{run_id}' to this execution.")
+
     openai_api_key_check = app_config.get("system_variables", {}).get("openai_api_key")
     if not openai_api_key_check or openai_api_key_check in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
                                                             "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
@@ -617,6 +633,7 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             initial_inputs=initial_inputs,
             project_base_output_dir=project_base_output_dir
         )
+        final_outputs["run_id"] = run_id
         log_status("[MainWorkflow] INTEGRATED project orchestration finished.")
         return final_outputs
     except ValueError as ve:
