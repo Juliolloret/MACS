@@ -53,8 +53,7 @@ class FakeLLM:
         key = self._cache.make_key(model, system, prompt, temperature)
         cached = self._cache.get(key)
         if cached is not None:
-            self.last_token_usage = len(prompt.split())
-            self.total_tokens_used += self.last_token_usage
+            self.last_token_usage = 0
             return cached
         result = self.get_response(system, prompt, model, temperature)
         self._cache.set(key, result)
