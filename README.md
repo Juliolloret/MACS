@@ -177,9 +177,12 @@ stored in `storage/run_history.jsonl`, and the full configuration is written to
 to inspect past runs or to rerun a previous configuration:
 
 ```python
-from storage.run_history import get_run
-record = get_run("<run_id>")
+from storage.run_history import list_runs, get_run
+
+runs = list_runs()
+record = get_run(runs[-1]["run_id"])
 config = record["config"]
+prompt_ids = record.get("prompt_ids")
 # pass `config` back into `run_project_orchestration` to reproduce the run
 ```
 
