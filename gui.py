@@ -1,40 +1,33 @@
 """Graphical user interface for the Multi-Agent Research Assistant."""
 
-# pylint: disable=missing-function-docstring, import-error, broad-exception-caught
-
+import datetime
 import os
 import subprocess
 import sys
+import threading
+import time  # Added for small delay in closeEvent
+import traceback
+
+# pylint: disable=missing-function-docstring, import-error, broad-exception-caught
+
 
 def install_dependencies():
-    """
-    Checks for a requirements.txt file and installs the packages if they are not already satisfied.
-    """
-    requirements_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
+    """Install dependencies from ``requirements.txt`` if present."""
+    requirements_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
     if not os.path.exists(requirements_path):
         print("[Dependency Check] requirements.txt not found. Skipping installation.")
         return
 
     print("[Dependency Check] Checking and installing dependencies from requirements.txt...")
     try:
-        # Using pip check to see if dependencies are met.
-        # This is faster than checking each package individually if everything is already installed.
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_path])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_path])
         print("[Dependency Check] All dependencies are satisfied.")
     except subprocess.CalledProcessError:
-        print("[Dependency Check] Failed to install dependencies. Please install them manually using 'pip install -r requirements.txt'")
-        # Depending on how critical the dependencies are, you might want to exit.
-        # For now, we'll just print a warning and continue.
+        print(
+            "[Dependency Check] Failed to install dependencies. Please install them manually using 'pip install -r requirements.txt'"
+        )
     except FileNotFoundError:
         print("[Dependency Check] 'pip' command not found. Please ensure pip is installed and in your PATH.")
-
-
-import datetime
-import os
-import sys
-import threading
-import time  # Added for small delay in closeEvent
-import traceback
 
 try:
     from PyQt6.QtCore import QTimer, QObject, pyqtSignal
@@ -55,6 +48,8 @@ try:
 except ImportError as import_error:  # pragma: no cover
     raise ImportError("PyQt6 is required to run the GUI.") from import_error
 
+# --- Import adaptive cycle for single-pass evolution ---
+from adaptive.adaptive_graph_runner import adaptive_cycle
 # --- Import the backend logic ---
 BACKEND_IMPORTED_SUCCESSFULLY = False
 BACKEND_IMPORT_ERROR_MESSAGE = ""
@@ -108,6 +103,7 @@ class AgentAppGUI(QWidget):
         self.processing_thread = None
         self.signals = WorkerSignals()
         self.stop_event = threading.Event()
+        self.active_task = None
 
         self.signals.progress.connect(self.log_status_to_gui)
         self.signals.finished_all.connect(self.on_all_workflows_finished)
@@ -135,6 +131,9 @@ class AgentAppGUI(QWidget):
             if hasattr(self, 'start_button'):
                 self.start_button.setEnabled(False)
                 self.start_button.setText("Backend Import Error")
+            if hasattr(self, 'evolution_button'):
+                self.evolution_button.setEnabled(False)
+                self.evolution_button.setText("Backend Import Error")
 
         self.apply_stylesheet("light")
 
@@ -289,6 +288,17 @@ class AgentAppGUI(QWidget):
         config_file_layout.addWidget(self.browse_config_button)
         setup_layout.addLayout(config_file_layout)
 
+        experiment_config_layout = QHBoxLayout()
+        experiment_config_layout.addWidget(QLabel("Experiment Config File:"))
+        self.experiment_config_entry = QLineEdit()
+        self.experiment_config_entry.setPlaceholderText("Select experiment optimization config JSON...")
+        self.experiment_config_entry.setReadOnly(True)
+        experiment_config_layout.addWidget(self.experiment_config_entry)
+        self.browse_experiment_config_button = QPushButton("Browse...")
+        self.browse_experiment_config_button.clicked.connect(self.browse_experiment_config_file)
+        experiment_config_layout.addWidget(self.browse_experiment_config_button)
+        setup_layout.addLayout(experiment_config_layout)
+
         setup_group.setLayout(setup_layout)
         self.main_layout.addWidget(setup_group)
 
@@ -301,6 +311,16 @@ class AgentAppGUI(QWidget):
         start_button_layout.addWidget(self.start_button)
         start_button_layout.addStretch()
         self.main_layout.addLayout(start_button_layout)
+
+        evolution_button_layout = QHBoxLayout()
+        evolution_button_layout.addStretch()
+        self.evolution_button = QPushButton("Run Single Evolution Pass")
+        self.evolution_button.setFont(QFont('Segoe UI', 12, QFont.Weight.Bold))
+        self.evolution_button.setMinimumHeight(35)
+        self.evolution_button.clicked.connect(self.start_evolution_pass_thread)
+        evolution_button_layout.addWidget(self.evolution_button)
+        evolution_button_layout.addStretch()
+        self.main_layout.addLayout(evolution_button_layout)
         self.main_layout.addSpacing(10)
 
         monitor_group = QGroupBox("Workflow Monitor")
@@ -328,6 +348,20 @@ class AgentAppGUI(QWidget):
         filepath, _ = QFileDialog.getOpenFileName(self, "Select Configuration File", start_dir, "JSON files (*.json)")
         if filepath:
             self.config_file_entry.setText(filepath)
+
+    def browse_experiment_config_file(self):
+        """Open a dialog to choose an experiment configuration file."""
+        current_path = self.experiment_config_entry.text()
+        start_dir = (
+            os.path.dirname(current_path)
+            if current_path and os.path.exists(os.path.dirname(current_path))
+            else os.path.expanduser("~")
+        )
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Select Experiment Config File", start_dir, "JSON files (*.json)"
+        )
+        if filepath:
+            self.experiment_config_entry.setText(filepath)
 
     def browse_pdf_folder(self):
         current_path = self.pdf_folder_path_entry.text()
@@ -431,6 +465,7 @@ class AgentAppGUI(QWidget):
         self.start_button.setEnabled(False)
 
         self.stop_event.clear()
+        self.active_task = "integrated"
 
         app_config = backend.load_app_config(config_path=config_file_path_for_backend)
         if not app_config:
@@ -441,6 +476,93 @@ class AgentAppGUI(QWidget):
             target=self.run_integrated_backend_task,
             args=(
             all_pdf_files_in_folder, exp_data_file_path, project_specific_output_dir, app_config)
+        )
+        self.processing_thread.start()
+
+    def start_evolution_pass_thread(self):
+        """Validate inputs and launch the evolution pass in a background thread."""
+        if not self.backend_ok:
+            QMessageBox.critical(
+                self, "Backend Error", "Backend module not loaded or config error. Cannot start workflow."
+            )
+            return
+
+        experiment_config_path = self.experiment_config_entry.text().strip()
+        if not experiment_config_path or not os.path.exists(experiment_config_path):
+            QMessageBox.warning(
+                self, "Config File Error", "Please select a valid experiment configuration file."
+            )
+            return
+
+        pdf_folder_path = self.pdf_folder_path_entry.text()
+        project_output_base_dir = self.output_dir_entry.text()
+        project_name_input = self.project_name_entry.text().strip()
+        exp_data_file_path = self.exp_data_file_entry.text().strip()
+
+        if not project_name_input:
+            QMessageBox.warning(self, "Input Error", "Please enter a Project Name.")
+            return
+        if not pdf_folder_path or not os.path.isdir(pdf_folder_path):
+            QMessageBox.warning(self, "Input Error", "Please select a valid Input PDF Folder.")
+            return
+        if not project_output_base_dir:
+            QMessageBox.warning(self, "Input Error", "Please select a Project Output Base Directory.")
+            return
+
+        if exp_data_file_path and not os.path.isfile(exp_data_file_path):
+            QMessageBox.warning(self, "Input Error",
+                                f"Experimental data file not found: {exp_data_file_path}. Proceeding without it.")
+            exp_data_file_path = ""
+
+        all_pdf_files_in_folder = [os.path.join(pdf_folder_path, f) for f in os.listdir(pdf_folder_path) if
+                                   f.lower().endswith(".pdf")]
+        if not all_pdf_files_in_folder:
+            QMessageBox.information(self, "No PDFs Found", f"No PDF files found in folder:\n{pdf_folder_path}")
+            return
+
+        safe_project_name_base = "".join(
+            c if c.isalnum() or c in (' ', '_', '-') else '_' for c in project_name_input).rstrip().replace(" ", "_")
+        if not safe_project_name_base:
+            safe_project_name_base = "Unnamed_Experiment"
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        project_specific_output_dir = os.path.join(project_output_base_dir, f"{safe_project_name_base}_{timestamp}")
+
+        try:
+            if not os.path.exists(project_specific_output_dir):
+                os.makedirs(project_specific_output_dir, exist_ok=True)
+            self.log_status_to_gui(f"[GUI] Experiment output directory set to: {project_specific_output_dir}")
+        except OSError as e:
+            QMessageBox.critical(self, "Directory Error",
+                                 f"Could not create project output directory:\n{project_specific_output_dir}\nError: {e}")
+            return
+
+        self.log_text_area.clear()
+        self.log_status_to_gui(
+            f"[GUI] Starting single evolution pass for Project: '{project_specific_output_dir}'")
+        self.log_status_to_gui(f"[GUI] Processing {len(all_pdf_files_in_folder)} PDF(s) from: {pdf_folder_path}")
+        if exp_data_file_path:
+            self.log_status_to_gui(f"[GUI] Including experimental data from: {exp_data_file_path}")
+        else:
+            self.log_status_to_gui("[GUI] No experimental data file provided.")
+
+        self.evolution_button.setText("Processing Evolution Pass...")
+        self.evolution_button.setEnabled(False)
+
+        self.stop_event.clear()
+        self.active_task = "evolution"
+
+        inputs = {
+            "initial_inputs": {
+                "all_pdf_paths": all_pdf_files_in_folder,
+                "experimental_data_file_path": exp_data_file_path,
+            },
+            "project_base_output_dir": project_specific_output_dir,
+        }
+
+        self.processing_thread = threading.Thread(
+            target=self.run_evolution_pass_task,
+            args=(experiment_config_path, inputs),
         )
         self.processing_thread.start()
 
@@ -476,6 +598,31 @@ class AgentAppGUI(QWidget):
         finally:
             self.signals.finished_all.emit()
 
+    def run_evolution_pass_task(self, config_path, inputs):
+        """Execute ``adaptive_cycle`` once for the provided experiment configuration."""
+        try:
+            if self.stop_event.is_set():
+                self.signals.progress.emit("[GUI] Evolution pass cancelled before start.")
+                return
+
+            self.signals.progress.emit("\n[GUI] Starting single evolution pass...")
+            adaptive_cycle(
+                config_path=config_path, inputs=inputs, threshold=1.0, max_steps=1
+            )
+            if self.stop_event.is_set():
+                self.signals.progress.emit("[GUI] Evolution pass was interrupted.")
+            else:
+                self.signals.progress.emit("[GUI] Evolution pass finished successfully.")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            if self.stop_event.is_set():
+                self.signals.progress.emit(
+                    f"[GUI] Exception during evolution pass while stopping: {e}"
+                )
+            else:
+                self.signals.error.emit((type(e), e, traceback.format_exc(), "Evolution Pass"))
+        finally:
+            self.signals.finished_all.emit()
+
     def on_single_pdf_processed(self, pdf_filename):
         # This can be used to log initial loading/summarizing if the backend emits such signals
         # For now, it's less critical in the fully integrated flow.
@@ -483,26 +630,39 @@ class AgentAppGUI(QWidget):
         pass
 
     def on_all_workflows_finished(self):
-        self.start_button.setText("Start Integrated Analysis")
-        self.start_button.setEnabled(True)
-        if self.stop_event.is_set():
-            self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW STOPPED ===")
-            QMessageBox.information(self, "Integrated Workflow Stopped",
-                                    "The integrated analysis process was stopped by the user.")
-        else:
-            last_log_lines = self.log_text_area.toPlainText().splitlines()
-            project_error_logged = any("Project Level" in line and "ERROR" in line for line in last_log_lines[-5:])
-
-            if project_error_logged:
-                self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW FINISHED WITH ERRORS ===")
-                QMessageBox.warning(self, "Integrated Workflow Finished with Errors",
-                                    "The integrated analysis process finished, but errors occurred. Please check the logs.")
+        if self.active_task == "evolution":
+            self.evolution_button.setText("Run Single Evolution Pass")
+            self.evolution_button.setEnabled(True)
+            if self.stop_event.is_set():
+                self.log_status_to_gui("[GUI] === EVOLUTION PASS STOPPED ===")
+                QMessageBox.information(self, "Evolution Pass Stopped",
+                                        "The evolution pass was stopped by the user.")
             else:
-                self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW FINISHED SUCCESSFULLY ===")
-                QMessageBox.information(self, "Integrated Workflow Complete",
-                                        "The integrated analysis has finished. Check logs and output folder for details.")
+                self.log_status_to_gui("[GUI] === EVOLUTION PASS FINISHED ===")
+                QMessageBox.information(self, "Evolution Pass Complete",
+                                        "The single evolution pass has finished.")
+        else:
+            self.start_button.setText("Start Integrated Analysis")
+            self.start_button.setEnabled(True)
+            if self.stop_event.is_set():
+                self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW STOPPED ===")
+                QMessageBox.information(self, "Integrated Workflow Stopped",
+                                        "The integrated analysis process was stopped by the user.")
+            else:
+                last_log_lines = self.log_text_area.toPlainText().splitlines()
+                project_error_logged = any("Project Level" in line and "ERROR" in line for line in last_log_lines[-5:])
+
+                if project_error_logged:
+                    self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW FINISHED WITH ERRORS ===")
+                    QMessageBox.warning(self, "Integrated Workflow Finished with Errors",
+                                        "The integrated analysis process finished, but errors occurred. Please check the logs.")
+                else:
+                    self.log_status_to_gui("[GUI] === INTEGRATED WORKFLOW FINISHED SUCCESSFULLY ===")
+                    QMessageBox.information(self, "Integrated Workflow Complete",
+                                            "The integrated analysis has finished. Check logs and output folder for details.")
 
         self.processing_thread = None
+        self.active_task = None
 
     def on_workflow_error(self, error_tuple):
         _exc_type, value, tb_str, context_info = error_tuple
