@@ -106,7 +106,7 @@ class OpenAILLM(LLMClient):
         try:
             params = {
                 "model": chosen_model,
-                "input": [
+                "messages": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": prompt},
                 ],
@@ -118,15 +118,14 @@ class OpenAILLM(LLMClient):
             if conversation_id:
                 params["conversation_id"] = conversation_id
 
-            response = self.client.responses.create(**params)
+            response = self.client.chat.completions.create(**params)
             usage = getattr(getattr(response, "usage", None), "total_tokens", 0)
             self.last_token_usage = usage
             self.total_tokens_used += usage
 
-            output_items = getattr(response, "output", None)
             try:
-                result = output_items[0].content[0].text.strip()  # type: ignore[index]
-            except (TypeError, AttributeError, IndexError):
+                result = response.choices[0].message["content"].strip()  # type: ignore[index]
+            except (TypeError, AttributeError, IndexError, KeyError):
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no textual output."
                 )

@@ -1,0 +1,32 @@
+[
+  {
+    "agent": "PDFSummarizerAgent",
+    "prompt": "Summarize content",
+    "system": "Summarize documents",
+    "model": "gpt-3.5-turbo"
+  },
+  {
+    "agent": "DeepResearchSummarizerAgent",
+    "prompt": "Explain deep research",
+    "system": "Deep research system",
+    "model": "gpt-4o"
+  },
+  {
+    "agent": "WebResearcherAgent",
+    "prompt": "Search the web",
+    "system": "Web research system",
+    "model": "gpt-4o"
+  },
+  {
+    "agent": "KnowledgeIntegratorAgent",
+    "prompt": "Integrate knowledge",
+    "system": "Integrate system",
+    "model": "gpt-3.5-turbo"
+  },
+  {
+    "agent": "HypothesisGeneratorAgent",
+    "prompt": "Generate hypotheses",
+    "system": "Hypothesis system",
+    "model": "gpt-3.5-turbo"
+  }
+]
