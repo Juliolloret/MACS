@@ -7,6 +7,7 @@ import sys
 import threading
 import time  # Added for small delay in closeEvent
 import traceback
+import configparser
 
 # pylint: disable=missing-function-docstring, import-error, broad-exception-caught
 
@@ -36,7 +37,10 @@ try:
         QApplication,
         QFileDialog,
         QLabel,
+        QMenuBar,
+        QAction,
         QMessageBox,
+        QDialog,
         QPushButton,
         QTextEdit,
         QGroupBox,
@@ -121,6 +125,11 @@ class AgentAppGUI(QWidget):
             )
 
         self.init_ui()
+        self.create_menus()
+        self.routes_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "predefined_routes.ini")
+        self.predefined_routes = {}
+        if os.path.exists(self.routes_file):
+            self.load_predefined_routes(self.routes_file, show_message=False)
 
         if self.backend_ok:
             # The config is now loaded on-demand when the workflow starts.
@@ -346,6 +355,101 @@ class AgentAppGUI(QWidget):
         if not self.backend_ok:
             self.start_button.setEnabled(False)
             self.start_button.setText("Backend Error - Cannot Start")
+
+    def create_menus(self):
+        self.menubar = QMenuBar(self)
+        file_menu = self.menubar.addMenu("File")
+
+        save_log_action = QAction("Save Log", self)
+        save_log_action.triggered.connect(self.save_log)
+        file_menu.addAction(save_log_action)
+
+        export_graph_action = QAction("Export Graph as JPG", self)
+        export_graph_action.triggered.connect(self.save_graph_as_jpg)
+        file_menu.addAction(export_graph_action)
+
+        routes_menu = self.menubar.addMenu("Routes")
+        load_routes_action = QAction("Load Predefined Routes", self)
+        load_routes_action.triggered.connect(self.load_predefined_routes)
+        routes_menu.addAction(load_routes_action)
+
+        graph_menu = self.menubar.addMenu("Graph")
+        define_graph_action = QAction("Define Graph", self)
+        define_graph_action.triggered.connect(self.open_graph_definition_window)
+        graph_menu.addAction(define_graph_action)
+
+        self.main_layout.setMenuBar(self.menubar)
+
+    def save_log(self):
+        if not self.log_text_area.toPlainText().strip():
+            QMessageBox.information(self, "Save Log", "There is no log to save.")
+            return
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Log",
+            os.path.expanduser("~"),
+            "Text Files (*.txt)",
+        )
+        if filepath:
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(self.log_text_area.toPlainText())
+                QMessageBox.information(self, "Save Log", f"Log saved to: {filepath}")
+            except Exception as e:
+                QMessageBox.warning(self, "Save Log", f"Failed to save log: {e}")
+
+    def save_graph_as_jpg(self):
+        pixmap = self.graph_label.pixmap()
+        if pixmap is None or pixmap.isNull():
+            QMessageBox.information(self, "Export Graph", "No graph image available to save.")
+            return
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Graph",
+            os.path.expanduser("~"),
+            "JPEG Images (*.jpg *.jpeg)",
+        )
+        if filepath:
+            if not filepath.lower().endswith(('.jpg', '.jpeg')):
+                filepath += '.jpg'
+            try:
+                pixmap.save(filepath, "JPG")
+                QMessageBox.information(self, "Export Graph", f"Graph saved to: {filepath}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Graph", f"Failed to save graph: {e}")
+
+    def load_predefined_routes(self, file_path=None, show_message=True):
+        if not file_path:
+            start_dir = os.path.dirname(self.routes_file) if hasattr(self, 'routes_file') else os.getcwd()
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Routes INI File",
+                start_dir,
+                "INI files (*.ini)",
+            )
+            if not file_path:
+                return
+        config = configparser.ConfigParser()
+        try:
+            config.read(file_path)
+            if config.has_section('routes'):
+                self.predefined_routes = dict(config.items('routes'))
+            else:
+                self.predefined_routes = {}
+            self.routes_file = file_path
+            if show_message:
+                QMessageBox.information(
+                    self,
+                    "Predefined Routes",
+                    f"Loaded {len(self.predefined_routes)} routes from {file_path}",
+                )
+        except Exception as e:
+            if show_message:
+                QMessageBox.warning(self, "Predefined Routes", f"Failed to load routes: {e}")
+
+    def open_graph_definition_window(self):
+        dialog = GraphDefinitionWindow(self)
+        dialog.exec()
 
     def log_status_to_gui(self, message):
         self.log_text_area.append(message)
@@ -730,6 +834,17 @@ class AgentAppGUI(QWidget):
                 event.ignore()
         else:
             event.accept()
+
+
+class GraphDefinitionWindow(QDialog):
+    """Placeholder window for future graph definition features."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Graph Definition")
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Graph definition GUI will be implemented in a future iteration."))
+        self.setLayout(layout)
 
 
 if __name__ == '__main__':
