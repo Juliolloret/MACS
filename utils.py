@@ -47,6 +47,7 @@ openai_errors = {
 
 APP_CONFIG: dict = {}
 _STATUS_CALLBACK = {"func": print}
+_GRAPH_CALLBACK = {"func": None}
 
 UTIL_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,6 +58,12 @@ def set_status_callback(callback_func):
     _STATUS_CALLBACK["func"] = callback_func
 
 
+def set_graph_callback(callback_func):
+    """Set the callback used to report generated graph visualizations."""
+
+    _GRAPH_CALLBACK["func"] = callback_func
+
+
 def log_status(message: str):
     """Log ``message`` using the configured status callback."""
 
@@ -65,6 +72,14 @@ def log_status(message: str):
         callback(message)
     else:
         print(message)
+
+
+def report_graph_visualization(path: str):
+    """Invoke the graph visualization callback with ``path`` if set."""
+
+    callback = _GRAPH_CALLBACK.get("func")
+    if callable(callback):
+        callback(path)
 
 
 def load_app_config(config_path: str = "config.json", main_script_dir: Optional[str] = None):
