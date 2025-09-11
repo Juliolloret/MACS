@@ -50,3 +50,19 @@ def test_call_openai_api_from_json(monkeypatch, case):
     assert captured["model"] == case["model"]
     assert captured["api_key"] == "test-key"
     assert captured["timeout"] == 10
+
+
+def test_json_covers_all_openai_models():
+    """Verify the JSON includes every OpenAI model up to GPT-5."""
+    expected_models = {
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-5",
+    }
+    models_in_json = {case["model"] for case in AGENT_TEST_CASES}
+    assert models_in_json == expected_models

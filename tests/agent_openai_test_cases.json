@@ -9,24 +9,42 @@
     "agent": "DeepResearchSummarizerAgent",
     "prompt": "Explain deep research",
     "system": "Deep research system",
-    "model": "gpt-4o"
+    "model": "gpt-4"
   },
   {
     "agent": "WebResearcherAgent",
     "prompt": "Search the web",
     "system": "Web research system",
-    "model": "gpt-4o"
+    "model": "gpt-4-turbo"
   },
   {
     "agent": "KnowledgeIntegratorAgent",
     "prompt": "Integrate knowledge",
     "system": "Integrate system",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-4.1"
   },
   {
     "agent": "HypothesisGeneratorAgent",
     "prompt": "Generate hypotheses",
     "system": "Hypothesis system",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-4.1-mini"
+  },
+  {
+    "agent": "StrategyPlannerAgent",
+    "prompt": "Plan strategy",
+    "system": "Planning system",
+    "model": "gpt-4o"
+  },
+  {
+    "agent": "AssistantAgent",
+    "prompt": "Assist tasks",
+    "system": "Assistance system",
+    "model": "gpt-4o-mini"
+  },
+  {
+    "agent": "FutureAgent",
+    "prompt": "Predict future",
+    "system": "Prediction system",
+    "model": "gpt-5"
   }
 ]
