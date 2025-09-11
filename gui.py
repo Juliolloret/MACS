@@ -30,8 +30,8 @@ def install_dependencies():
         print("[Dependency Check] 'pip' command not found. Please ensure pip is installed and in your PATH.")
 
 try:
-    from PyQt6.QtCore import QTimer, QObject, pyqtSignal
-    from PyQt6.QtGui import QFont
+    from PyQt6.QtCore import QTimer, QObject, pyqtSignal, Qt
+    from PyQt6.QtGui import QFont, QPixmap
     from PyQt6.QtWidgets import (
         QApplication,
         QFileDialog,
@@ -90,6 +90,7 @@ class WorkerSignals(QObject):
     pdf_processed = pyqtSignal(
         str
     )  # May be less relevant for fully integrated mode, but can signal individual PDF loading/summarizing steps
+    graph_updated = pyqtSignal(str)  # Path to updated graph image
 
 
 class AgentAppGUI(QWidget):
@@ -109,6 +110,7 @@ class AgentAppGUI(QWidget):
         self.signals.finished_all.connect(self.on_all_workflows_finished)
         self.signals.error.connect(self.on_workflow_error)
         self.signals.pdf_processed.connect(self.on_single_pdf_processed)
+        self.signals.graph_updated.connect(self.update_graph_display)
 
         self.backend_ok = BACKEND_IMPORTED_SUCCESSFULLY
         if not self.backend_ok:
@@ -124,6 +126,7 @@ class AgentAppGUI(QWidget):
             # The config is now loaded on-demand when the workflow starts.
             # We can still set the status callback here.
             backend.set_status_callback(self.signals.progress.emit)
+            backend.set_graph_callback(self.signals.graph_updated.emit)
             self.log_status_to_gui("[GUI] Backend module loaded. Configuration will be loaded on workflow start.")
         else:
             self.log_status_to_gui(
@@ -332,6 +335,14 @@ class AgentAppGUI(QWidget):
         monitor_group.setLayout(monitor_layout)
         self.main_layout.addWidget(monitor_group, 1)
 
+        graph_group = QGroupBox("Graph Visualization")
+        graph_layout = QVBoxLayout()
+        self.graph_label = QLabel("Graph will be displayed here once available.")
+        self.graph_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        graph_layout.addWidget(self.graph_label)
+        graph_group.setLayout(graph_layout)
+        self.main_layout.addWidget(graph_group)
+
         if not self.backend_ok:
             self.start_button.setEnabled(False)
             self.start_button.setText("Backend Error - Cannot Start")
@@ -340,6 +351,26 @@ class AgentAppGUI(QWidget):
         self.log_text_area.append(message)
         QTimer.singleShot(0, lambda: self.log_text_area.verticalScrollBar().setValue(
             self.log_text_area.verticalScrollBar().maximum()))
+
+    def update_graph_display(self, image_path: str):
+        """Update the graph visualization label with the image at ``image_path``."""
+
+        if not image_path:
+            return
+        if os.path.exists(image_path) and image_path.lower().endswith((".png", ".jpg", ".jpeg")):
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                scaled = pixmap.scaled(
+                    self.graph_label.width(),
+                    self.graph_label.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.graph_label.setPixmap(scaled)
+            else:
+                self.graph_label.setText(f"Failed to load graph image: {image_path}")
+        else:
+            self.graph_label.setText(f"Graph saved to: {image_path}")
 
     def browse_config_file(self):
         current_path = self.config_file_entry.text()

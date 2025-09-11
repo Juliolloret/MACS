@@ -22,6 +22,8 @@ from utils import (
     log_status,
     set_status_callback,
     load_app_config,  # pylint: disable=unused-import
+    set_graph_callback,  # re-exported for GUI usage
+    report_graph_visualization,
 )
 
 # Configuration schema validation
@@ -187,6 +189,7 @@ class GraphOrchestrator:
             with open(dot_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(dot_lines))
             log_status(f"[GraphOrchestrator] INFO: graphviz package not available. DOT file saved to {dot_path}")
+            report_graph_visualization(dot_path)
             return dot_path
 
         dot = Digraph(comment="Agent Graph", format=output_format)
@@ -207,10 +210,12 @@ class GraphOrchestrator:
         try:
             output_file = dot.render(output_path, cleanup=True)
             log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
+            report_graph_visualization(output_file)
             return output_file
         except ExecutableNotFound:
             dot_path = dot.save(output_path + ".gv")
             log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
+            report_graph_visualization(dot_path)
             return dot_path
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
