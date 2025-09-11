@@ -357,12 +357,13 @@ class AgentAppGUI(QWidget):
 
         if not image_path:
             return
+        image_path = image_path.strip().strip("\"")
         if os.path.exists(image_path) and image_path.lower().endswith((".png", ".jpg", ".jpeg")):
             pixmap = QPixmap(image_path)
             if not pixmap.isNull():
                 scaled = pixmap.scaled(
-                    self.graph_label.width(),
-                    self.graph_label.height(),
+                    self.graph_label.width() or 1,
+                    self.graph_label.height() or 1,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
