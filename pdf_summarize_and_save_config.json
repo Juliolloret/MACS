@@ -1,0 +1,94 @@
+{
+  "system_variables": {
+    "openai_api_key": "YOUR_OPENAI_API_KEY",
+    "llm_client": "openai",
+    "default_llm_model": "gpt-4o",
+    "models": {
+      "pdf_summarizer": "gpt-4o",
+      "multi_doc_synthesizer_model": "gpt-4o"
+    },
+    "openai_api_timeout_seconds": 120
+  },
+  "agent_prompts": {
+    "pdf_summarizer_sm": "You are an expert academic summarizer. Produce a concise summary of the following text:\n{text_content}",
+    "multi_doc_synthesizer_sm": "Synthesize these individual summaries into a unified overview:\n{all_summaries_text}"
+  },
+  "graph_definition": {
+    "nodes": [
+      {
+        "id": "initial_input_provider",
+        "type": "InitialInputProvider",
+        "config": {
+          "description": "Provides the initial list of PDF paths."
+        }
+      },
+      {
+        "id": "pdf_loader_node",
+        "type": "PDFLoaderAgent",
+        "config": {
+          "description": "Loads text from a PDF file.",
+          "loop_over": "all_pdf_paths",
+          "loop_item_input_key": "pdf_path"
+        }
+      },
+      {
+        "id": "pdf_summarizer_node",
+        "type": "PDFSummarizerAgent",
+        "config": {
+          "description": "Summarizes each loaded PDF.",
+          "loop_over": "loader_results",
+          "model_key": "pdf_summarizer",
+          "system_message_key": "pdf_summarizer_sm",
+          "parallel_execution": true
+        }
+      },
+      {
+        "id": "pdf_summary_writer",
+        "type": "PDFSummaryWriterAgent",
+        "config": {
+          "description": "Writes each PDF summary to a text file.",
+          "output_dir": "pdf_summaries"
+        }
+      },
+      {
+        "id": "multi_doc_synthesizer",
+        "type": "MultiDocSynthesizerAgent",
+        "config": {
+          "description": "Combines individual PDF summaries into a single text.",
+          "model_key": "multi_doc_synthesizer_model",
+          "system_message_key": "multi_doc_synthesizer_sm"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "initial_input_provider",
+        "to": "pdf_loader_node",
+        "data_mapping": {
+          "all_pdf_paths": "all_pdf_paths"
+        }
+      },
+      {
+        "from": "pdf_loader_node",
+        "to": "pdf_summarizer_node",
+        "data_mapping": {
+          "results": "loader_results"
+        }
+      },
+      {
+        "from": "pdf_summarizer_node",
+        "to": "pdf_summary_writer",
+        "data_mapping": {
+          "results": "summaries_to_write"
+        }
+      },
+      {
+        "from": "pdf_summarizer_node",
+        "to": "multi_doc_synthesizer",
+        "data_mapping": {
+          "results": "all_pdf_summaries"
+        }
+      }
+    ]
+  }
+}
