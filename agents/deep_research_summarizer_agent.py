@@ -80,11 +80,22 @@ class DeepResearchSummarizerAgent(Agent):
             )
 
             log_status(f"[{self.agent_id}] INFO: Calling LLM to synthesize the deep research summary.")
-            response = self.llm.get_response(
-                system_message=prompt,
-                user_message=user_content,
+
+            temperature = float(self.config_params.get("temperature", 0.7))
+            reasoning_effort = self.config_params.get("reasoning_effort")
+            verbosity = self.config_params.get("verbosity")
+            extra_params = {}
+            if reasoning_effort:
+                extra_params["reasoning"] = {"effort": reasoning_effort}
+            if verbosity:
+                extra_params["text"] = {"verbosity": verbosity}
+
+            response = self.llm.complete(
+                system=prompt,
+                prompt=user_content,
                 model=self.model_name,
-                temperature=self.config_params.get("temperature", 0.7),
+                temperature=temperature,
+                extra=extra_params,
             )
             log_status(f"[{self.agent_id}] INFO: LLM synthesis successful.")
 
