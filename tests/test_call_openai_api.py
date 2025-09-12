@@ -73,30 +73,16 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
             captured["model"] = kwargs.get("model")
             captured["input"] = kwargs.get("input")
 
-            # Extract the prompt text from the input to make the mock more realistic
-            prompt_text = "default_response"
-            if "input" in kwargs and isinstance(kwargs["input"], list):
-                user_message = next(
-                    (m for m in kwargs["input"] if m.get("role") == "user"), None
-                )
-                if user_message and "content" in user_message:
-                    prompt_text = user_message["content"]
-
-            class TextBlock:
-                def __init__(self, text):
-                    self.type = "text"
-                    self.text = text
-
-            class Output:
-                def __init__(self, text):
-                    self.content = [TextBlock(text)]
+            # The new API returns output_text directly.
+            # The prompt is now a single unified string.
+            prompt_text = kwargs.get("input", "default_response")
 
             class Usage:  # pylint: disable=too-few-public-methods
                 total_tokens = 0
 
             class Resp:  # pylint: disable=too-few-public-methods
                 def __init__(self, text):
-                    self.output = [Output(text)]
+                    self.output_text = text
                     self.usage = Usage()
 
             return Resp(prompt_text)
@@ -136,11 +122,9 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
         temperature=0.4,
     )
 
-    assert result1 == result2 == "hi"
+    # The mock returns the input string, which now includes the system prompt.
+    assert result1 == result2 == "sys\n\nhi"
     assert captured["temperature"] is None
     assert captured["model"] == "gpt-5"
-    assert captured["input"] == [
-        {"role": "system", "content": "sys"},
-        {"role": "user", "content": "hi"},
-    ]
+    assert captured["input"] == "sys\n\nhi"
     assert captured["create_calls"] == 1
