@@ -233,7 +233,15 @@ class GraphOrchestrator:
             return output_file
         except ExecutableNotFound:
             dot_path = dot.save(output_path + ".gv")
-            log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
+            log_status(
+                "[GraphOrchestrator] WARNING: Graphviz executable not found. "
+                "To generate graph images, please install the Graphviz command-line tools. "
+                "Installation instructions:\n"
+                "- macOS (via Homebrew): brew install graphviz\n"
+                "- Windows (via Chocolatey): choco install graphviz\n"
+                "- Linux (Debian/Ubuntu): sudo apt-get install graphviz\n"
+                f"A DOT file has been saved to {dot_path}, which you can render manually after installation."
+            )
             report_graph_visualization(dot_path)
             _open_graph_file(dot_path)
             return dot_path
