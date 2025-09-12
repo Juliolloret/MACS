@@ -32,24 +32,66 @@ def install_dependencies():
 
 try:
     from PyQt6.QtCore import QTimer, QObject, pyqtSignal, Qt
-    from PyQt6.QtGui import QFont, QPixmap, QAction
+    from PyQt6.QtGui import QAction, QFont, QPixmap
     from PyQt6.QtWidgets import (
         QApplication,
         QFileDialog,
-        QLabel,
-        QMenuBar,
-        QMessageBox,
         QDialog,
-        QPushButton,
-        QTextEdit,
         QGroupBox,
         QHBoxLayout,
+        QLabel,
         QLineEdit,
+        QMenuBar,
+        QMessageBox,
+        QPushButton,
+        QTextEdit,
         QVBoxLayout,
         QWidget,
     )
-except ImportError as import_error:  # pragma: no cover
-    raise ImportError("PyQt6 is required to run the GUI.") from import_error
+
+    # PyQt6 enums
+    ALIGN_CENTER = Qt.AlignmentFlag.AlignCenter
+    KEEP_ASPECT_RATIO = Qt.AspectRatioMode.KeepAspectRatio
+    SMOOTH_TRANSFORMATION = Qt.TransformationMode.SmoothTransformation
+    MB_YES = QMessageBox.StandardButton.Yes
+    MB_NO = QMessageBox.StandardButton.No
+    MB_CRITICAL = QMessageBox.Icon.Critical
+    FONT_BOLD = QFont.Weight.Bold
+except ImportError:  # pragma: no cover
+    try:
+        from PyQt5.QtCore import QTimer, QObject, pyqtSignal, Qt
+        from PyQt5.QtGui import QAction, QFont, QPixmap
+        from PyQt5.QtWidgets import (
+            QApplication,
+            QFileDialog,
+            QDialog,
+            QGroupBox,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QMenuBar,
+            QMessageBox,
+            QPushButton,
+            QTextEdit,
+            QVBoxLayout,
+            QWidget,
+        )
+
+        # PyQt5 enums
+        ALIGN_CENTER = Qt.AlignCenter
+        KEEP_ASPECT_RATIO = Qt.KeepAspectRatio
+        SMOOTH_TRANSFORMATION = Qt.SmoothTransformation
+        MB_YES = QMessageBox.Yes
+        MB_NO = QMessageBox.No
+        MB_CRITICAL = QMessageBox.Critical
+        try:
+            FONT_BOLD = QFont.Weight.Bold  # type: ignore[attr-defined]
+        except AttributeError:  # PyQt5 fallback
+            FONT_BOLD = QFont.Bold
+    except ImportError as import_error:  # pragma: no cover
+        raise ImportError(
+            "PyQt5 or PyQt6 is required to run the GUI."
+        ) from import_error
 
 # --- Import adaptive cycle for single-pass evolution ---
 from adaptive.adaptive_graph_runner import adaptive_cycle
@@ -316,7 +358,7 @@ class AgentAppGUI(QWidget):
         start_button_layout = QHBoxLayout()
         start_button_layout.addStretch()
         self.start_button = QPushButton("Start Integrated Analysis")
-        self.start_button.setFont(QFont('Segoe UI', 12, QFont.Weight.Bold))
+        self.start_button.setFont(QFont('Segoe UI', 12, FONT_BOLD))
         self.start_button.setMinimumHeight(35)
         self.start_button.clicked.connect(self.start_integrated_workflow_thread)
         start_button_layout.addWidget(self.start_button)
@@ -326,7 +368,7 @@ class AgentAppGUI(QWidget):
         evolution_button_layout = QHBoxLayout()
         evolution_button_layout.addStretch()
         self.evolution_button = QPushButton("Run Single Evolution Pass")
-        self.evolution_button.setFont(QFont('Segoe UI', 12, QFont.Weight.Bold))
+        self.evolution_button.setFont(QFont('Segoe UI', 12, FONT_BOLD))
         self.evolution_button.setMinimumHeight(35)
         self.evolution_button.clicked.connect(self.start_evolution_pass_thread)
         evolution_button_layout.addWidget(self.evolution_button)
@@ -346,7 +388,7 @@ class AgentAppGUI(QWidget):
         graph_group = QGroupBox("Graph Visualization")
         graph_layout = QVBoxLayout()
         self.graph_label = QLabel("Graph will be displayed here once available.")
-        self.graph_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.graph_label.setAlignment(ALIGN_CENTER)
         graph_layout.addWidget(self.graph_label)
         graph_group.setLayout(graph_layout)
         self.main_layout.addWidget(graph_group)
@@ -467,8 +509,8 @@ class AgentAppGUI(QWidget):
                 scaled = pixmap.scaled(
                     self.graph_label.width() or 1,
                     self.graph_label.height() or 1,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
+                    KEEP_ASPECT_RATIO,
+                    SMOOTH_TRANSFORMATION,
                 )
                 self.graph_label.setPixmap(scaled)
             else:
@@ -807,11 +849,14 @@ class AgentAppGUI(QWidget):
     def closeEvent(self, event):  # pylint: disable=invalid-name
         """Handle window close events, attempting to stop worker threads."""
         if self.processing_thread and self.processing_thread.is_alive():
-            reply = QMessageBox.question(self, 'Confirm Quit',
-                                         "An analysis is currently processing. Are you sure you want to quit? Attempting to stop gracefully.",
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                         QMessageBox.StandardButton.No)
-            if reply == QMessageBox.StandardButton.Yes:
+            reply = QMessageBox.question(
+                self,
+                'Confirm Quit',
+                "An analysis is currently processing. Are you sure you want to quit? Attempting to stop gracefully.",
+                MB_YES | MB_NO,
+                MB_NO,
+            )
+            if reply == MB_YES:
                 self.log_status_to_gui("[GUI] Attempting to stop worker thread...")
                 self.stop_event.set()
 
@@ -865,7 +910,7 @@ if __name__ == '__main__':
 
     if not BACKEND_IMPORTED_SUCCESSFULLY:
         error_box = QMessageBox()
-        error_box.setIcon(QMessageBox.Icon.Critical)
+        error_box.setIcon(MB_CRITICAL)
         error_box.setText("Critical Backend Import Error")
         error_box.setInformativeText(
             BACKEND_IMPORT_ERROR_MESSAGE + "\nThe application cannot start correctly."
