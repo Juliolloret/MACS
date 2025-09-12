@@ -54,10 +54,18 @@ class ExperimentDesignerAgent(Agent):
 
             design_output_single = {"hypothesis_processed": hypo_str}
             try:
+                reasoning_effort = self.config_params.get("reasoning_effort")
+                verbosity = self.config_params.get("verbosity")
+                extra_params = {}
+                if reasoning_effort:
+                    extra_params["reasoning"] = {"effort": reasoning_effort}
+                if verbosity:
+                    extra_params["text"] = {"verbosity": verbosity}
                 design = self.llm.complete(
                     system=current_system_message,
                     prompt=prompt,
                     model=self.model_name,
+                    extra=extra_params,
                 )
                 design_output_single["experiment_design"] = design
             except LLMError as e:

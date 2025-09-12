@@ -33,6 +33,13 @@ class PDFSummarizerAgent(Agent):
             pdf_text_content = pdf_text_content[:max_len]
 
         temperature = float(self.config_params.get("temperature", 0.6))
+        reasoning_effort = self.config_params.get("reasoning_effort")
+        verbosity = self.config_params.get("verbosity")
+        extra_params = {}
+        if reasoning_effort:
+            extra_params["reasoning"] = {"effort": reasoning_effort}
+        if verbosity:
+            extra_params["text"] = {"verbosity": verbosity}
         prompt = (
             f"Please summarize the following academic text from document '"
             f"{os.path.basename(original_pdf_path)}':\n\n---\n{pdf_text_content}\n---"
@@ -43,6 +50,7 @@ class PDFSummarizerAgent(Agent):
                 prompt=prompt,
                 model=self.model_name,
                 temperature=temperature,
+                extra=extra_params,
             )
         except LLMError as e:
             return {"summary": "", "error": str(e), "original_pdf_path": original_pdf_path}
