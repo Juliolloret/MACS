@@ -48,9 +48,9 @@ class FakeLLM:
             })
         return "[FAKE] ok"
 
-    def complete(self, system, prompt, model, temperature=0.1):
+    def complete(self, system, prompt, model, temperature=0.1, extra=None):
         """Simulate a completion call with simple caching."""
-        key = self._cache.make_key(model, system, prompt, temperature)
+        key = self._cache.make_key(model, system, prompt, temperature, extra)
         cached = self._cache.get(key)
         if cached is not None:
             self.last_token_usage = 0

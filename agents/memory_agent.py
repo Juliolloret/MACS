@@ -162,17 +162,15 @@ class LongTermMemoryAgent(Agent):
                 log_status(f"[{self.agent_id}] INFO: Loading existing long-term memory from '{storage_path}'.")
                 vector_store = FAISS.load_local(storage_path, embeddings, allow_dangerous_deserialization=True)
                 log_status(f"[{self.agent_id}] INFO: Existing LTM loaded.")
+                # Add new summaries to the vector store
+                log_status(f"[{self.agent_id}] INFO: Adding {len(valid_summaries)} new summaries to long-term memory.")
+                vector_store.add_texts(texts=valid_summaries)
+                log_status(f"[{self.agent_id}] INFO: New summaries added to LTM.")
             else:
-                log_status(f"[{self.agent_id}] INFO: No existing long-term memory found. Creating a new one.")
-                # Create a new store with a dummy text to initialize it
-                vector_store = FAISS.from_texts(["Initial document"], embeddings)
+                log_status(f"[{self.agent_id}] INFO: No existing long-term memory found. Creating a new one from {len(valid_summaries)} summaries.")
+                # Create a new store with the new summaries
+                vector_store = FAISS.from_texts(texts=valid_summaries, embedding=embeddings)
                 log_status(f"[{self.agent_id}] INFO: New LTM created.")
-
-
-            # Add new summaries to the vector store
-            log_status(f"[{self.agent_id}] INFO: Adding {len(valid_summaries)} new summaries to long-term memory.")
-            vector_store.add_texts(texts=valid_summaries)
-            log_status(f"[{self.agent_id}] INFO: New summaries added to LTM.")
 
             # Save the updated vector store
             os.makedirs(os.path.dirname(storage_path), exist_ok=True)

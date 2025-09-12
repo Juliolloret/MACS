@@ -77,12 +77,20 @@ class ExperimentalDataLoaderAgent(Agent):
                     f"'{os.path.basename(resolved_data_path)}':\n\n---\n{truncated_data_content}\n---"
                 )
                 temperature = float(self.config_params.get("temperature", 0.6))
+                reasoning_effort = self.config_params.get("reasoning_effort")
+                verbosity = self.config_params.get("verbosity")
+                extra_params = {}
+                if reasoning_effort:
+                    extra_params["reasoning"] = {"effort": reasoning_effort}
+                if verbosity:
+                    extra_params["text"] = {"verbosity": verbosity}
                 try:
                     summary = self.llm.complete(
                         system=current_system_message,
                         prompt=prompt,
                         model=self.model_name,
                         temperature=temperature,
+                        extra=extra_params,
                     )
                     log_status(
                         f"[{self.agent_id}] INFO: Experimental data summarized by LLM."
