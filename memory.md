@@ -140,9 +140,9 @@ if results.data:
     if first_result.content:
         formatted_results = first_result.content[0].text
 
-completion = client.chat.completions.create(
+response = client.responses.create(
     model="gpt-4o",
-    messages=[
+    input=[
         {
             "role": "system",
             "content": "You are a helpful assistant. Produce a concise answer to the query based on the provided sources."
@@ -154,7 +154,7 @@ completion = client.chat.completions.create(
     ],
 )
 
-print(completion.choices[0].message.content)
+print(response.output_text)
 ```
 
 This pattern of retrieve-then-synthesize is a cornerstone of building knowledgeable and reliable agents.

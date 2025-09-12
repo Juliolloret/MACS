@@ -66,31 +66,29 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
 
     captured = {"create_calls": 0}
 
-    class DummyCompletions:  # pylint: disable=too-few-public-methods
+    class DummyResponses:  # pylint: disable=too-few-public-methods
         def create(self, **kwargs):  # noqa: D401
             captured["create_calls"] += 1
             captured["temperature"] = kwargs.get("temperature")
             captured["model"] = kwargs.get("model")
-            captured["messages"] = kwargs.get("messages")
+            captured["input"] = kwargs.get("input")
 
-            class Choice:  # pylint: disable=too-few-public-methods
-                message = {"content": "hi"}
+            class Output:  # pylint: disable=too-few-public-methods
+                content = [{"text": "hi"}]
 
             class Usage:  # pylint: disable=too-few-public-methods
                 total_tokens = 0
 
             class Resp:  # pylint: disable=too-few-public-methods
-                choices = [Choice()]
+                output = [Output()]
                 usage = Usage()
+                output_text = "hi"
 
             return Resp()
 
     class DummyClient:  # pylint: disable=too-few-public-methods
         def __init__(self, api_key=None, timeout=None):
-            class Chat:  # pylint: disable=too-few-public-methods
-                completions = DummyCompletions()
-
-            self.chat = Chat()
+            self.responses = DummyResponses()
 
     class DummyCache:  # pylint: disable=too-few-public-methods
         store = {}
@@ -126,7 +124,7 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
     assert result1 == result2 == "hi"
     assert captured["temperature"] is None
     assert captured["model"] == "gpt-5"
-    assert captured["messages"] == [
+    assert captured["input"] == [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "hi"},
     ]
