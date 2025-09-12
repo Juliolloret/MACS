@@ -22,7 +22,9 @@ class PDFSummaryWriterAgent(Agent):
             dictionaries with keys ``summary`` and ``original_pdf_path``.
         """
         summaries: List[Dict[str, str]] = inputs.get("summaries_to_write", [])
-        output_dir = self.config_params.get("output_dir", "pdf_summaries")
+        base_output_dir = inputs.get("project_base_output_dir", ".")
+        relative_output_dir = self.config_params.get("output_dir", "pdf_summaries")
+        output_dir = os.path.join(base_output_dir, relative_output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
         written_files = []
