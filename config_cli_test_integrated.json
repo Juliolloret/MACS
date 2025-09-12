@@ -7,14 +7,14 @@
     "output_project_experiments_folder_name": "project_experiments_cli",
     "long_term_memory_filename": "faiss_index_ltm_cli",
     "short_term_memory_filename": "faiss_index_stm_cli",
-    "default_llm_model": "gpt-3.5-turbo",
+    "default_llm_model": "gpt-5-mini",
     "models": {
-      "pdf_summarizer": "gpt-3.5-turbo",
-      "deep_research_summarizer_model": "gpt-3.5-turbo",
-      "web_research_model": "gpt-4o",
-      "knowledge_integrator_model": "gpt-3.5-turbo",
-      "hypothesis_generator": "gpt-3.5-turbo",
-      "experiment_designer": "gpt-3.5-turbo"
+      "pdf_summarizer": "gpt-5-mini",
+      "deep_research_summarizer_model": "gpt-5",
+      "web_research_model": "gpt-5",
+      "knowledge_integrator_model": "gpt-5",
+      "hypothesis_generator": "gpt-5",
+      "experiment_designer": "gpt-5"
     },
     "openai_api_timeout_seconds": 180
   },
@@ -49,7 +49,9 @@
           "loop_over": "loader_results",
           "model_key": "pdf_summarizer",
           "system_message_key": "pdf_summarizer_sm",
-          "parallel_execution": true
+          "parallel_execution": true,
+          "reasoning_effort": "low",
+          "verbosity": "low"
         }
       },
       {
@@ -64,7 +66,8 @@
         "type": "DeepResearchSummarizerAgent",
         "config": {
           "model_key": "deep_research_summarizer_model",
-          "system_message_key": "deep_research_summarizer_sm"
+          "system_message_key": "deep_research_summarizer_sm",
+          "reasoning_effort": "high"
         }
       },
       {
@@ -94,7 +97,8 @@
         "type": "KnowledgeIntegratorAgent",
         "config": {
           "model_key": "knowledge_integrator_model",
-          "system_message_key": "knowledge_integrator_sm"
+          "system_message_key": "knowledge_integrator_sm",
+          "reasoning_effort": "high"
         }
       },
       {
@@ -103,7 +107,8 @@
         "config": {
           "model_key": "hypothesis_generator",
           "system_message_key": "hypothesis_generator_sm",
-          "num_hypotheses": 3
+          "num_hypotheses": 3,
+          "reasoning_effort": "high"
         }
       },
       {
@@ -111,7 +116,8 @@
         "type": "ExperimentDesignerAgent",
         "config": {
           "model_key": "experiment_designer",
-          "system_message_key": "experiment_designer_sm"
+          "system_message_key": "experiment_designer_sm",
+          "reasoning_effort": "high"
         }
       }
     ],
