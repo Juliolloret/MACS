@@ -284,7 +284,7 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual([r.get("slept") for r in results], durations)
 
     def test_visualize_graph_without_graphviz(self):
-        """visualize() falls back to .gv when graphviz is unavailable."""
+        """visualize() falls back to a Mermaid file when graphviz is unavailable."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -300,16 +300,11 @@ class TestGraphOrchestrator(unittest.TestCase):
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
         output_base = os.path.join(self.test_outputs_dir, "graph_no_gv")
-        real_import = builtins.__import__
-
-        def fake_import(name, *args, **kwargs):
-            if name.startswith("graphviz"):
-                raise ImportError
-            return real_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=fake_import):
+        with patch("multi_agent_llm_system.Digraph", None), patch(
+            "multi_agent_llm_system.ExecutableNotFound", None
+        ):
             path = orchestrator.visualize(output_base)
-        self.assertTrue(path.endswith(".gv"))
+        self.assertTrue(path.endswith(".mmd"))
         self.assertTrue(os.path.exists(path))
 
     def test_failure_policy_continue_override(self):

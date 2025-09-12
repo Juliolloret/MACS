@@ -18,5 +18,5 @@ def test_visualize_includes_metrics(tmp_path, monkeypatch):
     monkeypatch.setattr(multi_agent_llm_system, "ExecutableNotFound", None)
     output = tmp_path / "graph"
     orchestrator.visualize(str(output))
-    dot_content = (tmp_path / "graph.gv").read_text()
-    assert "1.23s, 45 tok" in dot_content
+    mermaid_content = (tmp_path / "graph.mmd").read_text()
+    assert "1.23s, 45 tok" in mermaid_content

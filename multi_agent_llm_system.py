@@ -187,25 +187,28 @@ class GraphOrchestrator:
             The path to the generated visualization file or the saved DOT file.
         """
         if Digraph is None or ExecutableNotFound is None:
-            dot_lines = ["digraph AgentGraph {"]
+            mermaid_lines = ["graph TD"]
             for node in self.graph_definition.get("nodes", []):
                 node_id = node["id"]
                 label = node.get("type", node_id)
                 metrics = self.node_metrics.get(node_id)
                 if metrics:
-                    label += f"\\n{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
-                attrs = " style=filled fillcolor=yellow" if node_id == highlight_node_id else ""
-                dot_lines.append(f'    "{node_id}" [label="{label}"{attrs}];')
+                    label += f"<br/>{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
+                safe_label = label.replace("\"", "\\\"")
+                mermaid_lines.append(f'{node_id}["{safe_label}"]')
             for edge in self.graph_definition.get("edges", []):
-                dot_lines.append(f'    "{edge.get("from")}" -> "{edge.get("to")}";')
-            dot_lines.append("}")
-            dot_path = output_path + ".gv"
-            with open(dot_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(dot_lines))
-            log_status(f"[GraphOrchestrator] INFO: graphviz package not available. DOT file saved to {dot_path}")
-            report_graph_visualization(dot_path)
-            _open_graph_file(dot_path)
-            return dot_path
+                mermaid_lines.append(f'{edge.get("from")} --> {edge.get("to")}')
+            if highlight_node_id:
+                mermaid_lines.append(f'style {highlight_node_id} fill:yellow')
+            mermaid_path = output_path + ".mmd"
+            with open(mermaid_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(mermaid_lines))
+            log_status(
+                f"[GraphOrchestrator] INFO: graphviz package not available. Mermaid file saved to {mermaid_path}"
+            )
+            report_graph_visualization(mermaid_path)
+            _open_graph_file(mermaid_path)
+            return mermaid_path
 
         dot = Digraph(comment="Agent Graph", format=output_format)
         for node in self.graph_definition.get("nodes", []):
