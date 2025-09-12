@@ -104,12 +104,13 @@ class OpenAILLM(LLMClient):
             log_status(f"[LLM] CACHE_HIT: Model='{chosen_model}'")
             return cached
         try:
+            # Unify the system message and prompt into a single input string.
+            # The Responses API expects a string, not a chat-style message list.
+            combined_input = f"{sys_msg}\n\n{prompt}"
+
             params = {
                 "model": chosen_model,
-                "input": [
-                    {"role": "system", "content": sys_msg},
-                    {"role": "user", "content": prompt},
-                ],
+                "input": combined_input,
             }
             if temp is not None:
                 params["temperature"] = temp
@@ -124,28 +125,18 @@ class OpenAILLM(LLMClient):
             self.total_tokens_used += usage
 
             try:
-                # Newer versions of the Responses API provide ``output_text`` directly.
-                # Fall back to parsing the first output item if ``output_text`` is empty.
-                if getattr(response, "output_text", None):
-                    result = response.output_text.strip()
-                else:
-                    # The response object contains a list of output items. The primary message
-                    # is typically the first item.
-                    if not response.output:
-                        raise LLMError("Response object has no output list.")
-
-                    first_output = response.output[0]
-                    if not getattr(first_output, "content", None):
-                        raise LLMError("Response output item has no content.")
-
-                    # The content is a list of blocks (e.g., text, tool calls). We want the text.
-                    text_block = next(
-                        (c for c in first_output.content if getattr(c, "type", "") == "text"), None
+                # The modern Responses API provides output_text directly.
+                if not hasattr(response, "output_text") or not response.output_text:
+                    # Fallback for unexpected response format, though output_text is standard.
+                    log_status(
+                        f"[LLM] LLM_CALL_WARNING: Model='{chosen_model}' response has no output_text."
                     )
-                    if text_block is None or not getattr(text_block, "text", None):
-                        raise LLMError("Response content has no text block.")
-
-                    result = text_block.text.strip()
+                    if not response.output or not response.output[0].content:
+                        raise LLMError("Response object is missing expected content.")
+                    # Legacy path: extract text from the first content block.
+                    result = response.output[0].content[0].text.strip()
+                else:
+                    result = response.output_text.strip()
             except (AttributeError, IndexError) as e:
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' could not parse response: {e}"
