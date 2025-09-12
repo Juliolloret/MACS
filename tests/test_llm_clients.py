@@ -20,15 +20,12 @@ def test_fake_llm_uses_cache_without_incrementing_tokens():
 def test_openai_llm_wraps_timeout_error(monkeypatch):
     """OpenAILLM.complete should wrap APITimeoutError in LLMError."""
     class TimeoutOpenAI:
-        class Chat:  # pylint: disable=too-few-public-methods
-            class Completions:  # pylint: disable=too-few-public-methods
-                def create(self, **kwargs):  # noqa: D401
-                    raise APITimeoutError("timeout")
-
-            completions = Completions()
+        class Responses:  # pylint: disable=too-few-public-methods
+            def create(self, **kwargs):  # noqa: D401
+                raise APITimeoutError("timeout")
 
         def __init__(self, *args, **kwargs):
-            self.chat = self.Chat()
+            self.responses = self.Responses()
 
     monkeypatch.setattr(llm_openai, "OpenAI", TimeoutOpenAI)
     llm = OpenAILLM({}, api_key="test-key")
