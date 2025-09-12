@@ -2,7 +2,6 @@
 
 import datetime
 import os
-import subprocess
 import sys
 import threading
 import time  # Added for small delay in closeEvent
@@ -10,31 +9,13 @@ import traceback
 import configparser
 
 # pylint: disable=missing-function-docstring, import-error, broad-exception-caught
-
-
-def install_dependencies():
-    """Install dependencies from ``requirements.txt`` if present."""
-    requirements_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
-    if not os.path.exists(requirements_path):
-        print("[Dependency Check] requirements.txt not found. Skipping installation.")
-        return
-
-    print("[Dependency Check] Checking and installing dependencies from requirements.txt...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_path])
-        print("[Dependency Check] All dependencies are satisfied.")
-    except subprocess.CalledProcessError:
-        print(
-            "[Dependency Check] Failed to install dependencies. Please install them manually using 'pip install -r requirements.txt'"
-        )
-    except FileNotFoundError:
-        print("[Dependency Check] 'pip' command not found. Please ensure pip is installed and in your PATH.")
-
 # Allow installing dependencies before attempting to import PyQt.
 # This enables running ``python gui.py --install-deps`` even when PyQt
 # itself is not yet installed.
 if "--install-deps" in sys.argv:
-    install_dependencies()
+    from dependency_installer import maybe_install_deps
+
+    maybe_install_deps()
     # Remove the flag so it does not interfere with later argument parsing.
     sys.argv.remove("--install-deps")
 
