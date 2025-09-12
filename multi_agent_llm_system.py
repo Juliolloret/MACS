@@ -5,6 +5,8 @@ import time
 import json
 from collections import defaultdict, deque
 import traceback
+import threading
+import webbrowser
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -46,6 +48,18 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- All class definitions (Agent, Pydantic models, specific agent classes) and utility functions are now removed from this file. ---
 # They are imported from their respective locations in 'utils.py' or the 'agents' package.
+
+
+def _open_graph_file(path: str):
+    """Attempt to open ``path`` in a separate viewer window."""
+
+    def _viewer():
+        try:
+            webbrowser.open(f"file://{os.path.abspath(path)}")
+        except Exception as exc:  # pragma: no cover - best effort only
+            log_status(f"[GraphOrchestrator] WARNING: Could not open graph viewer: {exc}")
+
+    threading.Thread(target=_viewer, daemon=True).start()
 
 class GraphOrchestrator:
     """Execute a graph of agents according to a configuration definition."""
@@ -190,6 +204,7 @@ class GraphOrchestrator:
                 f.write("\n".join(dot_lines))
             log_status(f"[GraphOrchestrator] INFO: graphviz package not available. DOT file saved to {dot_path}")
             report_graph_visualization(dot_path)
+            _open_graph_file(dot_path)
             return dot_path
 
         dot = Digraph(comment="Agent Graph", format=output_format)
@@ -211,11 +226,13 @@ class GraphOrchestrator:
             output_file = dot.render(output_path, cleanup=True)
             log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
             report_graph_visualization(output_file)
+            _open_graph_file(output_file)
             return output_file
         except ExecutableNotFound:
             dot_path = dot.save(output_path + ".gv")
             log_status(f"[GraphOrchestrator] WARNING: Graphviz executable not found. DOT file saved to {dot_path}")
             report_graph_visualization(dot_path)
+            _open_graph_file(dot_path)
             return dot_path
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
