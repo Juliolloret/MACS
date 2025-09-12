@@ -7,14 +7,14 @@
     "output_project_experiments_folder_name": "project_experiments",
     "long_term_memory_filename": "faiss_index_ltm",
     "short_term_memory_filename": "faiss_index_stm",
-    "default_llm_model": "gpt-4o",
+    "default_llm_model": "gpt-5",
     "models": {
-      "long_term_memory_model": "gpt-4o-mini",
-      "pdf_summarizer": "gpt-4o",
-      "deep_research_summarizer_model": "gpt-4o",
-      "knowledge_integrator_model": "gpt-4o-mini",
-      "hypothesis_generator": "gpt-4o-mini",
-      "experiment_designer": "gpt-4.1"
+      "long_term_memory_model": "gpt-5-mini",
+      "pdf_summarizer": "gpt-5-mini",
+      "deep_research_summarizer_model": "gpt-5",
+      "knowledge_integrator_model": "gpt-5",
+      "hypothesis_generator": "gpt-5",
+      "experiment_designer": "gpt-5"
     },
     "openai_api_timeout_seconds": 120
   },
@@ -55,7 +55,9 @@
           "system_message_key": "pdf_summarizer_sm",
           "max_input_length": 15000,
           "temperature": 0.6,
-          "parallel_execution": true
+          "parallel_execution": true,
+          "reasoning_effort": "low",
+          "verbosity": "low"
         }
       },
       {
@@ -74,7 +76,8 @@
           "model_key": "deep_research_summarizer_model",
           "system_message_key": "deep_research_summarizer_sm",
           "temperature": 0.7,
-          "top_k": 3
+          "top_k": 3,
+          "reasoning_effort": "high"
         }
       },
       {
@@ -104,7 +107,8 @@
           "model_key": "knowledge_integrator_model",
           "system_message_key": "knowledge_integrator_sm",
           "max_input_segment_len": 10000,
-          "temperature": 0.6
+          "temperature": 0.6,
+          "reasoning_effort": "high"
         }
       },
       {
@@ -116,7 +120,8 @@
           "system_message_key": "hypothesis_generator_sm",
           "num_hypotheses": 5,
           "max_brief_len": 15000,
-          "temperature": 0.6
+          "temperature": 0.6,
+          "reasoning_effort": "high"
         }
       },
       {
@@ -125,7 +130,8 @@
         "config": {
           "description": "Designs experimental protocols for generated hypotheses.",
           "model_key": "experiment_designer",
-          "system_message_key": "experiment_designer_sm"
+          "system_message_key": "experiment_designer_sm",
+          "reasoning_effort": "high"
         }
       },
       {
