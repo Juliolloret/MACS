@@ -134,6 +134,14 @@
         "config": {
           "description": "Reviews all agent outputs for errors."
         }
+      },
+      {
+        "id": "pdf_summary_writer_node",
+        "type": "PDFSummaryWriterAgent",
+        "config": {
+          "description": "Writes each PDF summary to a separate text file.",
+          "output_dir": "project_synthesis/summaries"
+        }
       }
     ],
     "edges": [
@@ -142,6 +150,13 @@
         "to": "pdf_loader_node",
         "data_mapping": {
           "all_pdf_paths": "all_pdf_paths"
+        }
+      },
+      {
+        "from": "pdf_summarizer_node",
+        "to": "pdf_summary_writer_node",
+        "data_mapping": {
+          "results": "summaries_to_write"
         }
       },
       {
