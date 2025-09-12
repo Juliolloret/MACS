@@ -70,7 +70,7 @@ class TestMemoryAgents(unittest.TestCase):
             self.assertEqual(result["individual_summaries"], ["A", "B"])
 
     def test_short_term_memory_handles_invalid_input(self):
-        """Short term agent reports an error when given invalid input."""
+        """Short term agent handles invalid input gracefully."""
         agent = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",
@@ -79,7 +79,8 @@ class TestMemoryAgents(unittest.TestCase):
             self.app_config,
         )
         result = agent.execute({"individual_summaries": "bad"})
-        self.assertIn("error", result)
+        self.assertIsNone(result["vector_store_path"])
+        self.assertEqual(result["individual_summaries"], [])
 
     def test_long_term_memory_updates_store(self):
         """Long term agent saves summaries to persistent storage."""
