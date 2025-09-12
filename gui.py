@@ -32,13 +32,12 @@ def install_dependencies():
 
 try:
     from PyQt6.QtCore import QTimer, QObject, pyqtSignal, Qt
-    from PyQt6.QtGui import QFont, QPixmap
+    from PyQt6.QtGui import QFont, QPixmap, QAction
     from PyQt6.QtWidgets import (
         QApplication,
         QFileDialog,
         QLabel,
         QMenuBar,
-        QAction,
         QMessageBox,
         QDialog,
         QPushButton,
