@@ -64,12 +64,20 @@ class KnowledgeIntegratorAgent(Agent):
         )
 
         temperature = float(self.config_params.get("temperature", 0.6))
+        reasoning_effort = self.config_params.get("reasoning_effort")
+        verbosity = self.config_params.get("verbosity")
+        extra_params = {}
+        if reasoning_effort:
+            extra_params["reasoning"] = {"effort": reasoning_effort}
+        if verbosity:
+            extra_params["text"] = {"verbosity": verbosity}
         try:
             integrated_brief = self.llm.complete(
                 system=current_system_message,
                 prompt=prompt,
                 model=self.model_name,
                 temperature=temperature,
+                extra=extra_params,
             )
         except LLMError as e:
             return {"integrated_knowledge_brief": "", "error": str(e)}

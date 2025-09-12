@@ -92,12 +92,16 @@ class OpenAILLM(LLMClient):
 
         prompt_id = None
         conversation_id = None
+        reasoning = None
+        text = None
         if extra:
             prompt_id = extra.get("prompt_id")
             conversation_id = extra.get("conversation_id")
+            reasoning = extra.get("reasoning")
+            text = extra.get("text")
 
         cache_key = self._response_cache.make_key(
-            chosen_model, sys_msg, prompt, temp, prompt_id, conversation_id
+            chosen_model, sys_msg, prompt, temp, prompt_id, conversation_id, reasoning, text
         )
         cached = self._response_cache.get(cache_key)
         if cached is not None:
@@ -118,6 +122,10 @@ class OpenAILLM(LLMClient):
                 params["prompt_id"] = prompt_id
             if conversation_id:
                 params["conversation_id"] = conversation_id
+            if reasoning:
+                params["reasoning"] = reasoning
+            if text:
+                params["text"] = text
 
             response = self.client.responses.create(**params)
             usage = getattr(getattr(response, "usage", None), "total_tokens", 0)
