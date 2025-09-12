@@ -73,18 +73,33 @@ def test_call_openai_api_omits_temperature_for_gpt5(monkeypatch):
             captured["model"] = kwargs.get("model")
             captured["input"] = kwargs.get("input")
 
-            class Output:  # pylint: disable=too-few-public-methods
-                content = [{"text": "hi"}]
+            # Extract the prompt text from the input to make the mock more realistic
+            prompt_text = "default_response"
+            if "input" in kwargs and isinstance(kwargs["input"], list):
+                user_message = next(
+                    (m for m in kwargs["input"] if m.get("role") == "user"), None
+                )
+                if user_message and "content" in user_message:
+                    prompt_text = user_message["content"]
+
+            class TextBlock:
+                def __init__(self, text):
+                    self.type = "text"
+                    self.text = text
+
+            class Output:
+                def __init__(self, text):
+                    self.content = [TextBlock(text)]
 
             class Usage:  # pylint: disable=too-few-public-methods
                 total_tokens = 0
 
             class Resp:  # pylint: disable=too-few-public-methods
-                output = [Output()]
-                usage = Usage()
-                output_text = "hi"
+                def __init__(self, text):
+                    self.output = [Output(text)]
+                    self.usage = Usage()
 
-            return Resp()
+            return Resp(prompt_text)
 
     class DummyClient:  # pylint: disable=too-few-public-methods
         def __init__(self, api_key=None, timeout=None):
