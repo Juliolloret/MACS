@@ -124,23 +124,28 @@ class OpenAILLM(LLMClient):
             self.total_tokens_used += usage
 
             try:
-                # The response object contains a list of output items. The primary message
-                # is typically the first item.
-                if not response.output:
-                    raise LLMError("Response object has no output list.")
+                # Newer versions of the Responses API provide ``output_text`` directly.
+                # Fall back to parsing the first output item if ``output_text`` is empty.
+                if getattr(response, "output_text", None):
+                    result = response.output_text.strip()
+                else:
+                    # The response object contains a list of output items. The primary message
+                    # is typically the first item.
+                    if not response.output:
+                        raise LLMError("Response object has no output list.")
 
-                first_output = response.output[0]
-                if not getattr(first_output, "content", None):
-                    raise LLMError("Response output item has no content.")
+                    first_output = response.output[0]
+                    if not getattr(first_output, "content", None):
+                        raise LLMError("Response output item has no content.")
 
-                # The content is a list of blocks (e.g., text, tool calls). We want the text.
-                text_block = next(
-                    (c for c in first_output.content if getattr(c, "type", "") == "text"), None
-                )
-                if text_block is None or not getattr(text_block, "text", None):
-                    raise LLMError("Response content has no text block.")
+                    # The content is a list of blocks (e.g., text, tool calls). We want the text.
+                    text_block = next(
+                        (c for c in first_output.content if getattr(c, "type", "") == "text"), None
+                    )
+                    if text_block is None or not getattr(text_block, "text", None):
+                        raise LLMError("Response content has no text block.")
 
-                result = text_block.text.strip()
+                    result = text_block.text.strip()
             except (AttributeError, IndexError) as e:
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' could not parse response: {e}"
