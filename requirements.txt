@@ -15,3 +15,4 @@ PyPDF2
 reportlab
 PyQt6
 pydantic
+graphviz
