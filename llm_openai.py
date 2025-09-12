@@ -72,7 +72,7 @@ class OpenAILLM(LLMClient):
                  model: Optional[str] = None,
                  temperature: Optional[float] = None,
                  extra: Optional[Dict] = None) -> str:  # pylint: disable=too-many-arguments, too-many-locals
-        """Send a chat completion request to the OpenAI API."""
+        """Send a Responses API request to the OpenAI API."""
         chosen_model = model if model else get_model_name(self.app_config)
         sys_msg = system if system else "You are a helpful assistant."
         temp = temperature
@@ -106,7 +106,7 @@ class OpenAILLM(LLMClient):
         try:
             params = {
                 "model": chosen_model,
-                "messages": [
+                "input": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": prompt},
                 ],
@@ -118,14 +118,14 @@ class OpenAILLM(LLMClient):
             if conversation_id:
                 params["conversation_id"] = conversation_id
 
-            response = self.client.chat.completions.create(**params)
+            response = self.client.responses.create(**params)
             usage = getattr(getattr(response, "usage", None), "total_tokens", 0)
             self.last_token_usage = usage
             self.total_tokens_used += usage
 
             try:
-                result = response.choices[0].message["content"].strip()  # type: ignore[index]
-            except (TypeError, AttributeError, IndexError, KeyError):
+                result = response.output_text.strip()
+            except (TypeError, AttributeError):
                 log_status(
                     f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no textual output."
                 )
