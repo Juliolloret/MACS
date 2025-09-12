@@ -64,7 +64,7 @@ class OpenAILLM(LLMClient):
                 from langchain_openai import OpenAIEmbeddings  # pylint: disable=import-error
             except ImportError as exc:  # pragma: no cover - optional dependency
                 raise ImportError("langchain_openai library is required for embeddings") from exc
-            base = OpenAIEmbeddings(client=self.client)
+            base = OpenAIEmbeddings(client=self.client, api_key=self.api_key)
             self._embeddings_client = CachingEmbeddings(base, self._embedding_cache)
         return self._embeddings_client
 
