@@ -124,14 +124,30 @@ class OpenAILLM(LLMClient):
             self.total_tokens_used += usage
 
             try:
-                result = response.output_text.strip()
-            except (TypeError, AttributeError):
+                # The response object contains a list of output items. The primary message
+                # is typically the first item.
+                if not response.output:
+                    raise LLMError("Response object has no output list.")
+
+                first_output = response.output[0]
+                if not getattr(first_output, "content", None):
+                    raise LLMError("Response output item has no content.")
+
+                # The content is a list of blocks (e.g., text, tool calls). We want the text.
+                text_block = next(
+                    (c for c in first_output.content if getattr(c, "type", "") == "text"), None
+                )
+                if text_block is None or not getattr(text_block, "text", None):
+                    raise LLMError("Response content has no text block.")
+
+                result = text_block.text.strip()
+            except (AttributeError, IndexError) as e:
                 log_status(
-                    f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' response has no textual output."
+                    f"[LLM] LLM_CALL_ERROR: Model='{chosen_model}' could not parse response: {e}"
                 )
                 raise LLMError(
-                    f"OpenAI API response had no textual output for model {chosen_model}."
-                )
+                    f"OpenAI API response for model {chosen_model} was malformed."
+                ) from e
 
             snippet = result[:150].replace("\n", " ")
             log_status(
