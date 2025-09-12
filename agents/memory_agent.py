@@ -44,18 +44,16 @@ class ShortTermMemoryAgent(Agent):
 
         individual_summaries_list = inputs.get("individual_summaries")
         if not isinstance(individual_summaries_list, list) or not individual_summaries_list:
-            error_msg = f"Input 'individual_summaries' is missing, not a list, or empty."
-            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
-            return {"error": error_msg}
+            log_status(f"[{self.agent_id}] INFO: Input 'individual_summaries' is missing or empty. No STM will be created.")
+            return {"vector_store_path": None, "individual_summaries": []}
 
         # Extract summary text from the list of dictionaries
         valid_summaries = [s.get("summary") for s in individual_summaries_list if isinstance(s, dict) and s.get("summary")]
         log_status(f"[{self.agent_id}] INFO: Found {len(valid_summaries)} valid summaries.")
 
         if not valid_summaries:
-            error_msg = "No valid summary strings found in 'individual_summaries'."
-            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
-            return {"error": error_msg}
+            log_status(f"[{self.agent_id}] INFO: No valid summary strings found in 'individual_summaries'. No STM will be created.")
+            return {"vector_store_path": None, "individual_summaries": []}
 
         if FAISS is None:
             error_msg = "langchain_community.vectorstores is required but not installed."
@@ -142,13 +140,13 @@ class LongTermMemoryAgent(Agent):
         individual_summaries = inputs.get("individual_summaries")
 
         if not isinstance(individual_summaries, list) or not individual_summaries:
-            error_msg = "Input 'individual_summaries' is missing, not a list, or empty."
-            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
-            return {"error": error_msg}
+            log_status(f"[{self.agent_id}] INFO: No new summaries provided to add to long-term memory.")
+            return {"long_term_memory_path": storage_path}
 
         valid_summaries = [s for s in individual_summaries if isinstance(s, str) and s.strip()]
         if not valid_summaries:
-            return {"error": "No valid summary strings to add to long-term memory."}
+            log_status(f"[{self.agent_id}] INFO: No valid summary strings found to add to long-term memory.")
+            return {"long_term_memory_path": storage_path}
 
         if FAISS is None:
             error_msg = "langchain_community.vectorstores is required but not installed."
