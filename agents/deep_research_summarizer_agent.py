@@ -44,7 +44,8 @@ class DeepResearchSummarizerAgent(Agent):
 
         vector_store_path = inputs.get("vector_store_path")
         if not vector_store_path:
-            return {"error": "Input 'vector_store_path' was not provided."}
+            log_status(f"[{self.agent_id}] INFO: No vector store path provided. Skipping summarization.")
+            return {"deep_research_summary": "No new documents were provided to generate a deep summary."}
 
         if not os.path.exists(vector_store_path):
             log_status(f"[{self.agent_id}] ERROR: Vector store not found at path: {vector_store_path}")
