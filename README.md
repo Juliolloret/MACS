@@ -111,7 +111,7 @@
 ```bash
 python gui.py
 ```
-- If PyQt is not installed, run `python gui.py --install-deps` to install required dependencies before launching.
+- To install required packages automatically, set `auto_install_deps = true` in `predefined_routes.ini` and run `python gui.py --install-deps` before launching.
 - Use the GUI to select your PDF folder, output directory, and optional experimental data/config.
 - Click "Start Integrated Analysis" to launch the workflow.
 - Monitor progress and status in the GUI.
