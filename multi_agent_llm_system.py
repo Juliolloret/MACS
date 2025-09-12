@@ -330,11 +330,18 @@ class GraphOrchestrator:
 
             # --- Memory Agent Path Injection ---
             # For agents that need to write to the project directory, inject the base path.
-            if current_agent.agent_type in ["LongTermMemoryAgent", "ShortTermMemoryAgent"]:
+            if current_agent.agent_type in ["LongTermMemoryAgent", "ShortTermMemoryAgent", "PDFSummaryWriterAgent"]:
                 agent_inputs["project_base_output_dir"] = project_base_output_dir
                 log_status(f"[{node_id}] INFO: Injected 'project_base_output_dir' for persistent storage.")
 
             log_status(f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k,v in agent_inputs.items()])} }}")
+
+            # --- Pre-execution Check for Upstream Failures ---
+            if agent_inputs.get("error"):
+                upstream_error_message = agent_inputs.get("error", "Unknown upstream error")
+                log_status(f"[GraphOrchestrator] SKIPPING_NODE: '{node_id}' due to upstream failure. Reason: {upstream_error_message}")
+                outputs_history[node_id] = {"error": f"Skipped due to upstream failure: {upstream_error_message}"}
+                continue
 
             policy = current_agent.config_params.get("failure_policy", self.failure_policy)
             retries = current_agent.config_params.get("retries", 0)
@@ -624,9 +631,10 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
 
     openai_api_key_check = app_config.get("system_variables", {}).get("openai_api_key")
     if not openai_api_key_check or openai_api_key_check in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
-                                                            "YOUR_ACTUAL_OPENAI_API_KEY", "KEY"]:
-        api_key_error_msg = "OpenAI API key missing or is a placeholder in configuration. Please set a valid API key."
+                                                            "YOUR_ACTUAL_OPENAI_API_KEY", "KEY", "YOUR_KEY"]:
+        api_key_error_msg = "OpenAI API key missing or is a placeholder in config.json. Please set a valid API key to proceed."
         log_status(f"[MainWorkflow] CONFIG_ERROR: {api_key_error_msg}")
+        raise ValueError(api_key_error_msg)
 
     if not pdf_file_paths:
         log_status(
