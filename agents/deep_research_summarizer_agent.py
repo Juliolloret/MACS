@@ -34,13 +34,19 @@ class DeepResearchSummarizerAgent(Agent):
             inputs (dict): A dictionary containing 'user_query' and 'vector_store_path'.
 
         Returns:
-            dict: A dictionary containing the 'deep_research_summary'.
+            dict: A dictionary with a ``deep_research_summary`` field
+            (empty string on failure) and optionally an ``error`` message
+            describing any issues encountered during summarization.
         """
         log_status(f"[{self.agent_id}] INFO: Deep research summarizer agent is processing inputs: {inputs}")
 
         user_query = inputs.get("user_query")
         if not user_query:
-            return {"error": "Input 'user_query' was not provided."}
+            log_status(f"[{self.agent_id}] ERROR: Input 'user_query' was not provided.")
+            return {
+                "deep_research_summary": "",
+                "error": "Input 'user_query' was not provided.",
+            }
 
         vector_store_path = inputs.get("vector_store_path")
         if not vector_store_path:
@@ -48,15 +54,20 @@ class DeepResearchSummarizerAgent(Agent):
             return {"deep_research_summary": "No new documents were provided to generate a deep summary."}
 
         if not os.path.exists(vector_store_path):
-            log_status(f"[{self.agent_id}] ERROR: Vector store not found at path: {vector_store_path}")
-            return {"error": f"Vector store not found at path: {vector_store_path}"}
+            log_status(
+                f"[{self.agent_id}] ERROR: Vector store not found at path: {vector_store_path}"
+            )
+            return {
+                "deep_research_summary": "",
+                "error": f"Vector store not found at path: {vector_store_path}",
+            }
 
         if FAISS is None:
             error_msg = (
                 "langchain_community.vectorstores is not available. Install the package to enable FAISS support."
             )
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
-            return {"error": error_msg}
+            return {"deep_research_summary": "", "error": error_msg}
 
         try:
             log_status(f"[{self.agent_id}] INFO: Loading FAISS vector store from '{vector_store_path}'.")
@@ -104,4 +115,4 @@ class DeepResearchSummarizerAgent(Agent):
         except (OSError, ValueError, RuntimeError) as exc:
             error_msg = f"Failed during deep research summarization: {exc}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
-            return {"error": error_msg}
+            return {"deep_research_summary": "", "error": error_msg}
