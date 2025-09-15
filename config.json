@@ -131,7 +131,10 @@
           "description": "Designs experimental protocols for generated hypotheses.",
           "model_key": "experiment_designer",
           "system_message_key": "experiment_designer_sm",
-          "reasoning_effort": "high"
+          "reasoning_effort": "high",
+          "loop_over": "hypotheses_list",
+          "loop_item_input_key": "hypothesis",
+          "parallel_execution": true
         }
       },
       {
