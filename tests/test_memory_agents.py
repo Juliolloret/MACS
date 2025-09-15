@@ -81,6 +81,7 @@ class TestMemoryAgents(unittest.TestCase):
         result = agent.execute({"individual_summaries": "bad"})
         self.assertIsNone(result["vector_store_path"])
         self.assertEqual(result["individual_summaries"], [])
+        self.assertIn("error", result)
 
     def test_long_term_memory_updates_store(self):
         """Long term agent saves summaries to persistent storage."""

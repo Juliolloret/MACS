@@ -44,6 +44,13 @@ class TestDeepResearchSummarizerAgent(unittest.TestCase):
         self.assertIn("error", result)
         self.assertEqual(result["deep_research_summary"], "")
 
+    def test_missing_vector_store_path_returns_error(self):
+        """Agent errors when no vector store path is supplied."""
+        agent = self._make_agent()
+        result = agent.execute({"user_query": "What is AI?"})
+        self.assertIn("error", result)
+        self.assertEqual(result["deep_research_summary"], "")
+
 
 if __name__ == "__main__":
     unittest.main()
