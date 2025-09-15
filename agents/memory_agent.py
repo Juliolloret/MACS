@@ -44,16 +44,28 @@ class ShortTermMemoryAgent(Agent):
 
         individual_summaries_list = inputs.get("individual_summaries")
         if not isinstance(individual_summaries_list, list) or not individual_summaries_list:
-            log_status(f"[{self.agent_id}] INFO: Input 'individual_summaries' is missing or empty. No STM will be created.")
-            return {"vector_store_path": None, "individual_summaries": []}
+            log_status(
+                f"[{self.agent_id}] INFO: Input 'individual_summaries' is missing or empty. No STM will be created."
+            )
+            return {
+                "vector_store_path": None,
+                "individual_summaries": [],
+                "error": "No individual summaries were provided to build short-term memory.",
+            }
 
         # Extract summary text from the list of dictionaries
         valid_summaries = [s.get("summary") for s in individual_summaries_list if isinstance(s, dict) and s.get("summary")]
         log_status(f"[{self.agent_id}] INFO: Found {len(valid_summaries)} valid summaries.")
 
         if not valid_summaries:
-            log_status(f"[{self.agent_id}] INFO: No valid summary strings found in 'individual_summaries'. No STM will be created.")
-            return {"vector_store_path": None, "individual_summaries": []}
+            log_status(
+                f"[{self.agent_id}] INFO: No valid summary strings found in 'individual_summaries'. No STM will be created."
+            )
+            return {
+                "vector_store_path": None,
+                "individual_summaries": [],
+                "error": "No valid summary strings were found to build short-term memory.",
+            }
 
         if FAISS is None:
             error_msg = "langchain_community.vectorstores is required but not installed."
