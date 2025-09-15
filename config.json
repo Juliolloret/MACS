@@ -61,6 +61,17 @@
         }
       },
       {
+        "id": "multi_doc_synthesizer_node",
+        "type": "MultiDocSynthesizerAgent",
+        "config": {
+          "description": "Synthesizes a single summary from multiple PDF summaries.",
+          "model_key": "pdf_summarizer",
+          "system_message_key": "deep_research_summarizer_sm",
+          "max_combined_len": 30000,
+          "temperature": 0.6
+        }
+      },
+      {
         "id": "short_term_memory_node",
         "type": "ShortTermMemoryAgent",
         "config": {
@@ -184,30 +195,16 @@
       },
       {
         "from": "pdf_summarizer_node",
-        "to": "short_term_memory_node",
+        "to": "multi_doc_synthesizer_node",
         "data_mapping": {
-          "results": "individual_summaries"
+          "results": "all_pdf_summaries"
         }
       },
       {
-        "from": "short_term_memory_node",
-        "to": "deep_research_summarizer",
-        "data_mapping": {
-          "vector_store_path": "vector_store_path"
-        }
-      },
-      {
-        "from": "short_term_memory_node",
-        "to": "long_term_memory_node",
-        "data_mapping": {
-          "individual_summaries": "individual_summaries"
-        }
-      },
-      {
-        "from": "long_term_memory_node",
+        "from": "multi_doc_synthesizer_node",
         "to": "knowledge_integrator",
         "data_mapping": {
-          "long_term_memory_path": "multi_doc_synthesis"
+          "multi_doc_synthesis_output": "multi_doc_synthesis"
         }
       },
       {

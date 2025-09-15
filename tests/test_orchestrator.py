@@ -157,25 +157,13 @@ class TestGraphOrchestrator(unittest.TestCase):
 
 
     @patch("os.path.exists")
-    @patch("agents.deep_research_summarizer_agent.FAISS")
-    @patch("agents.memory_agent.FAISS")
-    def test_full_graph_run_with_memory_agents(
-        self, mock_faiss_memory, mock_faiss_deep_research, mock_os_path_exists
-    ):
-        """Run the full graph with memory agents, mocking FAISS."""
+    def test_full_graph_run_with_synthesizer(self, mock_os_path_exists):
+        """Run the full graph with the synthesizer, mocking file system existence."""
         if canvas is None:
             self.skipTest("reportlab is required for this test")
 
         # Configure the mock for os.path.exists
         mock_os_path_exists.return_value = True
-
-        # Configure the mock for FAISS
-        mock_vector_store = MagicMock()
-        mock_faiss_memory.from_texts.return_value = mock_vector_store
-        mock_faiss_deep_research.load_local.return_value = mock_vector_store
-        mock_vector_store.similarity_search.return_value = [
-            MagicMock(page_content="Relevant summary from search.")
-        ]
 
         # Load the actual application config
         app_config = load_app_config()
@@ -212,22 +200,19 @@ class TestGraphOrchestrator(unittest.TestCase):
             "error",
             outputs_history.get("pdf_loader_node", {}).get("results", [{}])[0],
         )
-        # Check that memory agents ran without error
-        self.assertNotIn("error", outputs_history.get("short_term_memory_node", {}))
-        self.assertNotIn("error", outputs_history.get("long_term_memory_node", {}))
-        # Check that the summarizer produced output
+        # Check that the synthesizer produced output
         self.assertIn(
-            "deep_research_summary", outputs_history.get("deep_research_summarizer", {})
+            "multi_doc_synthesis_output",
+            outputs_history.get("multi_doc_synthesizer_node", {}),
         )
-        self.assertNotIn("error", outputs_history.get("deep_research_summarizer", {}))
+        self.assertNotIn("error", outputs_history.get("multi_doc_synthesizer_node", {}))
 
-        # Verify that FAISS methods were called
-        mock_faiss_memory.from_texts.assert_called_once()
-        mock_vector_store.save_local.assert_called()
-        mock_faiss_deep_research.load_local.assert_called_once()
-        mock_vector_store.similarity_search.assert_called_once_with(
-            "What is the main takeaway from the documents?", k=3
+        # Check that the knowledge integrator received the synthesizer's output
+        self.assertIn(
+            "integrated_knowledge_brief",
+            outputs_history.get("knowledge_integrator", {}),
         )
+        self.assertNotIn("error", outputs_history.get("knowledge_integrator", {}))
 
     def test_parallel_loop_execution(self):
         """Parallel loop execution reduces total run time."""
