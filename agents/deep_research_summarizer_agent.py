@@ -50,8 +50,9 @@ class DeepResearchSummarizerAgent(Agent):
 
         vector_store_path = inputs.get("vector_store_path")
         if not vector_store_path:
-            log_status(f"[{self.agent_id}] INFO: No vector store path provided. Skipping summarization.")
-            return {"deep_research_summary": "No new documents were provided to generate a deep summary."}
+            error_msg = "No vector store path provided for deep research summarization."
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"deep_research_summary": "", "error": error_msg}
 
         if not os.path.exists(vector_store_path):
             log_status(
