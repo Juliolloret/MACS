@@ -358,7 +358,11 @@ class GraphOrchestrator:
                 try:
                     loop_over_key = current_agent.config_params.get("loop_over")
 
-                    if loop_over_key and loop_over_key in initial_inputs and not agent_inputs:
+                    if (
+                        loop_over_key
+                        and loop_over_key in initial_inputs
+                        and loop_over_key not in agent_inputs
+                    ):
                         agent_inputs[loop_over_key] = initial_inputs[loop_over_key]
 
                     if (
