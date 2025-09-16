@@ -98,7 +98,8 @@
         "config": {
           "model_key": "knowledge_integrator_model",
           "system_message_key": "knowledge_integrator_sm",
-          "reasoning_effort": "high"
+          "reasoning_effort": "high",
+          "allow_execution_with_errors": true
         }
       },
       {
