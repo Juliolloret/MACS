@@ -25,6 +25,9 @@ class FakeLLM:
         self._cache = cache or Cache()
         self.last_token_usage = 0
         self.total_tokens_used = 0
+        self.last_prompt: Optional[str] = None
+        self.last_system_message: Optional[str] = None
+        self.last_completion_extra = None
 
     def get_response(
         self,
@@ -50,6 +53,9 @@ class FakeLLM:
 
     def complete(self, system, prompt, model, temperature=0.1, extra=None):
         """Simulate a completion call with simple caching."""
+        self.last_system_message = system
+        self.last_prompt = prompt
+        self.last_completion_extra = extra
         key = self._cache.make_key(model, system, prompt, temperature, extra)
         cached = self._cache.get(key)
         if cached is not None:

@@ -80,6 +80,29 @@ class KnowledgeIntegratorAgent(Agent):
                 section_text = section_text[:max_input_segment_len] + "\n[...truncated due to length...]"
             sections.append((label_text, section_text))
 
+        upstream_error_details = inputs.get("upstream_error_details") or []
+        if upstream_error_details:
+            formatted_error_lines: list[str] = []
+            seen_pairs: set[tuple[str, str, str]] = set()
+            for detail in upstream_error_details:
+                source_name = detail.get("source", "unknown source")
+                target_name = detail.get("target", "unknown input")
+                message_text = detail.get("message", "unspecified issue")
+                dedupe_key = (str(source_name), str(target_name), str(message_text))
+                if dedupe_key in seen_pairs:
+                    continue
+                seen_pairs.add(dedupe_key)
+                formatted_error_lines.append(
+                    f"- Source '{source_name}' -> input '{target_name}': {message_text}"
+                )
+            if formatted_error_lines:
+                sections.append(
+                    (
+                        "Upstream issues detected",
+                        "\n".join(formatted_error_lines),
+                    )
+                )
+
         known_keys = {cfg[0] for cfg in sources_config}
         for key in sorted(inputs.keys()):
             if key in known_keys or key.endswith(("_error", "_error_message", "_source")):
