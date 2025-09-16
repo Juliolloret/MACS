@@ -14,11 +14,12 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         """Create the agent and configure environment for tests."""
         os.environ["OPENAI_API_KEY"] = "dummy_key"
         app_config = {"system_variables": {"models": {}}, "agent_prompts": {}}
+        self.fake_llm = FakeLLM(app_config)
         self.agent = KnowledgeIntegratorAgent(
             "kia",
             "KnowledgeIntegratorAgent",
             {},
-            FakeLLM(app_config),
+            self.fake_llm,
             app_config,
         )
 
@@ -38,6 +39,37 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         self.assertIn("integrated_knowledge_brief", result)
         self.assertEqual(result["integrated_knowledge_brief"], "[FAKE] ok")
         self.assertNotIn("error", result)
+
+    def test_prompt_includes_upstream_error_details(self):
+        """Error context from upstream agents is surfaced in the prompt."""
+        inputs = {
+            "multi_doc_synthesis": "",
+            "deep_research_summary": "",
+            "web_research_summary": "",
+            "experimental_data_summary": "",
+            "upstream_error_details": [
+                {
+                    "source": "multi_doc_synthesizer",
+                    "target": "multi_doc_synthesis",
+                    "message": "Multi-document synthesis was unavailable.",
+                },
+                {
+                    "source": "web_researcher",
+                    "target": "web_research_summary",
+                    "message": "Web research skipped due to earlier failure.",
+                },
+            ],
+            "upstream_error_messages": [
+                "Multi-document synthesis was unavailable.",
+                "Web research skipped due to earlier failure.",
+            ],
+        }
+        result = self.agent.execute(inputs)
+        self.assertIn("integrated_knowledge_brief", result)
+        prompt_used = self.fake_llm.last_prompt or ""
+        self.assertIn("Upstream issues detected", prompt_used)
+        self.assertIn("multi_doc_synthesizer", prompt_used)
+        self.assertIn("Multi-document synthesis was unavailable.", prompt_used)
 
     def test_handles_upstream_errors(self):
         """Agent handles upstream error flags without failing."""
