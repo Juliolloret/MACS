@@ -68,6 +68,7 @@ class TestAgentIntegration(unittest.TestCase):
         knowledge_out = self.knowledge_agent.execute(
             {
                 "multi_doc_synthesis": multi_doc_out["multi_doc_synthesis_output"],
+                "deep_research_summary": "deep",
                 "web_research_summary": "web",
                 "experimental_data_summary": "data",
             }
