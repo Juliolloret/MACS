@@ -236,10 +236,20 @@ See [docs/run_history.md](docs/run_history.md) for more details.
 
 ## Configuration
 
-**Modify `config.json` to:**
-- Change LLM models per agent/task.
-- Adjust agent prompts and instructions.
-- Restructure the workflow graph (add, remove, or rewire agents).
+MACS reads its orchestration graph and runtime defaults from `config.json`.
+Start by adding your API credential under `system_variables.openai_api_key`
+and confirming that the `output_project_*_folder_name` paths match your desired
+export layout. When tuning behaviour:
+
+1. Use `system_variables.models` to override the LLM used by individual agents
+   while keeping `default_llm_model` as a fallback.
+2. Edit entries in `agent_prompts` to refine instructions without touching
+   Python code.
+3. Adjust `graph_definition.nodes` and `graph_definition.edges` to rewire the
+   pipeline, introduce new agents, or enable looping/parallel execution.
+
+See [docs/CONFIGURATION_REFERENCE.md](docs/CONFIGURATION_REFERENCE.md) for a
+detailed breakdown of every section and validation tips.
 
 ---
 
