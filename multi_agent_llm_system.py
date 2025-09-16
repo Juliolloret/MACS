@@ -300,9 +300,12 @@ class GraphOrchestrator:
                     )
                     data_mapping = edge_def.get("data_mapping", {})
                     for _, target_key in data_mapping.items():
+                        missing_msg = f"Input from '{from_node_id}' missing."
                         agent_inputs[target_key] = None
                         agent_inputs[f"{target_key}_error"] = True
-                        agent_inputs["error"] = f"Input from '{from_node_id}' missing."
+                        agent_inputs[f"{target_key}_error_message"] = missing_msg
+                        agent_inputs[f"{target_key}_source"] = from_node_id
+                        agent_inputs["error"] = missing_msg
                     continue
 
                 data_mapping = edge_def.get("data_mapping")
@@ -313,15 +316,20 @@ class GraphOrchestrator:
                     for src_key, target_key in data_mapping.items():
                         if src_key in source_outputs:
                             agent_inputs[target_key] = source_outputs[src_key]
+                            agent_inputs[f"{target_key}_source"] = from_node_id
                             if source_outputs.get("error"):
                                 agent_inputs[f"{target_key}_error"] = True
+                                agent_inputs[f"{target_key}_error_message"] = source_outputs.get("error")
                         else:
                             log_status(
                                 f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
                             )
+                            missing_key_msg = f"Key '{src_key}' missing from '{from_node_id}'."
                             agent_inputs[target_key] = None
                             agent_inputs[f"{target_key}_error"] = True
-                            agent_inputs["error"] = f"Key '{src_key}' missing from '{from_node_id}'."
+                            agent_inputs[f"{target_key}_error_message"] = missing_key_msg
+                            agent_inputs[f"{target_key}_source"] = from_node_id
+                            agent_inputs["error"] = missing_key_msg
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
             if isinstance(current_agent, ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:

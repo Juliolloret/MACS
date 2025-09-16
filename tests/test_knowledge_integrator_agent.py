@@ -30,6 +30,7 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         """Agent integrates multiple sources into a knowledge brief."""
         inputs = {
             "multi_doc_synthesis": "docs",
+            "deep_research_summary": "deep",
             "web_research_summary": "web",
             "experimental_data_summary": "data",
         }
@@ -42,8 +43,13 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         """Agent handles upstream error flags without failing."""
         inputs = {
             "multi_doc_synthesis_error": True,
+            "deep_research_summary_error": True,
             "web_research_summary_error": True,
             "experimental_data_summary_error": True,
+            "multi_doc_synthesis_error_message": "fail docs",
+            "deep_research_summary_error_message": "fail deep",
+            "web_research_summary_error_message": "fail web",
+            "experimental_data_summary_error_message": "fail data",
             "error": "fail",
         }
         result = self.agent.execute(inputs)
