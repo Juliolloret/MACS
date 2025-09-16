@@ -156,6 +156,40 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
 
 
+    def test_agent_allows_execution_with_upstream_errors(self):
+        """Agents configured to allow errors should still execute with missing inputs."""
+        graph_def = {
+            "nodes": [
+                {"id": "initial_input_provider", "type": "InitialInputProvider"},
+                {
+                    "id": "knowledge",
+                    "type": "KnowledgeIntegratorAgent",
+                    "config": {"allow_execution_with_errors": True},
+                },
+            ],
+            "edges": [
+                {
+                    "from": "initial_input_provider",
+                    "to": "knowledge",
+                    "data_mapping": {"missing_value": "multi_doc_synthesis"},
+                }
+            ],
+        }
+        app_config = {
+            "system_variables": {"default_llm_model": "test-model", "models": {}},
+            "agent_prompts": {},
+        }
+        llm = FakeLLM(app_config)
+        orchestrator = GraphOrchestrator(graph_def, llm, app_config)
+        outputs_history = orchestrator.run({}, self.test_outputs_dir)
+        knowledge_output = outputs_history.get("knowledge", {})
+        self.assertIn("integrated_knowledge_brief", knowledge_output)
+        self.assertEqual(knowledge_output["integrated_knowledge_brief"], "[FAKE] ok")
+        prompt_used = orchestrator.agents["knowledge"].llm.last_prompt or ""
+        self.assertIn("Upstream issues detected", prompt_used)
+        self.assertIn("missing_value", prompt_used)
+
+
     @patch("os.path.exists")
     @patch("agents.deep_research_summarizer_agent.FAISS")
     @patch("agents.memory_agent.FAISS")

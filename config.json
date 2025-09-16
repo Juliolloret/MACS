@@ -132,7 +132,8 @@
           "system_message_key": "knowledge_integrator_sm",
           "max_input_segment_len": 10000,
           "temperature": 0.6,
-          "reasoning_effort": "high"
+          "reasoning_effort": "high",
+          "allow_execution_with_errors": true
         }
       },
       {

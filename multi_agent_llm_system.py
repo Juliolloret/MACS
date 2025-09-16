@@ -92,6 +92,7 @@ class GraphOrchestrator:
         self.agents = {}
         self.adjacency_list = defaultdict(list)
         self.incoming_edges_map = defaultdict(list)
+        self.declared_output_keys = defaultdict(set)
         self.node_order = []
         self.llm = llm
         self.node_metrics = {}
@@ -125,6 +126,10 @@ class GraphOrchestrator:
             if from_node in node_ids and to_node in node_ids:
                 self.adjacency_list[from_node].append(to_node)
                 in_degree[to_node] += 1
+            data_mapping = edge.get('data_mapping', {})
+            for src_key in data_mapping.keys():
+                if from_node:
+                    self.declared_output_keys[from_node].add(src_key)
         queue = deque([node_id for node_id in node_ids if in_degree[node_id] == 0])
         self.node_order = []
         while queue:
@@ -163,7 +168,28 @@ class GraphOrchestrator:
                 log_status(
                     f"[GraphOrchestrator] ERROR: Failed to initialize agent '{agent_id}' of type '{agent_type_name}': {e}")
                 raise
-        
+
+    @staticmethod
+    def _append_upstream_issue(agent_inputs: dict, target_key: str, source_node: str, message: str, fatal: bool) -> None:
+        """Record upstream error details while preserving aggregated context."""
+
+        if not message:
+            return
+
+        detail_entry = {
+            "source": source_node,
+            "target": target_key,
+            "message": message,
+        }
+        agent_inputs.setdefault("upstream_error_details", []).append(detail_entry)
+
+        messages_list = agent_inputs.setdefault("upstream_error_messages", [])
+        if message not in messages_list:
+            messages_list.append(message)
+
+        if fatal:
+            agent_inputs["error"] = "; ".join(messages_list)
+
     def visualize(
         self,
         output_path: str,
@@ -305,7 +331,7 @@ class GraphOrchestrator:
                         agent_inputs[f"{target_key}_error"] = True
                         agent_inputs[f"{target_key}_error_message"] = missing_msg
                         agent_inputs[f"{target_key}_source"] = from_node_id
-                        agent_inputs["error"] = missing_msg
+                        self._append_upstream_issue(agent_inputs, target_key, from_node_id, missing_msg, fatal=True)
                     continue
 
                 data_mapping = edge_def.get("data_mapping")
@@ -320,6 +346,13 @@ class GraphOrchestrator:
                             if source_outputs.get("error"):
                                 agent_inputs[f"{target_key}_error"] = True
                                 agent_inputs[f"{target_key}_error_message"] = source_outputs.get("error")
+                                self._append_upstream_issue(
+                                    agent_inputs,
+                                    target_key,
+                                    from_node_id,
+                                    source_outputs.get("error"),
+                                    fatal=False,
+                                )
                         else:
                             log_status(
                                 f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
@@ -329,7 +362,7 @@ class GraphOrchestrator:
                             agent_inputs[f"{target_key}_error"] = True
                             agent_inputs[f"{target_key}_error_message"] = missing_key_msg
                             agent_inputs[f"{target_key}_source"] = from_node_id
-                            agent_inputs["error"] = missing_key_msg
+                            self._append_upstream_issue(agent_inputs, target_key, from_node_id, missing_key_msg, fatal=True)
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
             if isinstance(current_agent, ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:
@@ -345,10 +378,24 @@ class GraphOrchestrator:
             log_status(f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k,v in agent_inputs.items()])} }}")
 
             # --- Pre-execution Check for Upstream Failures ---
-            if agent_inputs.get("error"):
-                upstream_error_message = agent_inputs.get("error", "Unknown upstream error")
-                log_status(f"[GraphOrchestrator] SKIPPING_NODE: '{node_id}' due to upstream failure. Reason: {upstream_error_message}")
-                outputs_history[node_id] = {"error": f"Skipped due to upstream failure: {upstream_error_message}"}
+            aggregated_errors = agent_inputs.get("upstream_error_messages", [])
+            upstream_error_message = agent_inputs.get("error")
+            allow_partial = current_agent.config_params.get("allow_execution_with_errors", False)
+            if upstream_error_message and not allow_partial:
+                combined_error = upstream_error_message
+                if aggregated_errors:
+                    combined_error = "; ".join(aggregated_errors)
+                log_status(
+                    f"[GraphOrchestrator] SKIPPING_NODE: '{node_id}' due to upstream failure. Reason: {combined_error}"
+                )
+                default_output = {"error": f"Skipped due to upstream failure: {combined_error}"}
+                for declared_key in self.declared_output_keys.get(node_id, []):
+                    default_output.setdefault(declared_key, None)
+                if aggregated_errors:
+                    default_output["upstream_error_messages"] = list(aggregated_errors)
+                if agent_inputs.get("upstream_error_details"):
+                    default_output["upstream_error_details"] = list(agent_inputs["upstream_error_details"])
+                outputs_history[node_id] = default_output
                 continue
 
             policy = current_agent.config_params.get("failure_policy", self.failure_policy)
