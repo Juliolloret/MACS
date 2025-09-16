@@ -67,6 +67,8 @@ To modify the workflow:
 
 For complex experiments, create a new configuration file and pass it to the CLI/GUI via `--config`.
 
+See [CONFIGURATION_REFERENCE.md](CONFIGURATION_REFERENCE.md) for a thorough breakdown of every configuration section, common parameters, and validation tips.
+
 ---
 
 ## 5. Creating or Modifying Agents
