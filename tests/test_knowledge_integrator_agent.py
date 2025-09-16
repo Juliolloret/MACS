@@ -39,6 +39,9 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         self.assertIn("integrated_knowledge_brief", result)
         self.assertEqual(result["integrated_knowledge_brief"], "[FAKE] ok")
         self.assertNotIn("error", result)
+        self.assertEqual(len(result.get("knowledge_sections", [])), 4)
+        self.assertEqual(result.get("contributing_agents"), [])
+        self.assertEqual(result.get("agent_context_details"), [])
 
     def test_prompt_includes_upstream_error_details(self):
         """Error context from upstream agents is surfaced in the prompt."""
@@ -88,6 +91,25 @@ class TestKnowledgeIntegratorAgent(unittest.TestCase):
         self.assertIn("integrated_knowledge_brief", result)
         self.assertEqual(result["integrated_knowledge_brief"], "[FAKE] ok")
         self.assertNotIn("error", result)
+
+    def test_aggregates_all_agent_outputs(self):
+        """All-agent context is surfaced and tracked for downstream use."""
+        inputs = {
+            "multi_doc_synthesis": "docs",
+            "multi_doc_synthesis_source": "multi_doc_synthesizer",
+            "all_agent_outputs": {
+                "pdf_summarizer_node": {"results": [{"summary": "A"}]},
+                "web_researcher": {"web_summary": "context"},
+            },
+        }
+        result = self.agent.execute(inputs)
+        self.assertIn("knowledge_sections", result)
+        titles = [section["title"] for section in result["knowledge_sections"]]
+        self.assertIn("Aggregated upstream agent outputs", titles)
+        contributing = set(result.get("contributing_agents", []))
+        self.assertIn("pdf_summarizer_node", contributing)
+        details = {item["agent_id"] for item in result.get("agent_context_details", [])}
+        self.assertIn("pdf_summarizer_node", details)
 
 
 if __name__ == "__main__":
