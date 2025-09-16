@@ -53,7 +53,20 @@ class KnowledgeIntegratorAgent(Agent):
         ]
 
         sections: list[tuple[str, str]] = []
+        structured_sections: list[dict[str, str]] = []
         contributing_agents: set[str] = set()
+        agent_output_details: list[dict[str, str]] = []
+
+        def _truncate_text(text: str, limit: int) -> str:
+            if len(text) > limit:
+                return text[:limit] + "\n[...truncated due to length...]"
+            return text
+
+        def append_section(label_text: str, section_text: str, *, limit: int | None = None) -> None:
+            effective_limit = max_input_segment_len if limit is None else limit
+            normalized_text = _truncate_text(section_text or "", effective_limit)
+            sections.append((label_text, normalized_text))
+            structured_sections.append({"title": label_text, "content": normalized_text})
 
         for key, label, default_text in sources_config:
             raw_content = inputs.get(key)
@@ -76,9 +89,7 @@ class KnowledgeIntegratorAgent(Agent):
                 label_text = f"{label} (source: {source_agent})"
             else:
                 label_text = label
-            if len(section_text) > max_input_segment_len:
-                section_text = section_text[:max_input_segment_len] + "\n[...truncated due to length...]"
-            sections.append((label_text, section_text))
+            append_section(label_text, section_text)
 
         upstream_error_details = inputs.get("upstream_error_details") or []
         if upstream_error_details:
@@ -96,11 +107,9 @@ class KnowledgeIntegratorAgent(Agent):
                     f"- Source '{source_name}' -> input '{target_name}': {message_text}"
                 )
             if formatted_error_lines:
-                sections.append(
-                    (
-                        "Upstream issues detected",
-                        "\n".join(formatted_error_lines),
-                    )
+                append_section(
+                    "Upstream issues detected",
+                    "\n".join(formatted_error_lines),
                 )
 
         known_keys = {cfg[0] for cfg in sources_config}
@@ -122,25 +131,40 @@ class KnowledgeIntegratorAgent(Agent):
                 supplemental_text = (
                     f"[Error reported by {source_agent} for '{key}': {err_msg}]"
                 )
-            if len(supplemental_text) > max_input_segment_len:
-                supplemental_text = (
-                    supplemental_text[:max_input_segment_len]
-                    + "\n[...truncated due to length...]"
-                )
             contributing_agents.add(source_agent)
-            sections.append(
-                (
-                    f"Additional context from {source_agent} ({key})",
-                    supplemental_text,
-                )
+            append_section(
+                f"Additional context from {source_agent} ({key})",
+                supplemental_text,
             )
 
-        if not sections:
-            sections.append(
-                (
-                    "No upstream context provided",
-                    "N/A - Upstream agents did not supply any usable context.",
+        all_agent_outputs = inputs.get("all_agent_outputs")
+        if isinstance(all_agent_outputs, dict):
+            for agent_name, agent_data in sorted(all_agent_outputs.items()):
+                if agent_name == self.agent_id:
+                    continue
+                agent_text = _stringify(agent_data)
+                if not agent_text or not agent_text.strip():
+                    continue
+                trimmed_text = _truncate_text(agent_text, max_input_segment_len)
+                agent_output_details.append(
+                    {"agent_id": agent_name, "content": trimmed_text}
                 )
+                contributing_agents.add(agent_name)
+            if agent_output_details:
+                aggregated_text = "\n\n".join(
+                    f"{item['agent_id']}: {item['content']}"
+                    for item in agent_output_details
+                )
+                append_section(
+                    "Aggregated upstream agent outputs",
+                    aggregated_text,
+                    limit=max_input_segment_len * 2,
+                )
+
+        if not sections:
+            append_section(
+                "No upstream context provided",
+                "N/A - Upstream agents did not supply any usable context.",
             )
 
         contributor_line = ""
@@ -181,4 +205,9 @@ class KnowledgeIntegratorAgent(Agent):
             )
         except LLMError as e:
             return {"integrated_knowledge_brief": "", "error": str(e)}
-        return {"integrated_knowledge_brief": integrated_brief}
+        return {
+            "integrated_knowledge_brief": integrated_brief,
+            "knowledge_sections": structured_sections,
+            "contributing_agents": sorted(contributing_agents),
+            "agent_context_details": agent_output_details,
+        }

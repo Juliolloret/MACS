@@ -1,5 +1,6 @@
 """Graph orchestration utilities for coordinating multiple agents."""
 
+import copy
 import os
 import time
 import json
@@ -38,6 +39,7 @@ from storage.run_history import generate_run_id, save_run
 # Core agent utilities
 from agents import get_agent_class
 from agents.experimental_data_loader_agent import ExperimentalDataLoaderAgent
+from agents.knowledge_integrator_agent import KnowledgeIntegratorAgent
 # SDK Models are now in agents.sdk_models; WebResearcherAgent imports them directly.
 
 
@@ -374,6 +376,18 @@ class GraphOrchestrator:
             if current_agent.agent_type in ["LongTermMemoryAgent", "ShortTermMemoryAgent", "PDFSummaryWriterAgent"]:
                 agent_inputs["project_base_output_dir"] = project_base_output_dir
                 log_status(f"[{node_id}] INFO: Injected 'project_base_output_dir' for persistent storage.")
+
+            if isinstance(current_agent, KnowledgeIntegratorAgent):
+                aggregated_outputs = {
+                    prev_node: copy.deepcopy(output)
+                    for prev_node, output in outputs_history.items()
+                    if prev_node not in {node_id, "observer"} and output is not None
+                }
+                if aggregated_outputs:
+                    agent_inputs["all_agent_outputs"] = aggregated_outputs
+                    log_status(
+                        f"[{node_id}] INFO: Injected 'all_agent_outputs' with {len(aggregated_outputs)} upstream entries."
+                    )
 
             log_status(f"[{node_id}] INFO: Inputs gathered: {{ {', '.join([f'{k}: {str(v)[:60]}...' for k,v in agent_inputs.items()])} }}")
 
