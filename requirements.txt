@@ -16,3 +16,5 @@ reportlab
 PyQt6
 pydantic
 graphviz
+matplotlib
+networkx
