@@ -838,12 +838,23 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
     )
     log_status(f"[MainWorkflow] INFO: Assigned run_id '{run_id}' to this execution.")
 
-    openai_api_key_check = app_config.get("system_variables", {}).get("openai_api_key")
-    if not openai_api_key_check or openai_api_key_check in ["YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
-                                                            "YOUR_ACTUAL_OPENAI_API_KEY", "KEY", "YOUR_KEY"]:
-        api_key_error_msg = "OpenAI API key missing or is a placeholder in config.json. Please set a valid API key to proceed."
-        log_status(f"[MainWorkflow] CONFIG_ERROR: {api_key_error_msg}")
-        raise ValueError(api_key_error_msg)
+    system_vars = app_config.get("system_variables", {})
+    llm_client_type = system_vars.get("llm_client", "openai")
+
+    if llm_client_type == "openai":
+        openai_api_key_check = system_vars.get("openai_api_key")
+        if not openai_api_key_check or openai_api_key_check in [
+            "YOUR_OPENAI_API_KEY_NOT_IN_CONFIG",
+            "YOUR_ACTUAL_OPENAI_API_KEY",
+            "KEY",
+            "YOUR_KEY",
+        ]:
+            api_key_error_msg = (
+                "OpenAI API key missing or placeholder while 'openai' LLM client is selected. "
+                "Provide a valid key or choose the 'fake' client for keyless testing."
+            )
+            log_status(f"[MainWorkflow] CONFIG_ERROR: {api_key_error_msg}")
+            raise ValueError(api_key_error_msg)
 
     if not pdf_file_paths:
         log_status(
@@ -865,8 +876,6 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
     llm = None
     try:
         # --- LLM Client Factory ---
-        system_vars = app_config.get("system_variables", {})
-        llm_client_type = system_vars.get("llm_client", "openai")  # Default to 'openai'
         api_key = system_vars.get("openai_api_key")
         timeout = float(system_vars.get("openai_api_timeout_seconds", 120))
 
