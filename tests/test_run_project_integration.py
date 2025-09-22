@@ -40,6 +40,30 @@ def _base_config():
     }
 
 
+def test_run_project_fake_llm_allows_empty_key(monkeypatch):
+    """Fake client should run without requiring an OpenAI API key."""
+    app_config = _base_config()
+    app_config["system_variables"]["openai_api_key"] = ""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        history_path = tmp_path / "run_history.jsonl"
+        config_dir = tmp_path / "run_configs"
+        monkeypatch.setattr(rh, "RUN_HISTORY_PATH", str(history_path))
+        monkeypatch.setattr(rh, "RUN_CONFIG_DIR", str(config_dir))
+
+        pdf_path = tmp_path / "paper.pdf"
+        _write_dummy_pdf(pdf_path)
+        output_dir = tmp_path / "output"
+
+        result = run_project_orchestration(
+            [str(pdf_path)], None, str(output_dir), lambda _m: None, app_config
+        )
+
+        assert "error" not in result
+        assert result["run_id"]
+
+
 def test_run_project_records_history(monkeypatch):
     """Successful orchestration records run metadata."""
     app_config = _base_config()
