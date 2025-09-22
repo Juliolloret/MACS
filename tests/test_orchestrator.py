@@ -4,6 +4,7 @@ import unittest
 import os
 import shutil
 import time
+from subprocess import CalledProcessError
 from unittest.mock import patch, MagicMock
 
 try:
@@ -154,6 +155,59 @@ class TestGraphOrchestrator(unittest.TestCase):
         output_base = os.path.join(self.test_outputs_dir, "graph")
         path = orchestrator.visualize(output_base)
         self.assertTrue(os.path.exists(path))
+
+
+    def test_visualize_graph_handles_graphviz_render_error(self):
+        """Graphviz render failures should log and return fallback artefacts."""
+
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "b", "type": "B"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "b"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+
+        output_base = os.path.join(self.test_outputs_dir, "graph_render_error")
+
+        class DummyExecutableNotFound(Exception):
+            """Sentinel exception for simulating Graphviz availability."""
+
+            pass
+
+        with patch("multi_agent_llm_system._open_graph_file"), \
+            patch("multi_agent_llm_system.report_graph_visualization"), \
+            patch("multi_agent_llm_system.plt", None), \
+            patch("multi_agent_llm_system.nx", None), \
+            patch(
+                "multi_agent_llm_system.ExecutableNotFound",
+                new=DummyExecutableNotFound,
+            ), \
+            patch("multi_agent_llm_system.log_status") as mock_log_status, \
+            patch("multi_agent_llm_system.Digraph") as mock_digraph:
+
+            mock_digraph.return_value.render.side_effect = CalledProcessError(1, "dot")
+            fallback_path = orchestrator.visualize(output_base)
+
+        self.assertEqual(output_base + ".mmd", fallback_path)
+        self.assertTrue(os.path.isfile(fallback_path))
+
+        warning_logs = [
+            call.args[0]
+            for call in mock_log_status.call_args_list
+            if call.args and "Graphviz rendering failed" in call.args[0]
+        ]
+        self.assertTrue(
+            any("WARNING" in message for message in warning_logs),
+            f"Expected warning log entry. Got: {warning_logs}",
+        )
 
 
     def test_visualize_graph_mermaid_fallback_creates_parent_directory(self):
