@@ -19,7 +19,7 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from multi_agent_llm_system import GraphOrchestrator, load_app_config
+from multi_agent_llm_system import GraphOrchestrator, load_app_config, _open_graph_file
 from utils import APP_CONFIG
 from llm_fake import FakeLLM
 from agents.base_agent import Agent
@@ -155,6 +155,36 @@ class TestGraphOrchestrator(unittest.TestCase):
         output_base = os.path.join(self.test_outputs_dir, "graph")
         path = orchestrator.visualize(output_base)
         self.assertTrue(os.path.exists(path))
+
+
+    def test_open_graph_file_uses_gui_callback_when_available(self):
+        """The GUI callback should be preferred over launching a system viewer."""
+
+        with patch("multi_agent_llm_system.graph_callback_available", return_value=True), \
+            patch("multi_agent_llm_system.report_graph_visualization") as mock_report, \
+            patch("multi_agent_llm_system.threading.Thread") as mock_thread:
+
+            _open_graph_file("graph.png")
+
+        mock_report.assert_called_once_with("graph.png")
+        mock_thread.assert_not_called()
+
+
+    def test_open_graph_file_falls_back_to_threaded_viewer_without_callback(self):
+        """When no GUI callback is available, the system viewer fallback should run."""
+
+        thread_instance = MagicMock()
+        thread_instance.start = MagicMock()
+
+        with patch("multi_agent_llm_system.graph_callback_available", return_value=False), \
+            patch("multi_agent_llm_system.report_graph_visualization") as mock_report, \
+            patch("multi_agent_llm_system.threading.Thread", return_value=thread_instance) as mock_thread:
+
+            _open_graph_file("graph.png")
+
+        mock_report.assert_called_once_with("graph.png")
+        mock_thread.assert_called_once()
+        thread_instance.start.assert_called_once()
 
 
     def test_visualize_graph_handles_graphviz_render_error(self):
