@@ -64,6 +64,13 @@ def set_graph_callback(callback_func):
     _GRAPH_CALLBACK["func"] = callback_func
 
 
+def graph_callback_available() -> bool:
+    """Return ``True`` when a graph visualization callback has been registered."""
+
+    callback = _GRAPH_CALLBACK.get("func")
+    return callable(callback)
+
+
 def log_status(message: str):
     """Log ``message`` using the configured status callback."""
 

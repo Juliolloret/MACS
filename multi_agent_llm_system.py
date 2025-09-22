@@ -46,6 +46,7 @@ from utils import (
     load_app_config,  # pylint: disable=unused-import
     set_graph_callback,  # re-exported for GUI usage
     report_graph_visualization,
+    graph_callback_available,
 )
 
 # Configuration schema validation
@@ -72,7 +73,16 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def _open_graph_file(path: str):
-    """Attempt to open ``path`` in a separate viewer window."""
+    """Surface the rendered graph using the GUI callback when available."""
+
+    if not path:
+        return
+
+    report_graph_visualization(path)
+
+    if graph_callback_available():
+        # The GUI listens for the callback and renders the graph inline.
+        return
 
     def _viewer():
         try:
@@ -251,7 +261,6 @@ class GraphOrchestrator:
         log_status(
             f"[GraphOrchestrator] INFO: Mermaid diagram saved to {mermaid_path}."
         )
-        report_graph_visualization(mermaid_path)
         _open_graph_file(mermaid_path)
         return mermaid_path
 
@@ -325,7 +334,6 @@ class GraphOrchestrator:
                 f"{output_file} (matplotlib/networkx)."
             )
             if notify:
-                report_graph_visualization(output_file)
                 _open_graph_file(output_file)
             return output_file
         finally:
@@ -432,7 +440,6 @@ class GraphOrchestrator:
         try:
             output_file = dot.render(output_path, cleanup=True)
             log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
-            report_graph_visualization(output_file)
             _open_graph_file(output_file)
             return output_file
         except ExecutableNotFound:
