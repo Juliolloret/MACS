@@ -310,6 +310,41 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertIn("Upstream issues detected", prompt_used)
         self.assertIn("missing_value", prompt_used)
 
+    def test_missing_optional_initial_input_skips_agent_without_error(self):
+        """Optional initial inputs such as user queries should not trigger fatal errors."""
+        graph_def = {
+            "nodes": [
+                {"id": "initial_input_provider", "type": "InitialInputProvider"},
+                {
+                    "id": "deep_research_summarizer",
+                    "type": "DeepResearchSummarizerAgent",
+                    "config": {"system_message_key": "deep_research_summarizer_sm"},
+                },
+            ],
+            "edges": [
+                {
+                    "from": "initial_input_provider",
+                    "to": "deep_research_summarizer",
+                    "data_mapping": {"user_query": "user_query"},
+                }
+            ],
+        }
+        app_config = {
+            "system_variables": {"default_llm_model": "fake-model", "models": {}},
+            "agent_prompts": {"deep_research_summarizer_sm": "System prompt."},
+        }
+        llm = FakeLLM(app_config)
+        orchestrator = GraphOrchestrator(graph_def, llm, app_config)
+
+        outputs_history = orchestrator.run({}, self.test_outputs_dir)
+        deep_output = outputs_history.get("deep_research_summarizer", {})
+        self.assertEqual(deep_output.get("deep_research_summary"), "")
+        self.assertTrue(deep_output.get("skipped"))
+        self.assertNotIn("error", deep_output)
+        observer_output = outputs_history.get("observer", {})
+        if observer_output:
+            self.assertFalse(observer_output.get("errors_found", False))
+
 
     @patch("os.path.exists")
     @patch("agents.deep_research_summarizer_agent.FAISS")
