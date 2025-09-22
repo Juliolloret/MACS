@@ -51,6 +51,19 @@ class TestDeepResearchSummarizerAgent(unittest.TestCase):
         self.assertIn("error", result)
         self.assertEqual(result["deep_research_summary"], "")
 
+    def test_user_query_error_flag_causes_skip_without_error(self):
+        """When upstream marks the query as missing, the agent reports a skip instead of an error."""
+        agent = self._make_agent()
+        result = agent.execute(
+            {
+                "user_query_error": True,
+                "user_query_error_message": "Optional input 'user_query' was not provided.",
+            }
+        )
+        self.assertEqual(result.get("deep_research_summary"), "")
+        self.assertNotIn("error", result)
+        self.assertTrue(result.get("skipped"))
+
 
 if __name__ == "__main__":
     unittest.main()

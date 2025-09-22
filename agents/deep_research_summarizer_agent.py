@@ -40,6 +40,20 @@ class DeepResearchSummarizerAgent(Agent):
         """
         log_status(f"[{self.agent_id}] INFO: Deep research summarizer agent is processing inputs: {inputs}")
 
+        if inputs.get("user_query_error"):
+            reason = inputs.get(
+                "user_query_error_message",
+                "User query was not provided by the initial inputs.",
+            )
+            log_status(
+                f"[{self.agent_id}] INFO: Skipping deep research summarization because {reason}"
+            )
+            return {
+                "deep_research_summary": "",
+                "skipped": True,
+                "skipped_reason": reason,
+            }
+
         user_query = inputs.get("user_query")
         if not user_query:
             log_status(f"[{self.agent_id}] ERROR: Input 'user_query' was not provided.")

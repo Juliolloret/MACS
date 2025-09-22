@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 import traceback
 import threading
 import webbrowser
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from importlib import util as importlib_util
 
@@ -127,6 +127,17 @@ class GraphOrchestrator:
         self.node_order = []
         self.llm = llm
         self.node_metrics = {}
+        optional_inputs_from_config = (
+            app_config.get("system_variables", {}).get("optional_initial_inputs")
+            if isinstance(app_config, dict)
+            else None
+        )
+        optional_inputs: Set[str] = {"user_query"}
+        if isinstance(optional_inputs_from_config, (list, tuple, set)):
+            for value in optional_inputs_from_config:
+                if isinstance(value, str) and value:
+                    optional_inputs.add(value)
+        self.optional_initial_inputs = optional_inputs
         self._build_graph_and_determine_order()
         self._initialize_agents()
 
@@ -539,15 +550,33 @@ class GraphOrchestrator:
                                     fatal=False,
                                 )
                         else:
-                            log_status(
-                                f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
-                            )
-                            missing_key_msg = f"Key '{src_key}' missing from '{from_node_id}'."
+                            is_optional_initial_input = False
+                            if from_node_id == "initial_input_provider":
+                                if src_key in self.optional_initial_inputs or target_key in self.optional_initial_inputs:
+                                    is_optional_initial_input = True
+                            if is_optional_initial_input:
+                                log_status(
+                                    f"[GraphOrchestrator] INFO: Optional initial input '{src_key}' not provided; continuing without it."
+                                )
+                                missing_key_msg = (
+                                    f"Optional input '{src_key}' was not provided by 'initial_input_provider'."
+                                )
+                            else:
+                                log_status(
+                                    f"[GraphOrchestrator] INPUT_ERROR: Source key '{src_key}' not found in output of '{from_node_id}' for target '{node_id}'."
+                                )
+                                missing_key_msg = f"Key '{src_key}' missing from '{from_node_id}'."
                             agent_inputs[target_key] = None
                             agent_inputs[f"{target_key}_error"] = True
                             agent_inputs[f"{target_key}_error_message"] = missing_key_msg
                             agent_inputs[f"{target_key}_source"] = from_node_id
-                            self._append_upstream_issue(agent_inputs, target_key, from_node_id, missing_key_msg, fatal=True)
+                            self._append_upstream_issue(
+                                agent_inputs,
+                                target_key,
+                                from_node_id,
+                                missing_key_msg,
+                                fatal=not is_optional_initial_input,
+                            )
 
             # Special case for experimental data loader to get path from initial inputs if not connected by an edge
             if isinstance(current_agent, ExperimentalDataLoaderAgent) and "experimental_data_file_path" not in agent_inputs:
