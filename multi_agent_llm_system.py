@@ -14,6 +14,11 @@ from importlib import util as importlib_util
 
 from llm import LLMClient
 
+try:  # pragma: no cover - defensive guard for alternative runtimes
+    from subprocess import CalledProcessError
+except ImportError:  # pragma: no cover - extremely defensive
+    CalledProcessError = None  # type: ignore[assignment]
+
 try:
     from graphviz import Digraph
     from graphviz.backend import ExecutableNotFound
@@ -406,6 +411,24 @@ class GraphOrchestrator:
             if from_node and to_node:
                 dot.edge(from_node, to_node)
 
+        fallback_exceptions: tuple[type[BaseException], ...] = (OSError,)
+        if CalledProcessError is not None:
+            fallback_exceptions = (CalledProcessError,) + fallback_exceptions
+
+        def _graphviz_failure(exc: Exception) -> str:
+            error_type = type(exc).__name__
+            reason = f"Graphviz rendering failed ({error_type})."
+            log_status(
+                "[GraphOrchestrator] WARNING: Graphviz rendering failed: "
+                f"{error_type}: {exc}"
+            )
+            log_status(traceback.format_exc())
+            return self._fallback_visualize(
+                output_path,
+                highlight_node_id,
+                reason,
+            )
+
         try:
             output_file = dot.render(output_path, cleanup=True)
             log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
@@ -422,6 +445,10 @@ class GraphOrchestrator:
                 highlight_node_id,
                 "Graphviz executable not found.",
             )
+        except fallback_exceptions as exc:  # type: ignore[misc]
+            return _graphviz_failure(exc)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            return _graphviz_failure(exc)
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
         """Execute the graph starting from the supplied ``initial_inputs``.
