@@ -156,6 +156,43 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
 
 
+    def test_visualize_graph_mermaid_fallback_creates_parent_directory(self):
+        """Mermaid fallback should create any missing parent directories."""
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "b", "type": "B"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "b"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+
+        output_base = os.path.join(
+            self.test_outputs_dir, "mermaid_fallback", "nested", "graph"
+        )
+        expected_directory = os.path.dirname(output_base)
+        if os.path.exists(expected_directory):
+            shutil.rmtree(expected_directory)
+        self.assertFalse(os.path.exists(expected_directory))
+
+        with patch("multi_agent_llm_system.Digraph", None), \
+            patch("multi_agent_llm_system.plt", None), \
+            patch("multi_agent_llm_system.nx", None), \
+            patch("multi_agent_llm_system._open_graph_file"):
+            mermaid_path = orchestrator.visualize(output_base)
+
+        expected_mermaid_path = output_base + ".mmd"
+        self.assertEqual(expected_mermaid_path, mermaid_path)
+        self.assertTrue(os.path.isfile(expected_mermaid_path))
+        self.assertTrue(os.path.isdir(expected_directory))
+
+
     def test_agent_allows_execution_with_upstream_errors(self):
         """Agents configured to allow errors should still execute with missing inputs."""
         graph_def = {

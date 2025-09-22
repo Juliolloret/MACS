@@ -239,7 +239,7 @@ class GraphOrchestrator:
             mermaid_lines.append(f"style {highlight_node_id} fill:yellow")
         mermaid_path = output_path + ".mmd"
         directory = os.path.dirname(mermaid_path)
-        if directory:
+        if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
         with open(mermaid_path, "w", encoding="utf-8") as file_handle:
             file_handle.write("\n".join(mermaid_lines))
