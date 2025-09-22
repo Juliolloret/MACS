@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from agents.deep_research_summarizer_agent import DeepResearchSummarizerAgent
 from multi_agent_llm_system import run_project_orchestration
 from storage import run_history as rh
 
@@ -115,3 +116,75 @@ def test_run_project_output_dir_failure(monkeypatch):
         )
         assert "error" in result
         assert "Could not create project output directory" in result["error"]
+
+
+def test_run_project_passes_user_query_to_deep_research(monkeypatch):
+    """User queries are forwarded to the deep research agent, including defaults."""
+    app_config = _base_config()
+    app_config["system_variables"]["default_user_query"] = "Default question?"
+    app_config["agent_prompts"] = {"deep_research_summarizer_sm": "System prompt."}
+    app_config["graph_definition"] = {
+        "nodes": [
+            {"id": "initial_input_provider", "type": "InitialInputProvider"},
+            {
+                "id": "deep_research_summarizer",
+                "type": "DeepResearchSummarizerAgent",
+                "config": {"system_message_key": "deep_research_summarizer_sm"},
+            },
+        ],
+        "edges": [
+            {
+                "from": "initial_input_provider",
+                "to": "deep_research_summarizer",
+                "data_mapping": {"user_query": "user_query"},
+            }
+        ],
+    }
+
+    captured_queries = []
+
+    def fake_execute(self, inputs):  # pylint: disable=unused-argument
+        query = inputs.get("user_query")
+        captured_queries.append(query)
+        return {"deep_research_summary": f"summary for {query}"}
+
+    monkeypatch.setattr(DeepResearchSummarizerAgent, "execute", fake_execute)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        history_path = tmp_path / "run_history.jsonl"
+        config_dir = tmp_path / "run_configs"
+        monkeypatch.setattr(rh, "RUN_HISTORY_PATH", str(history_path))
+        monkeypatch.setattr(rh, "RUN_CONFIG_DIR", str(config_dir))
+
+        output_default = tmp_path / "output_default"
+        result_default = run_project_orchestration(
+            pdf_file_paths=[],
+            experimental_data_path="",
+            project_base_output_dir=str(output_default),
+            status_update_callback=lambda _m: None,
+            app_config=app_config,
+        )
+
+        assert captured_queries[-1] == "Default question?"
+        assert (
+            result_default["deep_research_summarizer"]["deep_research_summary"]
+            == "summary for Default question?"
+        )
+
+        custom_query = "What is artificial intelligence?"
+        output_custom = tmp_path / "output_custom"
+        result_custom = run_project_orchestration(
+            pdf_file_paths=[],
+            experimental_data_path="",
+            project_base_output_dir=str(output_custom),
+            status_update_callback=lambda _m: None,
+            app_config=app_config,
+            user_query=custom_query,
+        )
+
+        assert captured_queries[-1] == custom_query
+        assert (
+            result_custom["deep_research_summarizer"]["deep_research_summary"]
+            == f"summary for {custom_query}"
+        )
