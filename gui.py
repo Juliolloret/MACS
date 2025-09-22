@@ -300,6 +300,15 @@ class AgentAppGUI(QWidget):
         exp_data_layout.addWidget(self.browse_exp_data_button)
         setup_layout.addLayout(exp_data_layout)
 
+        user_query_layout = QHBoxLayout()
+        user_query_layout.addWidget(QLabel("User Query (Optional):"))
+        self.user_query_entry = QLineEdit()
+        self.user_query_entry.setPlaceholderText(
+            "Enter a guiding question for the deep research agent..."
+        )
+        user_query_layout.addWidget(self.user_query_entry)
+        setup_layout.addLayout(user_query_layout)
+
         output_dir_layout = QHBoxLayout()
         output_dir_layout.addWidget(QLabel("Project Output Directory:"))
         self.output_dir_entry = QLineEdit()
@@ -569,6 +578,8 @@ class AgentAppGUI(QWidget):
         project_output_base_dir = self.output_dir_entry.text()
         project_name_input = self.project_name_entry.text().strip()
         exp_data_file_path = self.exp_data_file_entry.text().strip()
+        user_query_input = self.user_query_entry.text().strip()
+        user_query_value = user_query_input if user_query_input else None
 
         config_file_path_gui = self.config_file_entry.text().strip()
         config_file_path_for_backend = config_file_path_gui if config_file_path_gui else "config.json"
@@ -627,6 +638,11 @@ class AgentAppGUI(QWidget):
         else:
             self.log_status_to_gui("[GUI] No experimental data file provided.")
 
+        if user_query_value:
+            self.log_status_to_gui(f"[GUI] Using user query: {user_query_value}")
+        else:
+            self.log_status_to_gui("[GUI] No user query provided for deep research.")
+
         self.start_button.setText("Processing Project...")
         self.start_button.setEnabled(False)
 
@@ -641,7 +657,12 @@ class AgentAppGUI(QWidget):
         self.processing_thread = threading.Thread(
             target=self.run_integrated_backend_task,
             args=(
-            all_pdf_files_in_folder, exp_data_file_path, project_specific_output_dir, app_config)
+                all_pdf_files_in_folder,
+                exp_data_file_path,
+                project_specific_output_dir,
+                app_config,
+                user_query_value,
+            ),
         )
         self.processing_thread.start()
 
@@ -664,6 +685,8 @@ class AgentAppGUI(QWidget):
         project_output_base_dir = self.output_dir_entry.text()
         project_name_input = self.project_name_entry.text().strip()
         exp_data_file_path = self.exp_data_file_entry.text().strip()
+        user_query_input = self.user_query_entry.text().strip()
+        user_query_value = user_query_input if user_query_input else None
 
         if not project_name_input:
             QMessageBox.warning(self, "Input Error", "Please enter a Project Name.")
@@ -712,6 +735,11 @@ class AgentAppGUI(QWidget):
         else:
             self.log_status_to_gui("[GUI] No experimental data file provided.")
 
+        if user_query_value:
+            self.log_status_to_gui(f"[GUI] Using user query: {user_query_value}")
+        else:
+            self.log_status_to_gui("[GUI] No user query provided for deep research.")
+
         self.evolution_button.setText("Processing Evolution Pass...")
         self.evolution_button.setEnabled(False)
 
@@ -725,6 +753,8 @@ class AgentAppGUI(QWidget):
             },
             "project_base_output_dir": project_specific_output_dir,
         }
+        if user_query_value:
+            inputs["initial_inputs"]["user_query"] = user_query_value
 
         self.processing_thread = threading.Thread(
             target=self.run_evolution_pass_task,
@@ -732,7 +762,14 @@ class AgentAppGUI(QWidget):
         )
         self.processing_thread.start()
 
-    def run_integrated_backend_task(self, pdf_file_paths_list, exp_data_path, project_output_dir, app_config):
+    def run_integrated_backend_task(
+        self,
+        pdf_file_paths_list,
+        exp_data_path,
+        project_output_dir,
+        app_config,
+        user_query,
+    ):
         try:
             if self.stop_event.is_set():
                 self.signals.progress.emit("[GUI] Integrated processing cancelled before start.")
@@ -745,7 +782,8 @@ class AgentAppGUI(QWidget):
                 experimental_data_path=exp_data_path,
                 project_base_output_dir=project_output_dir,
                 status_update_callback=self.signals.progress.emit,
-                app_config=app_config
+                app_config=app_config,
+                user_query=user_query,
             )
 
             if self.stop_event.is_set():
