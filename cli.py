@@ -48,6 +48,15 @@ def main() -> None:
         help="Optional path to experimental data file.",
     )
     parser.add_argument(
+        "--user-query",
+        type=str,
+        default=None,
+        help=(
+            "Optional question or research prompt forwarded to the deep-research agent. "
+            "If omitted, the application will fall back to any default configured in the app config."
+        ),
+    )
+    parser.add_argument(
         "--out-dir",
         help="Directory where outputs will be written.",
     )
@@ -82,6 +91,12 @@ def main() -> None:
         print("No PDF files found in specified directories.")
         return
 
+    user_query = args.user_query
+    if user_query is not None:
+        user_query = user_query.strip()
+        if not user_query:
+            user_query = None
+
     if args.adaptive:
         from adaptive.adaptive_graph_runner import adaptive_cycle
 
@@ -92,6 +107,8 @@ def main() -> None:
             },
             "project_base_output_dir": args.out_dir,
         }
+        if user_query:
+            inputs["initial_inputs"]["user_query"] = user_query
         adaptive_cycle(
             config_path=args.config,
             inputs=inputs,
@@ -111,6 +128,7 @@ def main() -> None:
         project_base_output_dir=args.out_dir,
         status_update_callback=print,
         app_config=app_config,
+        user_query=user_query,
     )
 
 

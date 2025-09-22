@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 import traceback
 import threading
 import webbrowser
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from importlib import util as importlib_util
 
@@ -815,8 +815,14 @@ class GraphOrchestrator:
             log_status("INFO: No experiment designs were generated to save.")
 
 
-def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str, project_base_output_dir: str,
-                              status_update_callback: callable, app_config: Dict[str, Any]):
+def run_project_orchestration(
+    pdf_file_paths: list,
+    experimental_data_path: str,
+    project_base_output_dir: str,
+    status_update_callback: callable,
+    app_config: Dict[str, Any],
+    user_query: Optional[str] = None,
+):
     """High-level convenience wrapper that executes an entire project workflow."""
     set_status_callback(status_update_callback)
 
@@ -824,6 +830,22 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
         final_error_msg = "Critical: app_config dictionary is not provided to run_project_orchestration."
         log_status(f"[MainWorkflow] ERROR: {final_error_msg}")
         return {"error": final_error_msg}
+
+    resolved_user_query: Optional[str] = None
+    if user_query is not None:
+        if isinstance(user_query, str):
+            user_query = user_query.strip()
+        resolved_user_query = user_query or None
+    if resolved_user_query is None:
+        default_query = app_config.get("system_variables", {}).get("default_user_query")
+        if isinstance(default_query, str):
+            default_query = default_query.strip()
+            if default_query:
+                resolved_user_query = default_query
+                log_status("[MainWorkflow] INFO: Using default user query from configuration.")
+
+    if resolved_user_query:
+        log_status("[MainWorkflow] INFO: User query provided for deep research stage.")
 
     # Record run configuration before execution
     run_id = generate_run_id()
@@ -834,6 +856,7 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             "pdf_file_paths": pdf_file_paths,
             "experimental_data_path": experimental_data_path,
             "project_base_output_dir": project_base_output_dir,
+            "user_query": resolved_user_query,
         },
     )
     log_status(f"[MainWorkflow] INFO: Assigned run_id '{run_id}' to this execution.")
@@ -890,6 +913,8 @@ def run_project_orchestration(pdf_file_paths: list, experimental_data_path: str,
             "all_pdf_paths": pdf_file_paths,
             "experimental_data_file_path": experimental_data_path,
         }
+        if resolved_user_query:
+            initial_inputs["user_query"] = resolved_user_query
 
         final_outputs = orchestrator.run(
             initial_inputs=initial_inputs,
