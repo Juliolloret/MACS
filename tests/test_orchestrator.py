@@ -474,7 +474,7 @@ class TestGraphOrchestrator(unittest.TestCase):
         self.assertEqual([r.get("slept") for r in results], durations)
 
     def test_visualize_graph_without_graphviz(self):
-        """visualize() falls back to a Mermaid file when graphviz is unavailable."""
+        """visualize() prefers matplotlib/networkx fallback before Mermaid."""
         config = {
             "graph_definition": {
                 "nodes": [
@@ -489,13 +489,86 @@ class TestGraphOrchestrator(unittest.TestCase):
         llm = FakeLLM()
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
-        output_base = os.path.join(self.test_outputs_dir, "graph_no_gv")
+        output_base_png = os.path.join(self.test_outputs_dir, "graph_no_gv_png")
+        output_base_mermaid = os.path.join(
+            self.test_outputs_dir, "graph_no_gv_mermaid"
+        )
+
+        class DummyFigure:  # pylint: disable=too-few-public-methods
+            """Minimal matplotlib stand-in that writes a PNG file."""
+
+            def savefig(self, filename, format=None, dpi=None):  # pylint: disable=unused-argument
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                with open(filename, "wb") as handle:
+                    handle.write(b"dummy png")
+
+        class DummyPlt:  # pylint: disable=too-few-public-methods
+            """Subset of pyplot used by the fallback renderer."""
+
+            def figure(self, figsize=None):  # pylint: disable=unused-argument
+                return DummyFigure()
+
+            def axis(self, *args, **kwargs):  # pylint: disable=unused-argument
+                return None
+
+            def tight_layout(self):
+                return None
+
+            def close(self, *args, **kwargs):  # pylint: disable=unused-argument
+                return None
+
+        class DummyDiGraph:
+            """Small directed graph implementation compatible with the fallback."""
+
+            def __init__(self):
+                self._nodes = []
+
+            def add_node(self, node):
+                if node not in self._nodes:
+                    self._nodes.append(node)
+
+            def add_nodes_from(self, nodes):
+                for node in nodes:
+                    self.add_node(node)
+
+            def add_edge(self, _from, _to):  # pylint: disable=unused-argument
+                return None
+
+            @property
+            def nodes(self):
+                return list(self._nodes)
+
+        class DummyNx:  # pylint: disable=too-few-public-methods
+            """Minimal networkx shim used to drive layout and drawing."""
+
+            DiGraph = DummyDiGraph
+
+            @staticmethod
+            def spring_layout(graph, seed=None):  # pylint: disable=unused-argument
+                return {node: (index, 0.0) for index, node in enumerate(graph.nodes)}
+
+            @staticmethod
+            def draw_networkx(*args, **kwargs):  # pylint: disable=unused-argument
+                return None
+
+        dummy_plt = DummyPlt()
+        dummy_nx = DummyNx()
+
         with patch("multi_agent_llm_system.Digraph", None), patch(
-            "multi_agent_llm_system.ExecutableNotFound", None
-        ):
-            path = orchestrator.visualize(output_base)
-        self.assertTrue(path.endswith(".mmd"))
-        self.assertTrue(os.path.exists(path))
+            "multi_agent_llm_system.plt", dummy_plt
+        ), patch("multi_agent_llm_system.nx", dummy_nx):
+            png_path = orchestrator.visualize(output_base_png)
+
+        self.assertTrue(png_path.endswith(".png"))
+        self.assertTrue(os.path.exists(png_path))
+
+        with patch("multi_agent_llm_system.Digraph", None), patch(
+            "multi_agent_llm_system.plt", None
+        ), patch("multi_agent_llm_system.nx", None):
+            mermaid_path = orchestrator.visualize(output_base_mermaid)
+
+        self.assertTrue(mermaid_path.endswith(".mmd"))
+        self.assertTrue(os.path.exists(mermaid_path))
 
     def test_failure_policy_continue_override(self):
         """Node-level policy override allows continuing after failure."""
