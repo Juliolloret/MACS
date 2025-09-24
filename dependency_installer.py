@@ -3,74 +3,30 @@
 from __future__ import annotations
 
 import configparser
+import importlib
 import os
-import shutil
 import subprocess
 import sys
 
 
-def _check_and_install_graphviz():
-    """Check for Graphviz and install it if it is not found."""
-    if shutil.which("dot"):
-        print("[Dependency Check] Graphviz is already installed.")
-        return
+def _ensure_pyvis_installed() -> None:
+    """Install ``pyvis`` using pip when it is not already available."""
 
-    print("[Dependency Check] Graphviz not found. Attempting to install...")
-    platform = sys.platform
-    if platform.startswith("linux"):
-        # Linux
-        try:
-            print("[Dependency Check] Updating package list...")
-            subprocess.run(["sudo", "apt-get", "update"], check=True, capture_output=True)
-            print("[Dependency Check] Installing graphviz...")
-            subprocess.run(
-                ["sudo", "apt-get", "install", "-y", "graphviz"],
-                check=True,
-                capture_output=True,
-            )
-            print("[Dependency Check] Graphviz installed successfully using apt-get.")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(
-                "[Dependency Check] Failed to install Graphviz using apt-get. "
-                "Please install it manually. Error: %s",
-                e,
-            )
-    elif platform == "darwin":
-        # macOS
-        if not shutil.which("brew"):
-            print(
-                "[Dependency Check] Homebrew not found. Please install Homebrew first, "
-                "then run 'brew install graphviz'."
-            )
-            return
-        try:
-            subprocess.run(["brew", "install", "graphviz"], check=True)
-            print("[Dependency Check] Graphviz installed successfully using Homebrew.")
-        except subprocess.CalledProcessError as e:
-            print(
-                "[Dependency Check] Failed to install Graphviz using Homebrew. "
-                "Please install it manually. Error: %s",
-                e,
-            )
-    elif platform == "win32":
-        # Windows
-        if not shutil.which("choco"):
-            print(
-                "[Dependency Check] Chocolatey not found. Please install Chocolatey first, "
-                "then run 'choco install graphviz'."
-            )
-            return
-        try:
-            subprocess.run(["choco", "install", "graphviz", "-y"], check=True)
-            print("[Dependency Check] Graphviz installed successfully using Chocolatey.")
-        except subprocess.CalledProcessError as e:
-            print(
-                "[Dependency Check] Failed to install Graphviz using Chocolatey. "
-                "Please install it manually. Error: %s",
-                e,
-            )
-    else:
-        print(f"[Dependency Check] Unsupported platform: {platform}. Please install Graphviz manually.")
+    try:
+        importlib.import_module("pyvis")
+        print("[Dependency Check] PyVis is already installed.")
+        return
+    except ImportError:
+        print("[Dependency Check] PyVis not found. Attempting to install via pip...")
+
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pyvis"])
+        print("[Dependency Check] PyVis installed successfully.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print(
+            "[Dependency Check] Failed to install PyVis automatically. "
+            "Please install it manually using 'pip install pyvis'."
+        )
 
 
 def _install_from_requirements(requirements_path: str) -> None:
@@ -121,7 +77,7 @@ def maybe_install_deps(routes_path: str | None = None) -> None:
         routes_path = os.path.join(base_dir, "predefined_routes.ini")
 
     if _auto_install_enabled(routes_path):
-        _check_and_install_graphviz()
+        _ensure_pyvis_installed()
         requirements = os.path.join(base_dir, "requirements.txt")
         _install_from_requirements(requirements)
     else:

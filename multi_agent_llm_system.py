@@ -10,34 +10,13 @@ import threading
 import webbrowser
 from typing import Dict, Any, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from importlib import util as importlib_util
 
 from llm import LLMClient
 
-try:  # pragma: no cover - defensive guard for alternative runtimes
-    from subprocess import CalledProcessError
-except ImportError:  # pragma: no cover - extremely defensive
-    CalledProcessError = None  # type: ignore[assignment]
-
 try:
-    from graphviz import Digraph
-    from graphviz.backend import ExecutableNotFound
-except ImportError:
-    Digraph = None
-    ExecutableNotFound = None
-
-if importlib_util.find_spec("matplotlib") is not None:
-    import matplotlib  # type: ignore
-
-    matplotlib.use("Agg")  # type: ignore[attr-defined]
-    import matplotlib.pyplot as plt  # type: ignore
-else:  # pragma: no cover - optional dependency
-    plt = None  # type: ignore
-
-if importlib_util.find_spec("networkx") is not None:
-    import networkx as nx  # type: ignore
-else:  # pragma: no cover - optional dependency
-    nx = None  # type: ignore
+    from pyvis.network import Network
+except ImportError:  # pragma: no cover - handled gracefully at runtime
+    Network = None  # type: ignore
 
 # Import utilities from utils.py
 from utils import (
@@ -242,153 +221,60 @@ class GraphOrchestrator:
             label += f"\n{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
         return node_id, label
 
-    def _generate_mermaid_file(
+    def _render_with_pyvis(
         self,
         output_path: str,
         highlight_node_id: str | None,
     ) -> str:
-        """Generate a Mermaid diagram when image renderers are unavailable."""
+        """Render the orchestrator graph using the ``pyvis`` network library."""
 
-        mermaid_lines = ["graph TD"]
+        if Network is None:  # pragma: no cover - handled in ``visualize``
+            raise RuntimeError("pyvis is not available")
+
+        network = Network(height="650px", width="100%", directed=True)
+        network.barnes_hut()
+
+        added_node = False
         for node in self.graph_definition.get("nodes", []):
             node_id, label = self._format_node_label(node)
             if not node_id:
                 continue
-            safe_label = label.replace("\n", "<br/>").replace("\"", "\\\"")
-            mermaid_lines.append(f'{node_id}["{safe_label}"]')
+            added_node = True
+            html_label = label.replace("\n", "<br/>")
+            color = "#FFD966" if node_id == highlight_node_id else "#A6CEE3"
+            network.add_node(
+                node_id,
+                label=html_label,
+                title=html_label,
+                color=color,
+                shape="box",
+            )
+
         for edge in self.graph_definition.get("edges", []):
             from_node = edge.get("from")
             to_node = edge.get("to")
             if from_node and to_node:
-                mermaid_lines.append(f"{from_node} --> {to_node}")
-        if highlight_node_id:
-            mermaid_lines.append(f"style {highlight_node_id} fill:yellow")
-        mermaid_path = output_path + ".mmd"
-        directory = os.path.dirname(mermaid_path)
-        if directory and not os.path.exists(directory):
+                network.add_edge(from_node, to_node)
+
+        if not added_node:
+            log_status("[GraphOrchestrator] WARNING: No nodes defined to visualize.")
+
+        output_file = output_path + ".html"
+        directory = os.path.dirname(output_file)
+        if directory:
             os.makedirs(directory, exist_ok=True)
-        with open(mermaid_path, "w", encoding="utf-8") as file_handle:
-            file_handle.write("\n".join(mermaid_lines))
+
+        network.write_html(output_file, notebook=False)
         log_status(
-            f"[GraphOrchestrator] INFO: Mermaid diagram saved to {mermaid_path}."
+            f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file} (pyvis)."
         )
-        _open_graph_file(mermaid_path)
-        return mermaid_path
-
-    def _visualize_with_networkx(
-        self,
-        output_path: str,
-        highlight_node_id: str | None,
-        notify: bool = True,
-    ) -> str:
-        """Render the graph using ``networkx`` and ``matplotlib``.
-
-        Parameters
-        ----------
-        notify: bool
-            When ``False``, skip reporting callbacks and automatic viewer launch.
-        """
-
-        if plt is None or nx is None:  # pragma: no cover - guard for optional deps
-            raise RuntimeError("matplotlib or networkx is not available")
-
-        graph = nx.DiGraph()
-        labels: dict[str, str] = {}
-        for node in self.graph_definition.get("nodes", []):
-            node_id, label = self._format_node_label(node)
-            if not node_id:
-                continue
-            graph.add_node(node_id)
-            labels[node_id] = label
-
-        for edge in self.graph_definition.get("edges", []):
-            from_node = edge.get("from")
-            to_node = edge.get("to")
-            if from_node and to_node:
-                graph.add_edge(from_node, to_node)
-
-        if not graph.nodes:
-            log_status("[GraphOrchestrator] WARNING: No nodes available to visualize.")
-            return self._generate_mermaid_file(output_path, highlight_node_id)
-
-        figure_width = max(6, len(graph.nodes) * 1.5)
-        figure_height = max(4, len(graph.nodes) * 1.2)
-        fig = plt.figure(figsize=(figure_width, figure_height))
-        try:
-            positions = nx.spring_layout(graph, seed=42)
-            node_colors = [
-                "#FFD966" if node == highlight_node_id else "#A6CEE3"
-                for node in graph.nodes
-            ]
-            nx.draw_networkx(
-                graph,
-                pos=positions,
-                labels=labels,
-                node_color=node_colors,
-                node_size=2600,
-                font_size=8,
-                font_weight="bold",
-                edge_color="#4C72B0",
-                arrows=True,
-                arrowsize=20,
-                width=1.5,
-            )
-            plt.axis("off")
-            plt.tight_layout()
-            output_file = output_path + ".png"
-            directory = os.path.dirname(output_file)
-            if directory:
-                os.makedirs(directory, exist_ok=True)
-            fig.savefig(output_file, format="png", dpi=200)
-            log_status(
-                "[GraphOrchestrator] INFO: Graph visualization saved to "
-                f"{output_file} (matplotlib/networkx)."
-            )
-            if notify:
-                _open_graph_file(output_file)
-            return output_file
-        finally:
-            plt.close(fig)
-
-    def _fallback_visualize(
-        self,
-        output_path: str,
-        highlight_node_id: str | None,
-        reason: str,
-    ) -> str:
-        """Attempt to render using fallbacks when Graphviz is unavailable."""
-
-        log_status(
-            f"[GraphOrchestrator] INFO: {reason} Using fallback graph renderer."
-        )
-        if plt is not None and nx is not None:
-            try:
-                return self._visualize_with_networkx(
-                    output_path, highlight_node_id, notify=False
-                )
-            except Exception as exc:  # pylint: disable=broad-exception-caught
-                log_status(
-                    "[GraphOrchestrator] WARNING: Matplotlib/networkx fallback failed: "
-                    f"{exc}"
-                )
-                log_status(traceback.format_exc())
-        else:
-            missing = []
-            if plt is None:
-                missing.append("matplotlib")
-            if nx is None:
-                missing.append("networkx")
-            if missing:
-                log_status(
-                    "[GraphOrchestrator] WARNING: Missing optional dependencies for "
-                    f"image rendering: {', '.join(missing)}."
-                )
-        return self._generate_mermaid_file(output_path, highlight_node_id)
+        _open_graph_file(output_file)
+        return output_file
 
     def visualize(
         self,
         output_path: str,
-        output_format: str = "png",
+        output_format: str = "html",
         highlight_node_id: str | None = None,
     ) -> str:
         """Generate a visual representation of the agent graph.
@@ -398,75 +284,32 @@ class GraphOrchestrator:
         output_path: str
             Path (without extension) where the visualization will be written.
         output_format: str
-            Graphviz output format, e.g., ``'png'`` or ``'pdf'``.
+            Ignored for PyVis rendering; kept for API compatibility.
         highlight_node_id: str | None
             Optional node identifier to highlight in the visualization.
 
         Returns
         -------
         str
-            The path to the generated visualization file or the saved DOT file.
+            The path to the generated visualization file, or an empty string when
+            rendering fails.
         """
-        if Digraph is None or ExecutableNotFound is None:
-            return self._fallback_visualize(
-                output_path,
-                highlight_node_id,
-                "Graphviz Python bindings not available.",
-            )
-
-        dot = Digraph(comment="Agent Graph", format=output_format)
-        for node in self.graph_definition.get("nodes", []):
-            node_id, label = self._format_node_label(node)
-            if not node_id:
-                continue
-            if node_id == highlight_node_id:
-                dot.node(node_id, label, style="filled", fillcolor="yellow")
-            else:
-                dot.node(node_id, label)
-
-        for edge in self.graph_definition.get("edges", []):
-            from_node = edge.get("from")
-            to_node = edge.get("to")
-            if from_node and to_node:
-                dot.edge(from_node, to_node)
-
-        fallback_exceptions: tuple[type[BaseException], ...] = (OSError,)
-        if CalledProcessError is not None:
-            fallback_exceptions = (CalledProcessError,) + fallback_exceptions
-
-        def _graphviz_failure(exc: Exception) -> str:
-            error_type = type(exc).__name__
-            reason = f"Graphviz rendering failed ({error_type})."
+        if Network is None:
             log_status(
-                "[GraphOrchestrator] WARNING: Graphviz rendering failed: "
-                f"{error_type}: {exc}"
+                "[GraphOrchestrator] ERROR: PyVis is required for graph rendering. "
+                "Install it with 'pip install pyvis'."
             )
-            log_status(traceback.format_exc())
-            return self._fallback_visualize(
-                output_path,
-                highlight_node_id,
-                reason,
-            )
+            return ""
 
         try:
-            output_file = dot.render(output_path, cleanup=True)
-            log_status(f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file}")
-            _open_graph_file(output_file)
-            return output_file
-        except ExecutableNotFound:
-            log_status(
-                "[GraphOrchestrator] WARNING: Graphviz executable not found. "
-                "Falling back to matplotlib/networkx rendering."
-            )
-            return self._fallback_visualize(
-                output_path,
-                highlight_node_id,
-                "Graphviz executable not found.",
-            )
-        except fallback_exceptions as exc:  # type: ignore[misc]
-            return _graphviz_failure(exc)
+            return self._render_with_pyvis(output_path, highlight_node_id)
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            return _graphviz_failure(exc)
+            log_status(
+                "[GraphOrchestrator] ERROR: Failed to render graph with PyVis: "
+                f"{exc}"
+            )
+            log_status(traceback.format_exc())
+            return ""
 
     def run(self, initial_inputs: Dict[str, Any], project_base_output_dir: str):
         """Execute the graph starting from the supplied ``initial_inputs``.
