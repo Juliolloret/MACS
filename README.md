@@ -51,7 +51,7 @@
 
 - **Purpose:** Core backend that loads and executes the multi-agent workflow defined in `config.json`.
 - **Key Elements:**
-  - **Graph Orchestrator:** The central component that builds a directed acyclic graph (DAG) of agents from the configuration file. It executes the agents in the correct topological order, managing the flow of data between them. It can also export the graph structure for visualization via Graphviz.
+  - **Graph Orchestrator:** The central component that builds a directed acyclic graph (DAG) of agents from the configuration file. It executes the agents in the correct topological order, managing the flow of data between them. It can also export the graph structure for visualization via [PyVis](https://pyvis.readthedocs.io/).
     Visual outputs highlight the node under execution and summarize per-node runtime and token usage.
   - **Dynamic Agent Loading:** Agents are not hardcoded in the orchestrator. Instead, agent classes are dynamically loaded from the `agents` package based on the `type` specified for each node in the `config.json` graph.
   - **Agent Network:** The default workflow consists of specialized agents, including:
