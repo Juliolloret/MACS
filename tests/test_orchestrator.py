@@ -4,7 +4,6 @@ import unittest
 import os
 import shutil
 import time
-from subprocess import CalledProcessError
 from unittest.mock import patch, MagicMock
 
 try:
@@ -153,7 +152,26 @@ class TestGraphOrchestrator(unittest.TestCase):
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
         output_base = os.path.join(self.test_outputs_dir, "graph")
-        path = orchestrator.visualize(output_base)
+        class DummyNetwork:
+            def barnes_hut(self):
+                return None
+
+            def add_node(self, *args, **kwargs):  # pylint: disable=unused-argument
+                return None
+
+            def add_edge(self, *args, **kwargs):  # pylint: disable=unused-argument
+                return None
+
+            def write_html(self, filename, notebook=False):  # pylint: disable=unused-argument
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                with open(filename, "w", encoding="utf-8") as handle:
+                    handle.write("<html></html>")
+
+        with patch("multi_agent_llm_system.Network", return_value=DummyNetwork()), \
+            patch("multi_agent_llm_system._open_graph_file"):
+            path = orchestrator.visualize(output_base)
+
+        self.assertTrue(path.endswith(".html"))
         self.assertTrue(os.path.exists(path))
 
 
@@ -187,8 +205,8 @@ class TestGraphOrchestrator(unittest.TestCase):
         thread_instance.start.assert_called_once()
 
 
-    def test_visualize_graph_handles_graphviz_render_error(self):
-        """Graphviz render failures should log and return fallback artefacts."""
+    def test_visualize_graph_uses_pyvis_renderer(self):
+        """PyVis renderer should receive nodes and edges and create an HTML file."""
 
         config = {
             "graph_definition": {
@@ -205,77 +223,70 @@ class TestGraphOrchestrator(unittest.TestCase):
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
 
-        output_base = os.path.join(self.test_outputs_dir, "graph_render_error")
+        output_base = os.path.join(self.test_outputs_dir, "graph_pyvis")
 
-        class DummyExecutableNotFound(Exception):
-            """Sentinel exception for simulating Graphviz availability."""
+        class DummyNetwork:
+            """Minimal stand-in for the PyVis network class."""
 
-            pass
+            def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+                self.added_nodes = []
+                self.added_edges = []
 
-        with patch("multi_agent_llm_system._open_graph_file"), \
-            patch("multi_agent_llm_system.report_graph_visualization"), \
-            patch("multi_agent_llm_system.plt", None), \
-            patch("multi_agent_llm_system.nx", None), \
-            patch(
-                "multi_agent_llm_system.ExecutableNotFound",
-                new=DummyExecutableNotFound,
-            ), \
-            patch("multi_agent_llm_system.log_status") as mock_log_status, \
-            patch("multi_agent_llm_system.Digraph") as mock_digraph:
+            def barnes_hut(self):
+                return None
 
-            mock_digraph.return_value.render.side_effect = CalledProcessError(1, "dot")
-            fallback_path = orchestrator.visualize(output_base)
+            def add_node(self, *args, **kwargs):
+                self.added_nodes.append((args, kwargs))
 
-        self.assertEqual(output_base + ".mmd", fallback_path)
-        self.assertTrue(os.path.isfile(fallback_path))
+            def add_edge(self, *args, **kwargs):
+                self.added_edges.append((args, kwargs))
 
-        warning_logs = [
-            call.args[0]
-            for call in mock_log_status.call_args_list
-            if call.args and "Graphviz rendering failed" in call.args[0]
-        ]
+            def write_html(self, filename, notebook=False):  # pylint: disable=unused-argument
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                with open(filename, "w", encoding="utf-8") as handle:
+                    handle.write("<html></html>")
+
+        dummy_network = DummyNetwork()
+        with patch("multi_agent_llm_system.Network", return_value=dummy_network),             patch("multi_agent_llm_system._open_graph_file") as mock_open:
+            result = orchestrator.visualize(output_base)
+
+        expected_path = output_base + ".html"
+        self.assertEqual(expected_path, result)
+        self.assertTrue(os.path.isfile(expected_path))
+        self.assertEqual(len(dummy_network.added_nodes), 2)
+        self.assertEqual(len(dummy_network.added_edges), 1)
+        mock_open.assert_called_once_with(expected_path)
+
+    def test_visualize_graph_logs_error_when_pyvis_missing(self):
+        """When PyVis is unavailable, visualize() should log and return an empty path."""
+
+        config = {
+            "graph_definition": {
+                "nodes": [
+                    {"id": "a", "type": "A"},
+                    {"id": "b", "type": "B"},
+                ],
+                "edges": [
+                    {"from": "a", "to": "b"},
+                ],
+            }
+        }
+        llm = FakeLLM()
+        app_config = {"system_variables": {"default_llm_model": "test_model"}}
+        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
+
+        output_base = os.path.join(self.test_outputs_dir, "graph_pyvis_missing")
+
+        with patch("multi_agent_llm_system.Network", None),             patch("multi_agent_llm_system.log_status") as mock_log:
+            result = orchestrator.visualize(output_base)
+
+        self.assertEqual("", result)
+        messages = [call.args[0] for call in mock_log.call_args_list if call.args]
         self.assertTrue(
-            any("WARNING" in message for message in warning_logs),
-            f"Expected warning log entry. Got: {warning_logs}",
+            any("PyVis is required" in message for message in messages),
+            f"Expected PyVis error log. Got: {messages}",
         )
-
-
-    def test_visualize_graph_mermaid_fallback_creates_parent_directory(self):
-        """Mermaid fallback should create any missing parent directories."""
-        config = {
-            "graph_definition": {
-                "nodes": [
-                    {"id": "a", "type": "A"},
-                    {"id": "b", "type": "B"},
-                ],
-                "edges": [
-                    {"from": "a", "to": "b"},
-                ],
-            }
-        }
-        llm = FakeLLM()
-        app_config = {"system_variables": {"default_llm_model": "test_model"}}
-        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
-
-        output_base = os.path.join(
-            self.test_outputs_dir, "mermaid_fallback", "nested", "graph"
-        )
-        expected_directory = os.path.dirname(output_base)
-        if os.path.exists(expected_directory):
-            shutil.rmtree(expected_directory)
-        self.assertFalse(os.path.exists(expected_directory))
-
-        with patch("multi_agent_llm_system.Digraph", None), \
-            patch("multi_agent_llm_system.plt", None), \
-            patch("multi_agent_llm_system.nx", None), \
-            patch("multi_agent_llm_system._open_graph_file"):
-            mermaid_path = orchestrator.visualize(output_base)
-
-        expected_mermaid_path = output_base + ".mmd"
-        self.assertEqual(expected_mermaid_path, mermaid_path)
-        self.assertTrue(os.path.isfile(expected_mermaid_path))
-        self.assertTrue(os.path.isdir(expected_directory))
-
+        self.assertFalse(os.path.exists(output_base + ".html"))
 
     def test_agent_allows_execution_with_upstream_errors(self):
         """Agents configured to allow errors should still execute with missing inputs."""
@@ -472,103 +483,6 @@ class TestGraphOrchestrator(unittest.TestCase):
         outputs = orchestrator.run({"durations": durations}, self.test_outputs_dir)
         results = outputs.get("sleeper", {}).get("results", [])
         self.assertEqual([r.get("slept") for r in results], durations)
-
-    def test_visualize_graph_without_graphviz(self):
-        """visualize() prefers matplotlib/networkx fallback before Mermaid."""
-        config = {
-            "graph_definition": {
-                "nodes": [
-                    {"id": "a", "type": "A"},
-                    {"id": "b", "type": "B"},
-                ],
-                "edges": [
-                    {"from": "a", "to": "b"},
-                ],
-            }
-        }
-        llm = FakeLLM()
-        app_config = {"system_variables": {"default_llm_model": "test_model"}}
-        orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
-        output_base_png = os.path.join(self.test_outputs_dir, "graph_no_gv_png")
-        output_base_mermaid = os.path.join(
-            self.test_outputs_dir, "graph_no_gv_mermaid"
-        )
-
-        class DummyFigure:  # pylint: disable=too-few-public-methods
-            """Minimal matplotlib stand-in that writes a PNG file."""
-
-            def savefig(self, filename, format=None, dpi=None):  # pylint: disable=unused-argument
-                os.makedirs(os.path.dirname(filename), exist_ok=True)
-                with open(filename, "wb") as handle:
-                    handle.write(b"dummy png")
-
-        class DummyPlt:  # pylint: disable=too-few-public-methods
-            """Subset of pyplot used by the fallback renderer."""
-
-            def figure(self, figsize=None):  # pylint: disable=unused-argument
-                return DummyFigure()
-
-            def axis(self, *args, **kwargs):  # pylint: disable=unused-argument
-                return None
-
-            def tight_layout(self):
-                return None
-
-            def close(self, *args, **kwargs):  # pylint: disable=unused-argument
-                return None
-
-        class DummyDiGraph:
-            """Small directed graph implementation compatible with the fallback."""
-
-            def __init__(self):
-                self._nodes = []
-
-            def add_node(self, node):
-                if node not in self._nodes:
-                    self._nodes.append(node)
-
-            def add_nodes_from(self, nodes):
-                for node in nodes:
-                    self.add_node(node)
-
-            def add_edge(self, _from, _to):  # pylint: disable=unused-argument
-                return None
-
-            @property
-            def nodes(self):
-                return list(self._nodes)
-
-        class DummyNx:  # pylint: disable=too-few-public-methods
-            """Minimal networkx shim used to drive layout and drawing."""
-
-            DiGraph = DummyDiGraph
-
-            @staticmethod
-            def spring_layout(graph, seed=None):  # pylint: disable=unused-argument
-                return {node: (index, 0.0) for index, node in enumerate(graph.nodes)}
-
-            @staticmethod
-            def draw_networkx(*args, **kwargs):  # pylint: disable=unused-argument
-                return None
-
-        dummy_plt = DummyPlt()
-        dummy_nx = DummyNx()
-
-        with patch("multi_agent_llm_system.Digraph", None), patch(
-            "multi_agent_llm_system.plt", dummy_plt
-        ), patch("multi_agent_llm_system.nx", dummy_nx):
-            png_path = orchestrator.visualize(output_base_png)
-
-        self.assertTrue(png_path.endswith(".png"))
-        self.assertTrue(os.path.exists(png_path))
-
-        with patch("multi_agent_llm_system.Digraph", None), patch(
-            "multi_agent_llm_system.plt", None
-        ), patch("multi_agent_llm_system.nx", None):
-            mermaid_path = orchestrator.visualize(output_base_mermaid)
-
-        self.assertTrue(mermaid_path.endswith(".mmd"))
-        self.assertTrue(os.path.exists(mermaid_path))
 
     def test_failure_policy_continue_override(self):
         """Node-level policy override allows continuing after failure."""
