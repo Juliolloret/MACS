@@ -363,7 +363,7 @@ class GraphOrchestrator:
         )
         if plt is not None and nx is not None:
             try:
-                self._visualize_with_networkx(
+                return self._visualize_with_networkx(
                     output_path, highlight_node_id, notify=False
                 )
             except Exception as exc:  # pylint: disable=broad-exception-caught

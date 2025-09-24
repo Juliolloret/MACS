@@ -9,7 +9,7 @@
 ---
 
 # MACS: Multi-Agent LLM Research Assistant
-**MACS** (Multi-Agent Collaboration System) is a open-source modular Python-based platform for orchestrating advanced research workflows on collections of academic PDFs. It leverages multiple intelligent agents and LLMs to extract, summarize, and synthesize information from academic PDFs and experimental data, supporting literature reviews, hypothesis generation, and experiment planning.
+**MACS** (Multi-Agent Collaboration System) is an open-source modular Python-based platform for orchestrating advanced research workflows on collections of academic PDFs. It leverages multiple intelligent agents and LLMs to extract, summarize, and synthesize information from academic PDFs and experimental data, supporting literature reviews, hypothesis generation, and experiment planning.
 
 # Features
 - Automated Literature Review: Extracts and summarizes research articles from PDFs.

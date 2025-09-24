@@ -10,7 +10,7 @@ The core components of MACS are organized as follows:
 
 | Path | Description |
 | ---- | ----------- |
-| `agents/` | Individual agent implementations. Each file defines a class derived from `BaseAgent` and exposes a `name` attribute used in configuration graphs. |
+| `agents/` | Individual agent implementations. Each file subclasses `Agent` from `agents.base_agent` and registers itself with `@register_agent`. |
 | `agent_plugins/` | Optional drop-in agents that can be discovered at runtime. Useful for experiments or external contributions. |
 | `adaptive/` | Components for evolutionary runs where MACS evaluates results and mutates its own configuration for the next iteration. |
 | `docs/` | Project documentation (including this guide). |
@@ -75,12 +75,11 @@ See [CONFIGURATION_REFERENCE.md](CONFIGURATION_REFERENCE.md) for a thorough brea
 
 Agents encapsulate a single capability—loading PDFs, summarizing, generating hypotheses, etc. To implement a new agent:
 
-1. **Subclass** `BaseAgent` from `agents.base` (or a similar utility base class).
-2. **Define** a unique `name` class attribute.
-3. **Implement** the `run(self, data, context)` method. Use the `context.llm` client for language-model calls.
-4. **Return** serializable results (dicts, strings, lists). Outputs become inputs for downstream nodes.
-5. **Register** the agent by placing the file in `agents/` or `agent_plugins/`.
-6. **Update** the configuration graph so that the orchestrator invokes the new agent.
+1. **Import** `Agent` from `agents.base_agent` and inherit from it. The orchestrator supplies the `llm`, `config_params`, and `app_config` arguments expected by the base class constructor.
+2. **Implement** the `execute(self, inputs: dict) -> dict` method. Use `self.llm` for language-model calls and read configuration from `self.config_params`.
+3. **Return** a dictionary describing the results (strings, lists, nested dicts, and optional `error` keys). Downstream nodes receive these values as inputs.
+4. **Register** the class with `@register_agent("YourAgentName")` from `agents.registry` so the orchestrator can discover it by name.
+5. **Place** the implementation in `agents/` for built-ins or `agent_plugins/` for optional plugins, and reference the chosen agent name inside the configuration graph.
 
 When adapting existing agents, maintain backwards compatibility with their inputs/outputs unless the configuration is updated accordingly.
 
