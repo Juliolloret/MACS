@@ -14,4 +14,6 @@ __pycache__/
 # Env
 .env
 storage/run_configs/
-!storage/run_configs/example.json
+!storage/run_configs/example.json.env
+storage/run_configs/
+.cache/
