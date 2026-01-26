@@ -17,3 +17,6 @@ storage/run_configs/
 !storage/run_configs/example.json.env
 storage/run_configs/
 .cache/
+.env
+storage/run_configs/
+.cache/
