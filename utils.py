@@ -14,10 +14,10 @@ except ImportError:  # pragma: no cover - pydantic is optional at runtime
 from config_schema import validate_graph_definition
 from llm import LLMError
 
-try:  # Expose PyPDF2 for agents that rely on it without importing here
-    import PyPDF2  # pylint: disable=unused-import
+try:  # Expose pypdf for agents that rely on it without importing here
+    import pypdf  # pylint: disable=unused-import
 except ImportError:  # pragma: no cover
-    PyPDF2 = None  # type: ignore
+    pypdf = None  # type: ignore
 
 # Attempt to import OpenAI library and its specific errors. These are primarily
 # used by ``call_openai_api``.

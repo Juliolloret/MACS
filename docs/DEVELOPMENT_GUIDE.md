@@ -1,183 +1,184 @@
-# MACS Development Guide
+﻿# MACS Development Guide
 
-This guide provides comprehensive instructions for developers—human or AI—who wish to extend the **Multi-Agent Collaboration System (MACS)**. It covers project structure, setup, conventions, and typical workflows so that contributors can quickly become productive.
+This guide explains how to set up, run, and extend MACS. It is written for
+junior developers and assumes no prior experience with multi-agent systems.
 
----
+## 1. What Is MACS?
 
-## 1. Repository Structure
+MACS (Multi-Agent Collaboration System) runs a workflow of small, focused
+agents. Each agent does one job (load PDFs, summarize text, create hypotheses).
+The orchestrator connects them in a directed acyclic graph (DAG).
 
-The core components of MACS are organized as follows:
+## 2. Requirements (First Time Setup)
 
-| Path | Description |
-| ---- | ----------- |
-| `agents/` | Individual agent implementations. Each file subclasses `Agent` from `agents.base_agent` and registers itself with `@register_agent`. |
-| `agent_plugins/` | Optional drop-in agents that can be discovered at runtime. Useful for experiments or external contributions. |
-| `adaptive/` | Components for evolutionary runs where MACS evaluates results and mutates its own configuration for the next iteration. |
-| `docs/` | Project documentation (including this guide). |
-| `tests/` | Pytest-based test suite covering agents, orchestrator behaviour, and integration flows. |
-| `cli_test.py`, `gui.py` | Entry points for command-line and graphical execution. |
-| `config.json` | Default configuration and agent graph used by `GraphOrchestrator`. |
-| `utils.py`, `memory.md`, etc. | Supporting utilities and memory model description. |
+### 2.1 Install Python
 
-When adding new modules, strive to keep the hierarchy shallow and file names descriptive.
+- Download Python from https://www.python.org
+- Recommended: Python 3.10 or newer.
+- Check your version:
 
----
-
-## 2. Environment Setup
-
-1. **Python Version** – MACS targets Python **3.10+**.
-2. **Dependencies** – Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **LLM Credentials** – Some agents rely on external LLM providers such as OpenAI. Set environment variables (e.g. `OPENAI_API_KEY`, `OPENAI_PROMPT_ID`, `OPENAI_CONVERSATION_ID`) before running tests or the CLI.
-4. **Optional Tools** – For development you may also install linters like `ruff` or formatters like `black`.
-
----
-
-## 3. Running MACS
-
-### Command-Line
-```
-python cli_test.py --pdf-dir path/to/pdfs --output-dir run_output
+```bash
+python --version
 ```
 
-### Graphical Interface
+### 2.2 Install Git (Optional but Recommended)
+
+Git lets you clone and update the repository:
+
+```bash
+git --version
 ```
+
+If you do not want Git, you can download the ZIP from GitHub and unzip it.
+
+### 2.3 Create a Virtual Environment
+
+A virtual environment keeps dependencies isolated.
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 2.4 Install Dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+This installs GUI (PyQt), PDF parsing (pypdf), FAISS, and OpenAI SDK.
+
+## 3. Dependency Auto-Check
+
+MACS performs a dependency check when running the CLI or GUI:
+
+- CLI: `python cli.py ...` always checks.
+- GUI: `python gui.py` checks unless `--skip-dep-check` is used.
+- GUI install helper: `python gui.py --install-deps` installs requirements
+  before importing PyQt.
+
+The check writes a cache file: `.cache/deps_state.json`. If the requirements
+have not changed, MACS skips the check to run faster.
+
+To force a refresh, set:
+
+```bash
+set MACS_DEPS_REFRESH=1
+```
+
+(or `export MACS_DEPS_REFRESH=1` on macOS/Linux).
+
+## 4. Running MACS
+
+### 4.1 GUI Mode
+
+```bash
 python gui.py
 ```
 
-Both frontends load `config.json` and delegate execution to `GraphOrchestrator` in `multi_agent_llm_system.py`.
+Steps inside the GUI:
 
----
+1. Choose a PDF folder.
+2. Choose an output folder.
+3. (Optional) Choose an experimental data file.
+4. Click "Start Integrated Analysis".
 
-## 4. Configuration and Graphs
+The GUI shows logs, graph images, and a button to open the latest metrics file.
 
-The orchestrator executes agents according to a directed acyclic graph described in `config.json` (or an alternative config file). Important fields include:
+### 4.2 CLI Mode
 
-- `llm` – Model selection and API parameters.
-- `graph_definition` – Nodes (agents) and edges (data flow).
-- `prompts` – Template strings referenced by agents.
-
-To modify the workflow:
-
-1. Add or adjust nodes in `graph_definition`.
-2. Ensure each node name matches an agent `name` attribute.
-3. Update edges to reflect data dependencies.
-
-For complex experiments, create a new configuration file and pass it to the CLI/GUI via `--config`.
-
-See [CONFIGURATION_REFERENCE.md](CONFIGURATION_REFERENCE.md) for a thorough breakdown of every configuration section, common parameters, and validation tips.
-
----
-
-## 5. Creating or Modifying Agents
-
-Agents encapsulate a single capability—loading PDFs, summarizing, generating hypotheses, etc. To implement a new agent:
-
-1. **Import** `Agent` from `agents.base_agent` and inherit from it. The orchestrator supplies the `llm`, `config_params`, and `app_config` arguments expected by the base class constructor.
-2. **Implement** the `execute(self, inputs: dict) -> dict` method. Use `self.llm` for language-model calls and read configuration from `self.config_params`.
-3. **Return** a dictionary describing the results (strings, lists, nested dicts, and optional `error` keys). Downstream nodes receive these values as inputs.
-4. **Register** the class with `@register_agent("YourAgentName")` from `agents.registry` so the orchestrator can discover it by name.
-5. **Place** the implementation in `agents/` for built-ins or `agent_plugins/` for optional plugins, and reference the chosen agent name inside the configuration graph.
-
-When adapting existing agents, maintain backwards compatibility with their inputs/outputs unless the configuration is updated accordingly.
-
----
-
-## 6. Memory System
-
-MACS uses both short-term and long-term memory agents:
-
-- **ShortTermMemoryAgent** – Stores information for the current run.
-- **LongTermMemoryAgent** – Persists data between runs (e.g., on disk).
-
-Memory agents implement `load`, `save`, and retrieval methods. When introducing new memory features, document the data schema and storage location to keep the system interoperable.
-
----
-
-## 7. Adaptive Mode
-
-The optional `adaptive` package allows MACS to evaluate its own outputs and iterate. Key components:
-
-1. `adaptive_graph_runner.py` – Runs the configured graph and gathers metrics.
-2. Mutation functions in `adaptive.mutation` – Alter the configuration (adding/removing agents, adjusting prompts).
-3. Selection mechanisms – Determine whether to keep the new configuration based on evaluation score.
-
-To experiment with adaptive runs, execute:
 ```bash
-python adaptive/adaptive_graph_runner.py --config config.json
+python cli.py --config config.json --pdf-dir path/to/pdfs --out-dir output_dir
 ```
 
-### Evaluation Plugins
+Optional arguments:
 
-Adaptive runs can use custom evaluation plugins to score graph outputs. An
-evaluation plugin implements an ``evaluate(outputs, graph_def, threshold, step)``
-method and returns a numeric score. Plugins can be referenced in
-``config.json`` using ``evaluation_plugins`` with entries like
-``"agent_plugins.sample_evaluator:SampleEvaluator"`` or exposed via the
-``macs.evaluators`` entry point. When multiple plugins are provided, their
-scores are averaged to decide whether the graph should mutate further.
+- `--experimental-data path/to/data.txt`
+- `--user-query "Your research question"`
+- `--adaptive` for the adaptive cycle
 
----
+## 5. Repository Structure (Beginner Map)
 
-## 8. Coding Style
+- `multi_agent_llm_system.py` - orchestrator and core execution.
+- `agents/` - built-in agents.
+- `agent_plugins/` - plugin agents.
+- `adaptive/` - adaptive cycle and mutation tools.
+- `docs/` - documentation.
+- `tests/` - pytest-based tests.
+- `config.json` - default workflow configuration.
 
-- Follow **PEP8** guidelines.
-- Prefer descriptive variable names and type hints (`from __future__ import annotations` if needed).
-- Write docstrings for all public functions and classes.
-- Keep functions small and focused; factor out helpers where useful.
-- Avoid hard-coding paths; accept them as parameters or use configuration values.
+## 6. Editing the Workflow
 
----
+The workflow is defined in `config.json`. The key section is `graph_definition`.
+If you add a node or change edges, validate the file:
 
-## 9. Testing
+```bash
+python -c "from utils import load_app_config; load_app_config('config.json')"
+```
 
-1. Run the full test suite before submitting changes:
-   ```bash
-   pytest
-   ```
-2. Add unit tests for new agents or utilities.
-3. Tests are organized roughly by agent; replicate existing patterns when adding new tests.
-4. Use fixtures to mock external services (e.g., LLM calls) where possible to keep tests deterministic.
+For details, see `docs/CONFIGURATION_REFERENCE.md`.
 
----
+## 7. Creating a New Agent (Step by Step)
+
+1. Create a file in `agents/`, for example `agents/my_agent.py`.
+2. Subclass `Agent` and implement `execute(self, inputs)`.
+3. Register the class with `@register_agent("MyAgent")`.
+4. Add a node with type `MyAgent` in `config.json`.
+5. Write a unit test in `tests/`.
+
+Skeleton:
+
+```python
+from agents.base_agent import Agent
+from agents.registry import register_agent
+
+@register_agent("MyAgent")
+class MyAgent(Agent):
+    def execute(self, inputs: dict) -> dict:
+        text = inputs.get("text", "")
+        return {"output": text.upper()}
+```
+
+## 8. Testing
+
+Run all tests:
+
+```bash
+python scripts/run_tests.py
+```
+
+This script runs pytest and writes the output to `test_results.txt` for review.
+
+If you only want pytest:
+
+```bash
+pytest
+```
+
+## 9. Debugging Tips
+
+- Check `node_metrics.json` in the output folder.
+- Look at GUI logs or CLI console output.
+- If an agent returns an `error` key, downstream nodes may be skipped.
+- Use small PDF files while debugging to speed up runs.
 
 ## 10. Documentation Practices
 
-- Place new design docs in `docs/` with clear, descriptive names.
-- Cross-reference related documents using Markdown links.
-- Keep diagrams in `docs/` or referenced via relative paths.
-- Update `README.md` when introducing major features.
+- Update README and docs when behavior changes.
+- Keep examples copy-paste friendly.
+- Avoid advanced jargon without explanation.
 
----
+## 11. Getting Help
 
-## 11. Working with AI Co-Developers
-
-MACS is designed for collaboration between humans and AI:
-
-- **Commit Messages** – Use clear, imperative summaries so agents can infer intent.
-- **Atomic Changes** – Keep pull requests focused; avoid mixing unrelated changes.
-- **Reasoning Artifacts** – When an AI contributes, capture its rationale in comments or additional docs so future agents understand previous decisions.
-- **Feedback Cycle** – Leverage code review to refine prompts and agent behaviour iteratively.
-
----
-
-## 12. Troubleshooting
-
-- **Missing API Keys** – If LLM-dependent tests fail, ensure the appropriate environment variables are set.
-- **Import Errors** – Verify new modules are included in `__init__.py` files if necessary.
-- **Graph Deadlocks** – The orchestrator requires a DAG; check for cycles or missing edges if execution halts.
-- **File Paths** – Use absolute or configuration-based paths when running inside different environments (e.g., containers vs. local).
-
----
-
-## 13. Getting Help
-
-- Review existing documentation in `docs/` and `README.md`.
-- Check open issues and discussions in the repository for known problems.
-- When in doubt, open a GitHub issue or start a discussion thread.
-
----
-
-With this guide, contributors—whether human developers or automated agents—should be able to understand the MACS architecture and extend it confidently.
+- Review `README.md` and docs in `docs/`.
+- Search for existing issues in the repository.
+- If stuck, open a GitHub issue with error logs and steps to reproduce.

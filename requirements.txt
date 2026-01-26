@@ -11,7 +11,7 @@ lxml
 beautifulsoup4
 pandas
 requests
-PyPDF2
+pypdf
 reportlab
 PyQt6
 pydantic

@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <img src="https://github.com/user-attachments/assets/e2d9cd31-4e54-41f9-81d6-11304b0f80c1" alt="MACS Logo" width="250"/>
 </p>
 
@@ -9,329 +9,213 @@
 ---
 
 # MACS: Multi-Agent LLM Research Assistant
-**MACS** (Multi-Agent Collaboration System) is an open-source modular Python-based platform for orchestrating advanced research workflows on collections of academic PDFs. It leverages multiple intelligent agents and LLMs to extract, summarize, and synthesize information from academic PDFs and experimental data, supporting literature reviews, hypothesis generation, and experiment planning.
 
-# Features
-- Automated Literature Review: Extracts and summarizes research articles from PDFs.
-- Multi-Document Synthesis: Integrates knowledge across multiple sources.
-- Experimental Planning: Generates hypotheses and designs experiments automatically.
-- User-Friendly GUI: Easily configure and launch workflows with real-time monitoring.
-- Customizable Workflows: Adjust agent prompts, models, and workflow topology via config.json.
-- Graph Visualization: Export the agent workflow graph to aid debugging and understanding. Visualizations highlight the node currently under execution and, after completion, annotate each node with execution time and token usage.
-- Extensible Architecture: Add new agents for specialized tasks.
+MACS (Multi-Agent Collaboration System) is a modular Python platform that runs
+research workflows on collections of PDFs. It uses a graph of small agents that
+load documents, summarize them, synthesize findings, and propose hypotheses.
 
-## Table of Contents
+## Who This Is For
 
-- [Overview](#overview)
-- [Components](#components)
-- [Setup & Usage](#setup--usage)
-- [Testing](#testing)
-- [Workflow Details](#workflow-details)
-- [Run History and Reproducibility](#run-history-and-reproducibility)
-- [Configuration](#configuration)
-- [Extending & Contributing](#extending--contributing)
-- [Credits](#credits)
----
+- Students or researchers who want automated literature review support.
+- Developers who want a configurable multi-agent pipeline.
+- Beginners who want to learn how agent graphs work in practice.
 
-## Components
+## Quick Start (Beginner Friendly)
 
-### 1. `gui.py` — Graphical User Interface
+### 0. Prerequisites
 
-- **Purpose:** User-friendly interface for setting up, launching, and monitoring integrated research analysis workflows.
-- **Main Features:**
-  - Select project name, input PDF folder(s), optional experimental data, output directory, and config file.
-  - Initiate analysis via the "Start Integrated Analysis" button.
-  - Monitor progress, logs, and errors in real time.
-  - Handles backend import and configuration errors gracefully.
-- **How it works:** The GUI interacts with the backend (`multi_agent_llm_system.py`), passing user selections and displaying status updates.
+- Python 3.10+ recommended (3.8+ may work depending on dependencies).
+- Git (optional, but recommended).
 
- <img src="https://github.com/user-attachments/assets/5c8fabc4-934f-42e9-849d-04b9412ed3b1" width="600" height="475"/>
+Check your Python version:
 
-### 2. `multi_agent_llm_system.py` — Multi-Agent Orchestrator
+```bash
+python --version
+```
 
-- **Purpose:** Core backend that loads and executes the multi-agent workflow defined in `config.json`.
-- **Key Elements:**
-  - **Graph Orchestrator:** The central component that builds a directed acyclic graph (DAG) of agents from the configuration file. It executes the agents in the correct topological order, managing the flow of data between them. It can also export the graph structure for visualization via [PyVis](https://pyvis.readthedocs.io/).
-    Visual outputs highlight the node under execution and summarize per-node runtime and token usage.
-  - **Dynamic Agent Loading:** Agents are not hardcoded in the orchestrator. Instead, agent classes are dynamically loaded from the `agents` package based on the `type` specified for each node in the `config.json` graph.
-  - **Agent Network:** The default workflow consists of specialized agents, including:
-    - `PDFLoaderAgent`: Loads and extracts text from PDF files.
-    - `PDFSummarizerAgent`: Summarizes the text of a single PDF using an LLM.
-    - `ShortTermMemoryAgent`: Creates a temporary vector store from the summaries of the current session, enabling semantic search.
-    - `DeepResearchSummarizerAgent`: Queries the short-term memory to synthesize a cross-document summary based on a user-provided query.
-    - `LongTermMemoryAgent`: Manages a persistent, cumulative knowledge base by integrating summaries from the current session.
-    - `ExperimentalDataLoaderAgent`: Loads and structures experimental data from a text file, if provided.
-    - `KnowledgeIntegratorAgent`: Merges the deep research summary, long-term memory, and experimental data into a final, unified "knowledge brief."
-    - `HypothesisGeneratorAgent`: Generates novel research hypotheses based on the integrated knowledge brief.
-    - `ExperimentDesignerAgent`: Designs detailed experiments to test the generated hypotheses.
-    - `ObserverAgent`: Reviews the outputs from all other agents to detect and report any errors.
-  - **Output Handling:** Saves all generated artifacts (summaries, briefs, hypotheses, and experiment designs) into a structured project output directory.
-- **Usage:** The orchestrator is invoked by the `gui.py` or can be run directly for command-line testing via `cli_test.py`.
+### 1. Get the Code
 
+```bash
+git clone https://github.com/Juliolloret/MACS.git
+cd MACS
+```
 
+### 2. Create and Activate a Virtual Environment
 
-### 3. `config.json` — Configuration File
+Windows (PowerShell):
 
-- **Purpose:** Centralizes all settings, agent prompts, models, and workflow definitions.
-- **Main Sections:**
-  - **system_variables:** OpenAI API keys, model selection, output folder names, and timeouts.
-  - **agent_prompts:** Customizable system prompts for each agent type.
-  - **graph_definition:** Declarative description of the agent workflow (nodes and edges), specifying agent types, order, and data mappings.
-- **Customization:** Users can adjust models, prompt styles, and workflow topology without modifying code.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-<img width="572" height="810" alt="Untitled diagram - Copy _ Mermaid Chart-2025-08-26-174126" src="https://github.com/user-attachments/assets/b770ec25-c854-4aa6-8c70-282654474416" />
+macOS/Linux:
 
-## Setup & Usage
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-### Installation
+### 3. Install Dependencies
 
-1. **Clone the repository:**
-   ```
-   git clone https://github.com/Juliolloret/MACS.git
-   cd MACS
-   ```
+```bash
+python -m pip install -r requirements.txt
+```
 
-2. **Install dependencies:**
-   ```
-   pip install -r requirements.txt
-   ```
+### 4. Configure Your API Key
 
-   *Dependencies include PyQt6, openai>=1.x, PyPDF2, reportlab, etc.*
+Open `config.json` and set `system_variables.openai_api_key`. Alternatively set
+`OPENAI_API_KEY` in your environment.
 
-3. **Configure OpenAI API Key:**
-   - Add your API key to the `openai_api_key` field in `config.json`.
-4. **Prompts & Conversations (optional):**
-   - The project uses the OpenAI Responses API. If migrating from the Assistants API, replace any `OPENAI_ASSISTANT_ID`/`OPENAI_THREAD_ID` environment variables with `OPENAI_PROMPT_ID`/`OPENAI_CONVERSATION_ID`.
-   - Prompt IDs can also be supplied in `system_variables.prompt_ids` inside `config.json`.
-
-### Running the Application
-
-#### GUI Mode
+### 5. Run the GUI
 
 ```bash
 python gui.py
 ```
-- To install required packages automatically, set `auto_install_deps = true` in `predefined_routes.ini` and run `python gui.py --install-deps` before launching.
-- Use the GUI to select your PDF folder, output directory, and optional experimental data/config.
-- Click "Start Integrated Analysis" to launch the workflow.
-- Monitor progress and status in the GUI.
 
-#### Command-Line Interface (CLI)
-
-Run MACS directly from the terminal using `cli.py`:
+If PyQt is missing, you can install dependencies first:
 
 ```bash
-python cli.py --config config.json --pdf-dir path/to/pdfs --experimental-data path/to/data.txt --out-dir project_output
+python gui.py --install-deps
 ```
 
-Add `--adaptive` to enable the adaptive orchestration cycle:
+Note: `--install-deps` respects `predefined_routes.ini` and only installs when
+`auto_install_deps = true`.
+
+### 6. Run the CLI
 
 ```bash
-python cli.py --config config.json --pdf-dir path/to/pdfs --experimental-data path/to/data.txt --out-dir project_output --adaptive
+python cli.py --config config.json --pdf-dir path/to/pdfs --out-dir output_dir
 ```
 
-### Prompts, Conversations, and Responses
+Optional flags:
 
-The OpenAI Responses API replaces Assistants and Threads. A basic call looks like:
+- `--experimental-data path/to/data.txt`
+- `--user-query "Your research question"`
+- `--adaptive` to run the adaptive cycle
 
-```python
-from openai import OpenAI
+### 7. Check the Output
 
-client = OpenAI()
-response = client.responses.create(
-    model="gpt-4.1-mini",
-    input=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write a haiku about MACS."},
-    ],
-    prompt_id="pr_123",
-    conversation_id="cv_456",
-)
-print(response.output_text)
+Outputs are written under your output directory. See the "Output Structure"
+section below.
+
+## Documentation Index
+
+- `README.md` - project overview and quick start
+- `docs/DEVELOPMENT_GUIDE.md` - detailed developer setup and workflow
+- `docs/CONFIGURATION_REFERENCE.md` - config.json explained
+- `docs/CODE_SCHEME.md` - high-level architecture map
+- `docs/RESPONSES_API_MIGRATION.md` - OpenAI Responses API notes
+- `docs/run_history.md` - run history and reproducibility
+- `AGENTS.md` - agent reference and extension guide
+- `memory.md` - memory system details
+
+## How MACS Works (Simple Explanation)
+
+1. The orchestrator reads `config.json` and builds a DAG of agents.
+2. Agents run in order, passing outputs to the next agent.
+3. A metrics file (`node_metrics.json`) is generated when the run completes.
+4. Output files (summaries, briefs, hypotheses) are saved to your output folder.
+
+## Features
+
+- Automated literature review from PDFs.
+- Multi-document synthesis and knowledge integration.
+- Hypothesis generation and experiment design.
+- Optional adaptive graph evolution.
+- GUI and CLI entrypoints.
+- Event-driven metrics and logs for observability.
+
+## Output Structure
+
+Typical output directory:
+
 ```
-
-See [docs/RESPONSES_API_MIGRATION.md](docs/RESPONSES_API_MIGRATION.md) for more details.
-
----
-## Testing
-The repository includes a self-contained integration test script, `cli_test.py`, which validates the end-to-end functionality of the multi-agent orchestration pipeline.
-
-### How to Run the Test
-1.  **Install Test Dependencies:** The test script requires the `reportlab` library to generate dummy PDF files for testing. Ensure it is installed:
-    ```bash
-    pip install reportlab
-    ```
-
-2.  **Configure for Testing:** The script uses a dedicated configuration file, `config_cli_test_integrated.json`.
-    - If this file doesn't exist, the script will create a template for you automatically when you run it for the first time.
-    - **You must edit this file to add a valid OpenAI API key** to the `openai_api_key` field. Otherwise, all LLM-related tests will fail.
-
-3.  **Run the Test Script:**
-    ```bash
-    python cli_test.py
-    ```
-
-### What the Test Does
-- **Creates Dummy Data:** Generates temporary PDF files and experimental data in the `cli_test_multi_input_pdfs/` and `cli_test_experimental_data/` directories.
-- **Executes the Pipeline:** Runs the full multi-agent workflow defined in `config_cli_test_integrated.json`.
-- **Saves Outputs:** Stores all generated artifacts (summaries, hypotheses, etc.) in a timestamped output folder, e.g., `cli_test_integrated_project_output_YYYYMMDD_HHMMSS/`.
-- **Prints Status:** Displays real-time status updates and a final summary of the test run.
-
-*Note: The agent workflow in the default `config_cli_test_integrated.json` may differ slightly from the primary `config.json` used by the GUI. See the [Developer Notes](CONTRIBUTING.md#developer-notes) in the Contributing Guide for more details.*
-
----
-
-## Workflow Details
-MACS organizes research tasks into a graph of specialized agents defined in `config.json`. The standard workflow is as follows:
-
-1. **PDF Loading:** The `PDFLoaderAgent` extracts text from all PDFs in the user-selected folder.
-2. **Individual Summarization:** The `PDFSummarizerAgent` processes each PDF's text to create a concise summary.
-3. **Short-Term Memory Creation:** The `ShortTermMemoryAgent` takes all the individual summaries and embeds them into a temporary vector store (using FAISS) for semantic search within the current session.
-4. **Cross-Document Synthesis:** Based on a user query, the `DeepResearchSummarizerAgent` queries the short-term memory to find the most relevant summaries and synthesizes them into a coherent, cross-document answer.
-5. **Long-Term Memory Integration:** The `LongTermMemoryAgent` integrates the new summaries into a persistent FAISS index, allowing knowledge to accumulate across different sessions.
-6. **Experimental Data Integration:** (Optional) If a text file with experimental data is provided, the `ExperimentalDataLoaderAgent` loads and structures it.
-7. **Knowledge Integration:** The `KnowledgeIntegratorAgent` is the central hub for synthesis. It merges the outputs from the `DeepResearchSummarizerAgent` (cross-document synthesis), the `LongTermMemoryAgent` (cumulative knowledge), and the `ExperimentalDataLoaderAgent` into a final, comprehensive "integrated knowledge brief."
-8. **Hypothesis Generation:** The `HypothesisGeneratorAgent` uses this integrated brief to propose novel, testable research hypotheses.
-9. **Experiment Design:** For each hypothesis, the `ExperimentDesignerAgent` outlines a detailed experimental plan.
-10. **Observer Review:** Finally, the `ObserverAgent` scans the outputs of all previous agents to check for any errors or inconsistencies.
-11. **Output:** All artifacts are saved in structured subfolders within the specified project output directory.
-
-
----
+project_output/
+  node_metrics.json
+  pdf_summaries/
+  project_synthesis/
+    multi_document_synthesis.txt
+    web_research_summary.txt
+    integrated_knowledge_brief.txt
+    experimental_data_summary.txt
+  project_hypotheses/
+    hypotheses_raw_llm_output.json
+    hypotheses_list.txt
+    key_research_opportunities.txt
+  adaptive_metrics/            (only for adaptive runs)
+```
 
 ## Adaptive Evolution
 
-MACS now includes an **adaptive evolution cycle** that can automatically refine its
-agent graph. The runner in `adaptive/adaptive_graph_runner.py` executes the current
-workflow, evaluates the results, and mutates the configuration for the next step.
-This process repeats until a target quality threshold is achieved or a maximum
-number of iterations is reached, allowing the system to improve its
-performance iteratively.
+Adaptive mode runs a loop of run -> evaluate -> mutate. Metrics for each cycle
+are stored in `adaptive_metrics/node_metrics_cycle_<n>.json`.
 
----
-
-## Run History and Reproducibility
-
-Each orchestration run is assigned a unique `run_id`. Metadata about the run is
-stored in `storage/run_history.jsonl`, and the full configuration is written to
-`storage/run_configs/<run_id>.json`. Use the helpers in `storage.run_history`
-to inspect past runs or to rerun a previous configuration:
-
-```python
-from storage.run_history import list_runs, get_run
-
-runs = list_runs()
-record = get_run(runs[-1]["run_id"])
-config = record["config"]
-prompt_ids = record.get("prompt_ids")
-
-# alternatively load every record with its config
-runs_with_config = list_runs(include_config=True)
-# pass `config` back into `run_project_orchestration` to reproduce the run
-```
-
-See [docs/run_history.md](docs/run_history.md) for more details.
-
----
-
-## Configuration
-
-MACS reads its orchestration graph and runtime defaults from `config.json`.
-Start by adding your API credential under `system_variables.openai_api_key`
-and confirming that the `output_project_*_folder_name` paths match your desired
-export layout. When tuning behaviour:
-
-1. Use `system_variables.models` to override the LLM used by individual agents
-   while keeping `default_llm_model` as a fallback.
-2. Edit entries in `agent_prompts` to refine instructions without touching
-   Python code.
-3. Adjust `graph_definition.nodes` and `graph_definition.edges` to rewire the
-   pipeline, introduce new agents, or enable looping/parallel execution.
-
-See [docs/CONFIGURATION_REFERENCE.md](docs/CONFIGURATION_REFERENCE.md) for a
-detailed breakdown of every section and validation tips.
-
----
-
-## Extending & Contributing
-
-We welcome contributions! Please read [Contributing Guide](CONTRIBUTING.md) for guidelines.
-- Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to follow the terms.
-- **Add New Agents:** Implement new agent classes in the `agents` package (files ending with `_agent.py`). They are auto-registered via the plugin system. Add them to the workflow graph in `config.json`.
-- **Customize GUI:** Modify `gui.py` to add new options or workflow controls.
-- **Pull Requests:** Contributions are welcome! Please open an issue or PR for discussion.
-
-### Agent Plugins
-
-Third-party agents can be added as plugins. Drop a Python module into the `agent_plugins/` directory and expose a `PLUGIN` variable:
-
-```python
-from agents.base_agent import Agent
-from agents.registry import AgentPlugin, PluginMetadata, MACS_VERSION
-
-class MyAgent(Agent):
-    def run(self):
-        ...
-
-PLUGIN = AgentPlugin(
-    agent_class=MyAgent,
-    metadata=PluginMetadata(
-        name="my_agent",
-        version="0.1",
-        author="ACME",
-        macs_version=MACS_VERSION,
-    ),
-)
-```
-
-`load_plugins()` automatically discovers modules in this folder, registers compatible agents, and checks the `macs_version` field for compatibility.  
-Additionally, plugins can be distributed as Python packages that expose a
-`macs.plugins` entry point. After installing such a package with `pip`, the
-plugin will be detected automatically.
-
-To see all registered agents and plugins, run:
+Run adaptive mode from the CLI:
 
 ```bash
-python cli.py --list-plugins
+python cli.py --config config.json --pdf-dir path/to/pdfs --out-dir output_dir --adaptive
 ```
 
-For a light-hearted example, check out `agent_plugins/skynet_agent.py`, which playfully references Skynet becoming self-aware.
+## Testing
 
+Run all tests and save output to `test_results.txt`:
 
+```bash
+python scripts/run_tests.py
+```
 
+You can also run pytest directly:
 
----
+```bash
+pytest
+```
+
+## Troubleshooting (Common Issues)
+
+- "No module named PyQt" when launching GUI
+  - Run `python gui.py --install-deps` or `pip install -r requirements.txt`.
+- "openai_api_key missing"
+  - Set `OPENAI_API_KEY` or edit `config.json`.
+- PDF loading errors
+  - Ensure the files are not encrypted and are valid PDFs.
+- FAISS errors
+  - Install `faiss-cpu` and `langchain-community`.
+
+## Extending MACS
+
+To add a new agent:
+
+1. Create a class in `agents/` or `agent_plugins/`.
+2. Register it with `@register_agent("YourAgent")` or plugin metadata.
+3. Add it to `config.json` and wire it with edges.
+4. Add tests in `tests/`.
+
+See `AGENTS.md` for a full guide.
 
 ## Security
-If you find a security issue, please report it privately by email. Do not open public issues for security vulnerabilities.
 
----
+If you find a security issue, please report it privately by email. Do not open
+public issues for security vulnerabilities.
 
 ## Credits
 
-- Developed by Julio lloret Fillol. For academic, research, or non-commercial use.
+- Developed by Julio lloret Fillol.
 - J-lloret-Fillol-LAB
 - https://github.com/J-lloret-Fillol-LAB
 - https://iciq.org/research-group/prof-julio-lloret-fillol/overview/
----
 
 ## Related Projects and Requirements
-- Awesome Research Tools
-- PyPDF2
+
 - OpenAI
 - PyQt6
-- fastapi
-- uvicorn
-- python-dotenv
+- pypdf
 - langchain
 - langchain-openai
 - langchain-community
 - tiktoken
 - faiss-cpu
-- lxml
-- beautifulsoup4
 - pandas
 - requests
 - reportlab
-
-
+- pyvis

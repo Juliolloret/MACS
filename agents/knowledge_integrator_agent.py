@@ -1,5 +1,7 @@
 """Agent that integrates multiple knowledge sources into a coherent brief."""
 
+from __future__ import annotations
+
 import json
 
 from llm import LLMError
@@ -11,6 +13,16 @@ from .registry import register_agent
 @register_agent("KnowledgeIntegratorAgent")
 class KnowledgeIntegratorAgent(Agent):
     """Combine outputs from multiple sources into a coherent brief."""
+
+    # Capability declarations
+    REQUIRES_PROJECT_DIR = True
+    OPTIONAL_INPUTS = [
+        "multi_doc_synthesis",
+        "deep_research_summary",
+        "web_research_summary",
+        "experimental_data_summary",
+        "all_agent_outputs",
+    ]
 
     def execute(self, inputs: dict) -> dict:  # Type hint for dict
         """Integrate various summaries into an overall knowledge brief."""

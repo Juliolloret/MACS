@@ -442,6 +442,7 @@ class TestGraphOrchestrator(unittest.TestCase):
                             "loop_over": "durations",
                             "loop_item_input_key": "duration",
                             "parallel_execution": True,
+                            "max_workers": 2,
                         },
                     }
                 ],
@@ -452,10 +453,11 @@ class TestGraphOrchestrator(unittest.TestCase):
         app_config = {"system_variables": {"default_llm_model": "test_model"}}
         orchestrator = GraphOrchestrator(config["graph_definition"], llm, app_config)
         durations = [0.5, 0.5]
-        start = time.time()
-        outputs = orchestrator.run({"durations": durations}, self.test_outputs_dir)
-        elapsed = time.time() - start
-        self.assertLess(elapsed, sum(durations))
+        with patch("multi_agent_llm_system.GraphOrchestrator.visualize", return_value=""):
+            start = time.time()
+            outputs = orchestrator.run({"durations": durations}, self.test_outputs_dir)
+            elapsed = time.time() - start
+        self.assertLess(elapsed, sum(durations) * 0.95)
         self.assertEqual(len(outputs.get("sleeper", {}).get("results", [])), 2)
 
     def test_parallel_loop_execution_order(self):

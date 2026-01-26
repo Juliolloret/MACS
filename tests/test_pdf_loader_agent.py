@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from agents.pdf_loader_agent import PDFLoaderAgent
 from llm_fake import FakeLLM
-from utils import PyPDF2
+from utils import pypdf
 
 
 class TestPDFLoaderAgent(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestPDFLoaderAgent(unittest.TestCase):
 
         The implementation uses a pre-built PDF snippet to avoid external
         dependencies such as reportlab.  If ``encrypted`` is ``True`` and
-        ``PyPDF2`` is available the resulting PDF is password protected.
+        ``pypdf`` is available the resulting PDF is password protected.
         """
 
         pdf_bytes = (
@@ -53,10 +53,10 @@ class TestPDFLoaderAgent(unittest.TestCase):
             file.write(pdf_bytes)
 
         if encrypted:
-            if not PyPDF2:
-                raise RuntimeError("PyPDF2 library not available for encryption")
-            reader = PyPDF2.PdfReader(file_path)
-            writer = PyPDF2.PdfWriter()
+            if not pypdf:
+                raise RuntimeError("pypdf library not available for encryption")
+            reader = pypdf.PdfReader(file_path)
+            writer = pypdf.PdfWriter()
             for page in reader.pages:
                 writer.add_page(page)
             writer.encrypt(password)
@@ -99,7 +99,7 @@ class TestPDFLoaderAgent(unittest.TestCase):
         """Encrypted PDFs that cannot be decrypted surface an error."""
         pdf_path = os.path.join(self.test_outputs_dir, "encrypted.pdf")
         self._create_dummy_pdf(pdf_path, "This is a test.", encrypted=True, password="test")
-        with patch.object(PyPDF2.PdfReader, "decrypt", return_value=0):
+        with patch.object(pypdf.PdfReader, "decrypt", return_value=0):
             result = self.agent.execute({"pdf_path": pdf_path})
             self.assertIn("error", result)
             self.assertEqual(

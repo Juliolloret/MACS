@@ -19,9 +19,16 @@ if "--install-deps" in sys.argv:
     # Remove the flag so it does not interfere with later argument parsing.
     sys.argv.remove("--install-deps")
 
+if __name__ == "__main__" and "--skip-dep-check" not in sys.argv:
+    from dependency_installer import ensure_requirements_installed
+
+    if not ensure_requirements_installed():
+        print("[GUI] Dependency check failed. Exiting.")
+        sys.exit(1)
+
 try:
-    from PyQt6.QtCore import QTimer, QObject, pyqtSignal, Qt
-    from PyQt6.QtGui import QAction, QFont, QPixmap
+    from PyQt6.QtCore import QTimer, QObject, pyqtSignal, Qt, QUrl
+    from PyQt6.QtGui import QAction, QFont, QPixmap, QDesktopServices
     from PyQt6.QtWidgets import (
         QApplication,
         QFileDialog,
@@ -46,10 +53,11 @@ try:
     MB_NO = QMessageBox.StandardButton.No
     MB_CRITICAL = QMessageBox.Icon.Critical
     FONT_BOLD = QFont.Weight.Bold
+    TEXT_SELECTABLE = Qt.TextInteractionFlag.TextSelectableByMouse
 except ImportError:  # pragma: no cover
     try:
-        from PyQt5.QtCore import QTimer, QObject, pyqtSignal, Qt
-        from PyQt5.QtGui import QAction, QFont, QPixmap
+        from PyQt5.QtCore import QTimer, QObject, pyqtSignal, Qt, QUrl
+        from PyQt5.QtGui import QAction, QFont, QPixmap, QDesktopServices
         from PyQt5.QtWidgets import (
             QApplication,
             QFileDialog,
@@ -77,6 +85,7 @@ except ImportError:  # pragma: no cover
             FONT_BOLD = QFont.Weight.Bold  # type: ignore[attr-defined]
         except AttributeError:  # PyQt5 fallback
             FONT_BOLD = QFont.Bold
+        TEXT_SELECTABLE = Qt.TextSelectableByMouse
     except ImportError as import_error:  # pragma: no cover
         raise ImportError(
             "PyQt5 or PyQt6 is required to run the GUI."
@@ -391,6 +400,18 @@ class AgentAppGUI(QWidget):
         graph_group.setLayout(graph_layout)
         self.main_layout.addWidget(graph_group)
 
+        metrics_layout = QHBoxLayout()
+        metrics_layout.addWidget(QLabel("Latest metrics:"))
+        self.metrics_path_label = QLabel("Not generated yet")
+        self.metrics_path_label.setTextInteractionFlags(TEXT_SELECTABLE)
+        self.metrics_path_label.setToolTip("Path to the most recent metrics file.")
+        metrics_layout.addWidget(self.metrics_path_label, 1)
+        self.open_metrics_button = QPushButton("Open Metrics")
+        self.open_metrics_button.setEnabled(False)
+        self.open_metrics_button.clicked.connect(self.open_metrics_file)
+        metrics_layout.addWidget(self.open_metrics_button)
+        self.main_layout.addLayout(metrics_layout)
+
         if not self.backend_ok:
             self.start_button.setEnabled(False)
             self.start_button.setText("Backend Error - Cannot Start")
@@ -568,6 +589,31 @@ class AgentAppGUI(QWidget):
                 docs_path = os.getcwd()
             self.output_dir_entry.setText(os.path.join(docs_path, "MultiAgent_IntegratedOutputs"))
 
+    def set_metrics_path(self, path):
+        """Update the latest metrics path label and button state."""
+        if path:
+            self.latest_metrics_path = path
+            self.metrics_path_label.setText(path)
+            self.metrics_path_label.setToolTip(path)
+            self.open_metrics_button.setEnabled(True)
+        else:
+            self.latest_metrics_path = ""
+            self.metrics_path_label.setText("Not generated yet")
+            self.metrics_path_label.setToolTip("Path to the most recent metrics file.")
+            self.open_metrics_button.setEnabled(False)
+
+    def open_metrics_file(self):
+        """Open the latest metrics file in the OS default viewer."""
+        metrics_path = getattr(self, "latest_metrics_path", "")
+        if not metrics_path:
+            QMessageBox.information(self, "Metrics", "No metrics file is available yet.")
+            return
+        if not os.path.exists(metrics_path):
+            QMessageBox.warning(self, "Metrics", f"Metrics file not found:\n{metrics_path}")
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(metrics_path)):
+            QMessageBox.warning(self, "Metrics", "Unable to open the metrics file.")
+
     def start_integrated_workflow_thread(self):
         if not self.backend_ok:
             QMessageBox.critical(self, "Backend Error",
@@ -619,6 +665,7 @@ class AgentAppGUI(QWidget):
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         project_specific_output_dir = os.path.join(project_output_base_dir, f"{safe_project_name_base}_{timestamp}")
+        self.set_metrics_path(os.path.join(project_specific_output_dir, "node_metrics.json"))
 
         try:
             if not os.path.exists(project_specific_output_dir):  # Ensure the specific project output dir is made
@@ -716,6 +763,9 @@ class AgentAppGUI(QWidget):
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         project_specific_output_dir = os.path.join(project_output_base_dir, f"{safe_project_name_base}_{timestamp}")
+        self.set_metrics_path(
+            os.path.join(project_specific_output_dir, "adaptive_metrics", "node_metrics_cycle_1.json")
+        )
 
         try:
             if not os.path.exists(project_specific_output_dir):
@@ -775,7 +825,10 @@ class AgentAppGUI(QWidget):
                 self.signals.progress.emit("[GUI] Integrated processing cancelled before start.")
                 return
 
-            self.signals.progress.emit("\n[GUI] Starting integrated analysis for the project...")
+        self.signals.progress.emit("\n[GUI] Starting integrated analysis for the project...")
+        self.signals.progress.emit(
+            f"[GUI] Metrics will be written to: {os.path.join(project_output_dir, 'node_metrics.json')}"
+        )
 
             result = backend.run_project_orchestration(
                 pdf_file_paths=pdf_file_paths_list,
@@ -809,7 +862,11 @@ class AgentAppGUI(QWidget):
                 self.signals.progress.emit("[GUI] Evolution pass cancelled before start.")
                 return
 
-            self.signals.progress.emit("\n[GUI] Starting single evolution pass...")
+        self.signals.progress.emit("\n[GUI] Starting single evolution pass...")
+        metrics_dir = os.path.join(inputs.get("project_base_output_dir", "."), "adaptive_metrics")
+        self.signals.progress.emit(
+            f"[GUI] Adaptive metrics will be written under: {metrics_dir}"
+        )
             adaptive_cycle(
                 config_path=config_path, inputs=inputs, threshold=1.0, max_steps=1
             )

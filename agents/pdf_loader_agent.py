@@ -2,7 +2,7 @@
 
 import os
 
-from utils import log_status, PyPDF2  # PyPDF2 needed for PyPDF2.PdfReader
+from utils import log_status, pypdf  # pypdf needed for pypdf.PdfReader
 
 from .base_agent import Agent
 from .registry import register_agent
@@ -16,8 +16,8 @@ class PDFLoaderAgent(Agent):
         pdf_path = inputs.get("pdf_path")
         if not pdf_path:
             return {"pdf_text_content": "", "error": "PDF path not provided."}
-        if not PyPDF2:
-            return {"pdf_text_content": "", "error": "PyPDF2 library not available."}
+        if not pypdf:
+            return {"pdf_text_content": "", "error": "pypdf library not available."}
 
         log_status(f"[{self.agent_id}] PDF_LOAD_START: Path='{pdf_path}'")
         if not os.path.exists(pdf_path):
@@ -30,7 +30,7 @@ class PDFLoaderAgent(Agent):
                 error = f"PDF file is empty: {pdf_path}"
             else:
                 with open(pdf_path, "rb") as pdf_file_obj:
-                    pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
+                    pdf_reader = pypdf.PdfReader(pdf_file_obj)
                     if pdf_reader.is_encrypted and pdf_reader.decrypt("") == 0:
                         error = f"Failed to decrypt PDF: {os.path.basename(pdf_path)}."
                     else:
@@ -44,7 +44,7 @@ class PDFLoaderAgent(Agent):
                     log_status(
                         f"[{self.agent_id}] PDF_LOAD_WARNING: No text extracted from '{os.path.basename(pdf_path)}'."
                     )
-        except (OSError, PyPDF2.errors.PdfReadError) as e:
+        except (OSError, pypdf.errors.PdfReadError) as e:
             error = f"PDF extraction failed for {pdf_path}: {e}"
 
         if error:

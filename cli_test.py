@@ -1,5 +1,7 @@
 """CLI integration test harness for the multi-agent LLM system."""
 
+from __future__ import annotations
+
 import os
 import time
 import json

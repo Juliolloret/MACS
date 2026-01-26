@@ -1,5 +1,7 @@
 """Graph orchestration utilities for coordinating multiple agents."""
 
+from __future__ import annotations
+
 import copy
 import os
 import time
@@ -31,8 +33,39 @@ from utils import (
 # Configuration schema validation
 from config_schema import validate_graph_definition
 
+# New modular components
+from graph_builder import (
+    build_adjacency_structures,
+    compute_topological_order,
+    GraphBuildError,
+)
+from llm_factory import create_llm_client
+from artifact_writer import ArtifactWriter, write_consolidated_outputs
+from execution_engine import NodeExecutor
+from context_injection import (
+    get_agent_capabilities,
+    gather_inputs,
+    inject_context,
+    append_upstream_issue,
+)
+
 # Run history utilities
 from storage.run_history import generate_run_id, save_run
+
+# Event bus utilities
+from events import (
+    EventBus,
+    EVENT_GRAPH_VISUALIZED,
+    EVENT_NODE_COMPLETED,
+    EVENT_NODE_FAILED,
+    EVENT_NODE_RETRY,
+    EVENT_NODE_SKIPPED,
+    EVENT_NODE_STARTED,
+    EVENT_WORKFLOW_COMPLETED,
+    EVENT_WORKFLOW_STARTED,
+    NoopEventBus,
+)
+from event_subscribers import EventLogger, MetricsCollector
 
 # Imports for refactored Agent classes
 # Core agent utilities
@@ -80,6 +113,7 @@ class GraphOrchestrator:
         llm: LLMClient,
         app_config: Dict[str, Any],
         failure_policy: str = "continue",
+        event_bus=None,
     ):
         """Create a new orchestrator.
 
@@ -106,6 +140,7 @@ class GraphOrchestrator:
         self.node_order = []
         self.llm = llm
         self.node_metrics = {}
+        self.event_bus = event_bus if event_bus is not None else NoopEventBus()
         optional_inputs_from_config = (
             app_config.get("system_variables", {}).get("optional_initial_inputs")
             if isinstance(app_config, dict)
@@ -121,53 +156,43 @@ class GraphOrchestrator:
         self._initialize_agents()
 
     def _build_graph_and_determine_order(self):
+        """Build internal graph structures and determine execution order.
+
+        Uses the graph_builder module for core logic while maintaining
+        backward-compatible instance variables.
+        """
         if 'nodes' not in self.graph_definition or 'edges' not in self.graph_definition:
             log_status("[GraphOrchestrator] ERROR: Graph definition in config must contain 'nodes' and 'edges'.")
             raise ValueError("Graph definition in config must contain 'nodes' and 'edges'.")
-        # Exclude the 'observer' node from the topological sort as it's handled as a special case after the main graph execution.
-        graph_nodes = [n for n in self.graph_definition.get('nodes', []) if n.get('id') != 'observer']
-        node_ids = {node['id'] for node in graph_nodes}
 
-        if not node_ids:
+        # Use graph_builder module for adjacency structures
+        try:
+            adj_list, incoming_map, declared_keys = build_adjacency_structures(
+                self.graph_definition,
+                exclude_node_ids={"observer"},
+            )
+            # Convert to defaultdicts for backward compatibility
+            self.adjacency_list = defaultdict(list, adj_list)
+            self.incoming_edges_map = defaultdict(list, incoming_map)
+            self.declared_output_keys = defaultdict(set, declared_keys)
+        except GraphBuildError as e:
+            log_status(f"[GraphOrchestrator] ERROR: {e}")
+            raise ValueError(str(e)) from e
+
+        # Use graph_builder module for topological ordering
+        try:
+            self.node_order = compute_topological_order(
+                self.graph_definition,
+                exclude_node_ids={"observer"},
+            )
+        except GraphBuildError as e:
+            log_status(f"[GraphOrchestrator] ERROR: {e}")
+            raise ValueError(str(e)) from e
+
+        if not self.node_order:
             log_status("[GraphOrchestrator] WARNING: No nodes defined in the graph for sorting.")
-            self.node_order = []
-            return
-        in_degree = {node_id: 0 for node_id in node_ids}
-        all_node_ids_in_config = {node['id'] for node in self.graph_definition.get('nodes', [])} # For validation
-
-        for edge in self.graph_definition.get('edges', []):
-            from_node, to_node = edge.get('from'), edge.get('to')
-            if from_node not in all_node_ids_in_config or to_node not in all_node_ids_in_config:
-                log_status(f"[GraphOrchestrator] ERROR: Edge references undefined node ID: {from_node} -> {to_node}")
-                raise ValueError(f"Edge references undefined node ID: {from_node} -> {to_node}")
-
-            # Build lookup of incoming edges for each destination node
-            self.incoming_edges_map[to_node].append(edge)
-
-            if from_node in node_ids and to_node in node_ids:
-                self.adjacency_list[from_node].append(to_node)
-                in_degree[to_node] += 1
-            data_mapping = edge.get('data_mapping', {})
-            for src_key in data_mapping.keys():
-                if from_node:
-                    self.declared_output_keys[from_node].add(src_key)
-        queue = deque([node_id for node_id in node_ids if in_degree[node_id] == 0])
-        self.node_order = []
-        while queue:
-            u = queue.popleft()
-            self.node_order.append(u)
-            for v_neighbor in self.adjacency_list.get(u, []):
-                in_degree[v_neighbor] -= 1
-                if in_degree[v_neighbor] == 0:
-                    queue.append(v_neighbor)
-        if len(self.node_order) != len(node_ids):
-            processed_nodes = set(self.node_order)
-            missing_nodes = node_ids - processed_nodes
-            log_status(
-                f"[GraphOrchestrator] ERROR: Graph has a cycle or is disconnected. Order: {self.node_order}, Degrees: {in_degree}, Missing/Cyclic nodes: {missing_nodes}")
-            raise ValueError(
-                f"Graph has a cycle or is disconnected. Processed: {len(self.node_order)}/{len(node_ids)} nodes.")
-        log_status(f"[GraphOrchestrator] INFO: Node execution order determined: {self.node_order}")
+        else:
+            log_status(f"[GraphOrchestrator] INFO: Node execution order determined: {self.node_order}")
 
     def _initialize_agents(self):
         for node_def in self.graph_definition.get('nodes', []):
@@ -271,6 +296,10 @@ class GraphOrchestrator:
         _open_graph_file(output_file)
         return output_file
 
+    def _emit_event(self, name: str, payload: Dict[str, Any]) -> None:
+        """Emit an event through the configured event bus."""
+        self.event_bus.emit(name, payload)
+
     def visualize(
         self,
         output_path: str,
@@ -302,7 +331,16 @@ class GraphOrchestrator:
             return ""
 
         try:
-            return self._render_with_pyvis(output_path, highlight_node_id)
+            output_file = self._render_with_pyvis(output_path, highlight_node_id)
+            if output_file:
+                self._emit_event(
+                    EVENT_GRAPH_VISUALIZED,
+                    {
+                        "path": output_file,
+                        "highlight_node_id": highlight_node_id,
+                    },
+                )
+            return output_file
         except Exception as exc:  # pylint: disable=broad-exception-caught
             log_status(
                 "[GraphOrchestrator] ERROR: Failed to render graph with PyVis: "
@@ -330,6 +368,14 @@ class GraphOrchestrator:
         outputs_history = {}
         self.node_metrics = {}
         os.makedirs(project_base_output_dir, exist_ok=True)
+        self._emit_event(
+            EVENT_WORKFLOW_STARTED,
+            {
+                "node_order": list(self.node_order),
+                "initial_input_keys": list(initial_inputs.keys()),
+                "project_base_output_dir": project_base_output_dir,
+            },
+        )
         # Visualize the initial graph once we know execution can start
         if self.node_order:
             self.visualize(os.path.join(project_base_output_dir, "graph_initial"))
@@ -344,9 +390,17 @@ class GraphOrchestrator:
             current_agent = self.agents.get(node_id)
             if current_agent is None:
                 log_status(f"\n[GraphOrchestrator] SKIPPING_NODE: '{node_id}' (No agent instance).")
+                self._emit_event(
+                    EVENT_NODE_SKIPPED,
+                    {"node_id": node_id, "reason": "no_agent_instance"},
+                )
                 continue
 
             log_status(f"\n[GraphOrchestrator] EXECUTING_NODE: '{node_id}' (Type: {current_agent.agent_type})")
+            self._emit_event(
+                EVENT_NODE_STARTED,
+                {"node_id": node_id, "agent_type": current_agent.agent_type},
+            )
             # Visualize with the current node highlighted
             self.visualize(
                 os.path.join(project_base_output_dir, f"graph_{node_id}"),
@@ -457,6 +511,10 @@ class GraphOrchestrator:
                 log_status(
                     f"[GraphOrchestrator] SKIPPING_NODE: '{node_id}' due to upstream failure. Reason: {combined_error}"
                 )
+                self._emit_event(
+                    EVENT_NODE_SKIPPED,
+                    {"node_id": node_id, "reason": combined_error},
+                )
                 default_output = {"error": f"Skipped due to upstream failure: {combined_error}"}
                 for declared_key in self.declared_output_keys.get(node_id, []):
                     default_output.setdefault(declared_key, None)
@@ -557,6 +615,14 @@ class GraphOrchestrator:
 
                 if node_output.get("error") and policy == "retry" and attempt < max_attempts:
                     log_status(f"[{node_id}] RETRY_ATTEMPT_{attempt} failed; retrying...")
+                    self._emit_event(
+                        EVENT_NODE_RETRY,
+                        {
+                            "node_id": node_id,
+                            "attempt": attempt,
+                            "error": node_output.get("error"),
+                        },
+                    )
                     continue
                 break
 
@@ -574,6 +640,20 @@ class GraphOrchestrator:
                 f"[GraphOrchestrator] NODE_METRICS: '{node_id}' time={elapsed:.2f}s tokens={tokens_after - tokens_before}"
             )
             outputs_history[node_id] = node_output
+            self._emit_event(
+                EVENT_NODE_COMPLETED,
+                {
+                    "node_id": node_id,
+                    "elapsed_sec": elapsed,
+                    "tokens_used": tokens_after - tokens_before,
+                    "error": node_output.get("error"),
+                },
+            )
+            if node_output.get("error"):
+                self._emit_event(
+                    EVENT_NODE_FAILED,
+                    {"node_id": node_id, "error": node_output.get("error")},
+                )
             log_status(f"[{node_id}] RESULT: {{ {', '.join([f'{k}: {str(v)[:70]}...' for k,v in node_output.items()])} }}")
             if node_output.get("error"):
                 log_status(f"[GraphOrchestrator] NODE_EXECUTION_ERROR_REPORTED: Node '{node_id}': {node_output['error']}")
@@ -592,146 +672,31 @@ class GraphOrchestrator:
             log_status("[GraphOrchestrator] INFO: 'observer' agent not configured; skipping global error review.")
 
         self._save_consolidated_outputs(outputs_history, project_base_output_dir)
-        metrics_path = os.path.join(project_base_output_dir, "node_metrics.json")
-        try:
-            with open(metrics_path, "w", encoding="utf-8") as f:
-                json.dump(self.node_metrics, f, indent=2)
-            log_status(f"[GraphOrchestrator] METRICS_SAVED: {metrics_path}")
-        except OSError as e:
-            log_status(f"[GraphOrchestrator] ERROR saving metrics to {metrics_path}: {e}")
         # Final visualization after workflow completion
         self.visualize(os.path.join(project_base_output_dir, "graph_final"))
         log_status("\n[GraphOrchestrator] INFO: INTEGRATED workflow execution completed.")
+        self._emit_event(
+            EVENT_WORKFLOW_COMPLETED,
+            {
+                "node_count": len(self.node_order),
+                "outputs_keys": list(outputs_history.keys()),
+            },
+        )
         return outputs_history
 
     def _save_consolidated_outputs(self, outputs_history: dict, project_base_output_dir: str):
+        """Save workflow outputs to configured directories.
+
+        Uses the artifact_writer module to handle file persistence.
+        """
         log_status(f"[GraphOrchestrator] Saving consolidated outputs to {project_base_output_dir}...")
-        output_dirs_config = self.app_config.get("system_variables", {})
-        project_output_paths = {}
-        if not os.path.exists(project_base_output_dir):
-            try:
-                os.makedirs(project_base_output_dir, exist_ok=True)
-            except OSError as e:
-                log_status(f"ERROR creating base project output directory {project_base_output_dir}: {e}")
-                return
-        for key, subfolder_name in output_dirs_config.items():
-            if key.startswith("output_project_") and key.endswith("_folder_name"):
-                if not isinstance(subfolder_name, str):
-                    log_status(
-                        f"[GraphOrchestrator] WARNING: Invalid subfolder name for {key}: {subfolder_name}. Skipping.")
-                    continue
-                full_path = os.path.join(project_base_output_dir, subfolder_name)
-                project_output_paths[key.replace("output_project_", "").replace("_folder_name", "")] = full_path
-                if not os.path.exists(full_path):
-                    try:
-                        os.makedirs(full_path, exist_ok=True)
-                    except OSError as e:
-                        log_status(f"ERROR creating output subfolder {full_path}: {e}")
 
-        def write_output_file(folder_key, filename, content, error=None):
-            folder_path = project_output_paths.get(folder_key)
-            if folder_path and os.path.exists(folder_path):
-                file_path = os.path.join(folder_path, filename)
-                try:
-                    if content in [None, ""]:
-                        data_to_write = f"Error: {error}" if error else "No content generated."
-                    else:
-                        data_to_write = str(content)
-                    with open(file_path, "w", encoding="utf-8") as f:
-                        f.write(data_to_write)
-                    log_status(
-                        f"Saved '{filename}' to '{folder_path}'" + (
-                            " (placeholder written)" if content in [None, ""] and not error else ""
-                        )
-                    )
-                except OSError as e:
-                    log_status(f"ERROR writing file {file_path}: {e}")
-            else:
-                log_status(
-                    f"WARNING: Output folder for key '{folder_key}' ('{folder_path}') does not exist. Cannot save '{filename}'."
-                )
+        # Create artifact writer with system configuration
+        system_vars = self.app_config.get("system_variables", {})
+        writer = ArtifactWriter(project_base_output_dir, system_vars)
 
-        mds_node_out = outputs_history.get("multi_doc_synthesizer", {})
-        write_output_file(
-            "synthesis",
-            "multi_document_synthesis.txt",
-            mds_node_out.get("multi_doc_synthesis_output"),
-            mds_node_out.get("error"),
-        )
-        web_node_out = outputs_history.get("web_researcher", {})
-        write_output_file(
-            "synthesis",
-            "web_research_summary.txt",
-            web_node_out.get("web_summary"),
-            web_node_out.get("error"),
-        )
-        exp_node_out = outputs_history.get("experimental_data_loader", {})
-        exp_data_out = exp_node_out.get("experimental_data_summary", "N/A")
-        if exp_data_out != "N/A":
-            write_output_file(
-                "synthesis",
-                "experimental_data_summary.txt",
-                exp_data_out,
-                exp_node_out.get("error"),
-            )
-        ikb_node_out = outputs_history.get("knowledge_integrator", {})
-        write_output_file(
-            "synthesis",
-            "integrated_knowledge_brief.txt",
-            ikb_node_out.get("integrated_knowledge_brief"),
-            ikb_node_out.get("error"),
-        )
-        hypo_gen_node_out = outputs_history.get("hypothesis_generator", {})
-        raw_blob = hypo_gen_node_out.get("hypotheses_output_blob")
-        write_output_file(
-            "hypotheses",
-            "hypotheses_raw_llm_output.json",
-            raw_blob,
-            hypo_gen_node_out.get("error"),
-        )
-        key_ops = hypo_gen_node_out.get("key_opportunities")
-        write_output_file(
-            "hypotheses",
-            "key_research_opportunities.txt",
-            key_ops,
-            hypo_gen_node_out.get("error"),
-        )
-        hypo_list = hypo_gen_node_out.get("hypotheses_list", [])
-        if hypo_list:
-            hypo_list_content = ""
-            # The structure of hypo_list can be a list of strings or dicts
-            for i, h_item in enumerate(hypo_list):
-                if isinstance(h_item, dict):
-                    hypo_list_content += f"{i + 1}. {h_item.get('hypothesis', 'N/A')}\n\n"
-                else:
-                    hypo_list_content += f"{i + 1}. {h_item}\n\n"
-            write_output_file("hypotheses", "hypotheses_list.txt", hypo_list_content.strip())
-        exp_designer_out = outputs_history.get("experiment_designer", {})
-        exp_designs_list = exp_designer_out.get("experiment_designs_list", [])
-        exp_path = project_output_paths.get("experiments")
-        if exp_designs_list and exp_path and os.path.exists(exp_path):
-            for i, design_info in enumerate(exp_designs_list):
-                hypo = design_info.get("hypothesis_processed", f"Hypothesis_N/A_{i + 1}")
-                design = design_info.get("experiment_design", "")
-                err = design_info.get("error")
-                safe_hypo_part = "".join(c if c.isalnum() else "_" for c in str(hypo)[:50]).strip('_')
-                if not safe_hypo_part:
-                    safe_hypo_part = f"hypo_text_{i + 1}"
-                fname = f"exp_design_{i + 1}_{safe_hypo_part}.txt"
-                file_content = f"Hypothesis: {hypo}\n\n"
-                if err:
-                    file_content += f"Error in design generation: {err}\n\n"
-                file_content += f"Experiment Design:\n{design}\n"
-                try:
-                    with open(os.path.join(exp_path, fname), "w", encoding="utf-8") as f:
-                        f.write(file_content)
-                    log_status(f"Saved experiment design '{fname}' to '{exp_path}'")
-                except OSError as e:
-                    log_status(f"ERROR writing experiment design file {os.path.join(exp_path, fname)}: {e}")
-        elif exp_designer_out.get("error") and exp_path and os.path.exists(exp_path):
-            write_output_file("experiments", "experiment_designs_error.txt", "", exp_designer_out.get("error"))
-        else:
-            log_status("INFO: No experiment designs were generated to save.")
+        # Delegate to the artifact_writer module
+        write_consolidated_outputs(outputs_history, writer)
 
 
 def run_project_orchestration(
@@ -823,19 +788,24 @@ def run_project_orchestration(
 
         log_status(f"[MainWorkflow] INFO: Attempting to initialize LLM client of type '{llm_client_type}'.")
 
-        if llm_client_type == "openai":
-            from llm_openai import OpenAILLM
-            llm = OpenAILLM(app_config=app_config, api_key=api_key, timeout=int(timeout))
-            log_status("[MainWorkflow] INFO: Initialized OpenAILLM client.")
-        elif llm_client_type == "fake":
-            from llm_fake import FakeLLM
-            llm = FakeLLM(app_config=app_config)
-            log_status("[MainWorkflow] INFO: Initialized FakeLLM client for testing.")
-        else:
-            raise ValueError(f"Unsupported LLM client type '{llm_client_type}' in configuration.")
+        try:
+            llm = create_llm_client(app_config)
+            log_status(f"[MainWorkflow] INFO: Initialized {llm_client_type} LLM client.")
+        except ValueError as llm_err:
+            raise ValueError(f"Failed to create LLM client: {llm_err}") from llm_err
         # --- End LLM Client Factory ---
 
-        orchestrator = GraphOrchestrator(app_config.get("graph_definition"), llm, app_config)
+        event_bus = EventBus()
+        event_bus.subscribe("*", EventLogger().handle)
+        metrics_path = os.path.join(project_base_output_dir, "node_metrics.json")
+        event_bus.subscribe("*", MetricsCollector(output_path=metrics_path).handle)
+
+        orchestrator = GraphOrchestrator(
+            app_config.get("graph_definition"),
+            llm,
+            app_config,
+            event_bus=event_bus,
+        )
 
         initial_inputs = {
             "all_pdf_paths": pdf_file_paths,

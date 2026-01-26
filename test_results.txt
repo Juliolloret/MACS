@@ -1,0 +1,45 @@
+[test-runner] started_utc=2025-12-20T02:11:54.693847+00:00
+[test-runner] command=C:\Python38\python.exe -m pytest
+
+============================= test session starts =============================
+platform win32 -- Python 3.8.5, pytest-8.3.5, pluggy-1.5.0
+rootdir: C:\Users\jlloret\Documents\Python Scripts\Github\MACS_V2\MACS
+plugins: anyio-3.6.2
+collected 88 items
+
+tests\test_adaptive_evaluation.py ..                                     [  2%]
+tests\test_adaptive_mutation.py .                                        [  3%]
+tests\test_agent_integration.py .                                        [  4%]
+tests\test_agent_json_api_calls.py .........                             [ 14%]
+tests\test_call_openai_api.py ..                                         [ 17%]
+tests\test_cli.py ....                                                   [ 21%]
+tests\test_config_schema.py ..                                           [ 23%]
+tests\test_deep_research_summarizer_agent.py ...                         [ 27%]
+tests\test_event_bus.py ..                                               [ 29%]
+tests\test_event_subscribers.py ..                                       [ 31%]
+tests\test_experiment_designer_agent.py ...                              [ 35%]
+tests\test_hypothesis_generator.py .                                     [ 36%]
+tests\test_knowledge_integrator_agent.py ....                            [ 40%]
+tests\test_llm_clients.py ...                                            [ 44%]
+tests\test_memory_agents.py s.ss                                         [ 48%]
+tests\test_metrics_integration.py .                                      [ 50%]
+tests\test_multi_doc_synthesizer_agent.py ..                             [ 52%]
+tests\test_orchestrator.py ....s.........                                [ 68%]
+tests\test_orchestrator_validation.py ...                                [ 71%]
+tests\test_output_error_handling.py .                                    [ 72%]
+tests\test_pdf_loader_agent.py .....                                     [ 78%]
+tests\test_pdf_summarizer.py ..                                          [ 80%]
+tests\test_pdf_summary_writer_agent.py .                                 [ 81%]
+tests\test_plugin_interface.py ....                                      [ 86%]
+tests\test_plugin_loading_integration.py .                               [ 87%]
+tests\test_registry.py .                                                 [ 88%]
+tests\test_rerun_after_evaluation.py ..                                  [ 90%]
+tests\test_run_history.py .                                              [ 92%]
+tests\test_run_project_integration.py .....                              [ 97%]
+tests\test_visualize_metrics.py .                                        [ 98%]
+tests\test_web_researcher_agent.py .                                     [100%]
+
+======================== 84 passed, 4 skipped in 9.93s ========================
+
+[test-runner] exit_code=0
+[test-runner] finished_utc=2025-12-20T02:12:05.496007+00:00

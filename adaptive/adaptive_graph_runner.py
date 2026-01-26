@@ -15,6 +15,8 @@ from typing import Any, Dict, List
 from llm_fake import FakeLLM
 from llm_openai import OpenAILLM
 from multi_agent_llm_system import GraphOrchestrator
+from events import EventBus
+from event_subscribers import EventLogger, MetricsCollector
 
 from .evaluation import load_evaluation_plugins
 from .mutation import mutate_graph_definition
@@ -51,10 +53,25 @@ def adaptive_cycle(
     save_json(os.path.join(history_dir, "config_1.json"), config)
 
     cycle_records: List[Dict[str, Any]] = []
+    output_base_dir = inputs.get("project_base_output_dir", ".")
+    metrics_dir = os.path.join(output_base_dir, "adaptive_metrics")
+    os.makedirs(metrics_dir, exist_ok=True)
 
     for step in range(1, max_steps + 1):
         llm = _create_llm_client(config)
-        orchestrator = GraphOrchestrator(graph_definition, llm, config)
+        metrics_path = os.path.join(metrics_dir, f"node_metrics_cycle_{step}.json")
+        event_bus = EventBus()
+        event_bus.subscribe("*", EventLogger().handle)
+        event_bus.subscribe("*", MetricsCollector(output_path=metrics_path).handle)
+        try:
+            orchestrator = GraphOrchestrator(
+                graph_definition,
+                llm,
+                config,
+                event_bus=event_bus,
+            )
+        except TypeError:
+            orchestrator = GraphOrchestrator(graph_definition, llm, config)
         try:
             final_outputs = orchestrator.run(
                 initial_inputs=inputs.get("initial_inputs", {}),
@@ -80,6 +97,7 @@ def adaptive_cycle(
                 "results": final_outputs,
                 "metrics": metric_scores,
                 "aggregated_score": aggregated,
+                "node_metrics_path": os.path.relpath(metrics_path, output_base_dir),
             }
         )
 

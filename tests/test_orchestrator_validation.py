@@ -2,6 +2,8 @@ import os
 import json
 import pytest
 
+from events import EventBus
+from event_subscribers import MetricsCollector
 from multi_agent_llm_system import GraphOrchestrator
 from llm_fake import FakeLLM
 from agents.base_agent import Agent
@@ -61,8 +63,8 @@ def test_graph_orchestrator_validation_errors():
         GraphOrchestrator(undefined_edge_graph, llm, {})
 
 
-def test_node_metrics_written(tmp_path):
-    """Running a graph writes execution metrics for each node."""
+def test_node_metrics_written_by_metrics_collector(tmp_path):
+    """Metrics are written when a collector subscriber is attached."""
     graph = {
         "nodes": [
             {"id": "initial_input_provider", "type": "InitialInputProvider"},
@@ -71,18 +73,21 @@ def test_node_metrics_written(tmp_path):
         "edges": [{"from": "initial_input_provider", "to": "llm_node"}],
     }
     llm = FakeLLM()
-    orchestrator = GraphOrchestrator(graph, llm, {})
+    event_bus = EventBus()
+    metrics_path = tmp_path / "run" / "node_metrics.json"
+    collector = MetricsCollector(output_path=str(metrics_path))
+    event_bus.subscribe("*", collector.handle)
+    orchestrator = GraphOrchestrator(graph, llm, {}, event_bus=event_bus)
     out_dir = tmp_path / "run"
     orchestrator.run({"text": "hi"}, str(out_dir))
 
-    metrics_path = out_dir / "node_metrics.json"
     assert metrics_path.exists()
     with metrics_path.open(encoding="utf-8") as f:
         metrics = json.load(f)
 
-    assert "llm_node" in metrics
-    assert metrics["llm_node"]["execution_time_sec"] >= 0
-    assert metrics["llm_node"]["tokens_used"] > 0
+    assert "llm_node" in metrics["node_metrics"]
+    assert metrics["node_metrics"]["llm_node"]["elapsed_sec"] >= 0
+    assert metrics["node_metrics"]["llm_node"]["tokens_used"] > 0
 
 
 def test_observer_reports_downstream_error(tmp_path):

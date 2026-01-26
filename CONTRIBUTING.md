@@ -1,79 +1,110 @@
-# Contributing to MACS
+﻿# Contributing to MACS
 
-Thank you for your interest in contributing to Multi Agent Chem Search (MACS)! Your contributions help improve the project for everyone.
+Thank you for your interest in contributing to Multi-Agent Collaboration System (MACS).
+This guide is written for beginners and explains each step in plain language.
 
-## How to Contribute
+## 1. Prerequisites
 
-1. **Fork the Repository**
-   - Click the “Fork” button on the top right to create your own copy.
+- Python 3.10 or newer (3.8+ may work depending on dependencies).
+- Git (recommended).
 
-2. **Clone Your Fork**
-   ```bash
-   git clone https://github.com/your-username/MACS.git
-   cd MACS
-   ```
+Check versions:
 
-3. **Create a Branch**
+```bash
+python --version
+git --version
+```
 
-   Create a new branch for your feature or fix:
-   ```bash
-   git checkout -b my-feature
-   ```
+## 2. Fork and Clone (GitHub)
 
-4. **Make Changes**
+1. On GitHub, click the "Fork" button to create your own copy.
+2. Clone your fork:
 
-   - Write clear, well-documented Python code.
-   - Add or update tests if necessary.
+```bash
+git clone https://github.com/your-username/MACS.git
+cd MACS
+```
 
-5. **Test Your Changes**
+## 3. Create a Virtual Environment
 
-   Before submitting a pull request, please run the full integration test to ensure your changes haven't broken core functionality.
+Windows:
 
-   1.  **Install Test Dependencies:** The test requires `reportlab`.
-       ```bash
-       pip install reportlab
-       ```
-   2.  **Configure the Test:** The integration test uses `config_cli_test_integrated.json`. If it doesn't exist, the test will create it. You **must** add a valid OpenAI API key to this file for the test to run correctly.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-   3.  **Run the Integration Test:**
-       ```bash
-       python cli_test.py
-       ```
-       This script runs the entire multi-agent pipeline with dummy data and saves the output to a timestamped directory. Review the output to ensure everything works as expected.
+macOS/Linux:
 
-6. **Commit and Push**
-   ```bash
-   git add .
-   git commit -m "Describe your changes"
-   git push origin my-feature
-   ```
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-7. **Open a Pull Request**
+## 4. Install Dependencies
 
-   - Go to your fork on GitHub and open a pull request to the `main` branch.
-   - Provide a clear description of your changes and reference any relevant issues.
+```bash
+python -m pip install -r requirements.txt
+```
 
-## Code Style
+## 5. Create a Branch
 
-- Follow PEP8 guidelines for Python code.
-- Include docstrings for functions and classes.
-- Use meaningful commit messages.
+```bash
+git checkout -b my-feature
+```
 
-## Reporting Issues
+Use a clear name like `fix-readme` or `add-new-agent`.
 
-- Use the Issues tab to report bugs or suggest features.
-- Include as much detail as possible (Python version, OS, steps to reproduce, etc.).
+## 6. Make Changes
 
-## Community
+- Keep changes focused on one goal.
+- Update documentation if behavior changes.
+- Add tests for new functionality.
 
-- Be respectful and considerate in all interactions.
-- Review the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+## 7. Run Tests
+
+MACS provides a test runner that saves output to `test_results.txt`:
+
+```bash
+python scripts/run_tests.py
+```
+
+You can also run pytest directly:
+
+```bash
+pytest
+```
+
+## 8. Commit and Push
+
+```bash
+git add .
+git commit -m "Short description of your change"
+git push origin my-feature
+```
+
+## 9. Open a Pull Request
+
+- Go to your fork on GitHub.
+- Click "New Pull Request".
+- Describe what you changed and why.
+
+## 10. Code Style
+
+- Follow PEP8 for Python.
+- Keep functions small and readable.
+- Add docstrings for public functions and classes.
+
+## 11. Reporting Issues
+
+- Use the GitHub Issues tab.
+- Include steps to reproduce and full error logs.
 
 ## Developer Notes
 
 ### Test Configuration Discrepancy
-Please be aware that the CLI test script (`cli_test.py`) uses its own configuration file, `config_cli_test_integrated.json`. The agent workflow defined in this test configuration may be out of sync with the primary `config.json` used by the GUI application.
 
-Specifically, it may reference older or different agents (e.g., `MultiDocSynthesizerAgent`, `WebResearcherAgent`). When making changes to the core agent architecture, please consider updating the test configuration as well to maintain consistency.
+`cli_test.py` uses `config_cli_test_integrated.json`. This workflow may drift
+from `config.json`. If you change core agents, update both configs.
 
-**Thank you for helping make MACS better!**
+Thank you for helping make MACS better.

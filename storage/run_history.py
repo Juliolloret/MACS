@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
 from utils import log_status
@@ -27,7 +27,7 @@ def save_run(run_id: str, app_config: Dict[str, Any], extra: Optional[Dict[str, 
     """
     record = {
         "run_id": run_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         # Explicitly capture prompt IDs if present
         "prompt_ids": app_config.get("system_variables", {}).get("prompt_ids"),
     }
@@ -36,7 +36,8 @@ def save_run(run_id: str, app_config: Dict[str, Any], extra: Optional[Dict[str, 
     config_path = os.path.join(RUN_CONFIG_DIR, f"{run_id}.json")
     with open(config_path, "w", encoding="utf-8") as cf:
         json.dump(app_config, cf)
-    record["config_path"] = os.path.relpath(config_path, os.path.dirname(RUN_HISTORY_PATH))
+    rel_path = os.path.relpath(config_path, os.path.dirname(RUN_HISTORY_PATH))
+    record["config_path"] = rel_path.replace(os.sep, "/")
 
     if extra:
         record["extra"] = extra

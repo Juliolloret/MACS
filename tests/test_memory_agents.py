@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 
+from agents import memory_agent
 from agents.memory_agent import ShortTermMemoryAgent, LongTermMemoryAgent
 from llm_fake import FakeLLM
 
@@ -53,6 +54,8 @@ class TestMemoryAgents(unittest.TestCase):
 
     def test_short_term_memory_saves_vector_store(self):
         """Short term agent saves summaries and returns vector store path."""
+        if memory_agent.FAISS is None:
+            self.skipTest("langchain_community.vectorstores not installed")
         agent = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",
@@ -85,6 +88,8 @@ class TestMemoryAgents(unittest.TestCase):
 
     def test_long_term_memory_updates_store(self):
         """Long term agent saves summaries to persistent storage."""
+        if memory_agent.FAISS is None:
+            self.skipTest("langchain_community.vectorstores not installed")
         agent = LongTermMemoryAgent(
             "ltm",
             "LongTermMemoryAgent",
@@ -102,6 +107,8 @@ class TestMemoryAgents(unittest.TestCase):
 
     def test_short_to_long_term_pipeline(self):
         """Pipeline from short-term to long-term memory operates correctly."""
+        if memory_agent.FAISS is None:
+            self.skipTest("langchain_community.vectorstores not installed")
         stm = ShortTermMemoryAgent(
             "stm",
             "ShortTermMemoryAgent",

@@ -8,6 +8,7 @@ import os
 from typing import List
 
 from multi_agent_llm_system import run_project_orchestration
+from dependency_installer import ensure_requirements_installed
 from utils import load_app_config
 
 
@@ -29,6 +30,9 @@ def _collect_pdf_paths(directories: List[str]) -> List[str]:
 
 
 def main() -> None:
+    if not ensure_requirements_installed():
+        print("Dependency check failed. See logs for details.")
+        return
     parser = argparse.ArgumentParser(description="Run MACS project orchestration")
     parser.add_argument(
         "--config",

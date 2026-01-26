@@ -1,13 +1,30 @@
 """Base functionality for MACS agents that utilise a language model."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+
+from typing import Optional, Dict, Any, List
 
 from llm import LLMClient
 from utils import get_model_name, get_prompt_text, log_status
+from contracts import AgentCapabilities
 
 
 class Agent:
-    """Base class for all MACS agents that interact with an LLM."""
+    """Base class for all MACS agents that interact with an LLM.
+
+    Subclasses can declare their capabilities by overriding the class-level
+    capability attributes:
+    - REQUIRES_PROJECT_DIR: Set to True if agent needs project_base_output_dir
+    - CONSUMES_ALL_OUTPUTS: Set to True if agent needs all_agent_outputs
+    - REQUIRED_INPUTS: List of input keys that must be provided
+    - OPTIONAL_INPUTS: List of input keys that may be provided
+    """
+
+    # Capability declarations (override in subclasses)
+    REQUIRES_PROJECT_DIR: bool = False
+    CONSUMES_ALL_OUTPUTS: bool = False
+    REQUIRED_INPUTS: List[str] = []
+    OPTIONAL_INPUTS: List[str] = []
 
     def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Initialise a generic agent.
@@ -47,6 +64,23 @@ class Agent:
         elif system_message_key and not self.system_message:
             log_status(
                 f"[AgentInit] WARNING: System message for Agent ID='{self.agent_id}' (Key: '{system_message_key}') is empty.")
+
+    def get_capabilities(self) -> AgentCapabilities:
+        """Return the declared capabilities for this agent.
+
+        Returns
+        -------
+        AgentCapabilities
+            Dataclass containing capability flags and requirements.
+        """
+        return AgentCapabilities(
+            requires_project_dir=self.REQUIRES_PROJECT_DIR,
+            consumes_all_outputs=self.CONSUMES_ALL_OUTPUTS,
+            needs_input_keys=list(self.REQUIRED_INPUTS),
+            optional_input_keys=list(self.OPTIONAL_INPUTS),
+            loop_over=self.config_params.get("loop_over"),
+            parallelizable=self.config_params.get("parallel_execution", False),
+        )
 
     def get_formatted_system_message(self, format_kwargs: Optional[Dict[str, Any]] = None) -> str:
         """Return the system message with optional string formatting."""

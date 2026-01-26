@@ -29,7 +29,7 @@ class OpenAILLM(LLMClient):
 
     def __init__(self, app_config: Dict[str, Any], api_key: Optional[str] = None, timeout: int = 120):
         """Initialize the client and prepare response/embedding caches."""
-        if not OPENAI_AVAILABLE:
+        if OpenAI is None:
             raise ImportError("openai library is required for OpenAILLM")
         self.app_config = app_config
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")

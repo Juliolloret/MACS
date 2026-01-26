@@ -1,78 +1,68 @@
-# MACS Codebase Scheme
+﻿# MACS Codebase Scheme
 
-This document provides an overview of how the MACS multi-agent research system operates.
+This document is a plain-language map of how MACS runs.
 
-## High-Level Flow
+## High-Level Flow (Simple)
 
 ```
-                     ┌───────────────────────────┐
-                     │     CLI / GUI frontends   │
-                     │   gui.py / cli_test.py    │
-                     └─────────────┬─────────────┘
-                                   │ (Project settings, PDF paths, etc.)
-                                   ▼
-                     ┌───────────────────────────┐
-                     │  initial_input_provider   │
-                     │ (Virtual node in graph)   │
-                     └─────────────┬─────────────┘
-                                   │
-                                   ▼
-┌────────────────────►┌───────────────────────────┐◄─────────────────────┐
-│                     │     GraphOrchestrator     │                      │
-│                     │ multi_agent_llm_system.py │                      │
-│                     │ - Builds DAG from config  │                      │
-│(Data flow between   │ - Executes agents         │   (Agent instances)  │
-│      agents)        │ - Manages data I/O        │                      │
-│                     └─────────────┬─────────────┘                      │
-│                                   │ (Loads config)                     │
-│                                   ▼                                    │
-│                     ┌───────────────────────────┐                      │
-│                     │        config.json        │                      │
-│                     │ (Agent graph, prompts)    │                      │
-│                     └───────────────────────────┘                      │
-│                                                                        │
-└───────────────────┐ ┌────────────────────────────────────────────────┐ │
-                    │ │                  Agent Layer                   │ │
-                    └─► │ (Dynamically loaded from `agents/` package)    │ ◄─┘
-                        │                                                │
-                        │ PDFLoader → PDFSummarizer → ShortTermMemory    │
-                        │      │             └─────► DeepResearchSynth.  │
-                        │      └───────────────────► LongTermMemory      │
-                        │      └───────────────────► Exp. Data Loader    │
-                        │                  └─────────────────────────┐   │
-                        │                                            ▼   │
-                        │                                KnowledgeIntegrator │
-                        │                                            │   │
-                        │                                            ▼   │
-                        │                             HypothesisGenerator  │
-                        │                                            │   │
-                        │                                            ▼   │
-                        │                               ExperimentDesigner │
-                        └────────────────────────────────────────────────┘
+[User]
+  |
+  v
+[CLI / GUI / Adaptive Runner]
+  |
+  v
+[GraphOrchestrator]
+  |  - loads config.json
+  |  - builds DAG
+  |  - executes agents in order
+  |  - emits events
+  |
+  +--> [EventBus] -> [EventLogger, MetricsCollector]
+  |
+  v
+[Agents]
+  |
+  v
+[Output Files + Metrics]
 ```
 
-## Execution Steps
+## Execution Steps (Beginner Version)
 
-1. **Frontend Interaction** – The user launches the workflow via the `gui.py` or `cli_test.py` script, providing settings like the input PDF directory and output path.
-2. **Configuration Loading** – The orchestrator loads the `config.json` file, which defines the system prompts, model choices, and the all-important `graph_definition` (nodes and edges).
-3. **Graph Building** – The `GraphOrchestrator` in `multi_agent_llm_system.py` parses the `graph_definition`. It identifies all agent nodes and the connections between them, building a directed acyclic graph (DAG). An `InitialInputProvider` virtual node is used to feed the user's settings into the graph.
-4. **Agent Initialization** – For each node in the graph, the orchestrator dynamically loads the corresponding agent class from the `agents` package and creates an instance of it. A shared LLM client is passed to each agent.
-5. **Topological Execution** – The orchestrator determines the correct execution order of the agents by performing a topological sort of the DAG.
-6. **Agent Pipeline Execution** – The orchestrator executes the agents one by one, managing the data flow between them as defined by the edges in the graph. The typical pipeline is:
-    - PDFs are loaded and summarized.
-    - Summaries populate both a short-term (session) memory and a long-term (persistent) memory.
-    - A deep, cross-document synthesis is performed using the short-term memory.
-    - The synthesis, long-term memory, and optional experimental data are integrated into a final knowledge brief.
-    - This brief is used to generate hypotheses and design experiments.
-    - An observer agent reviews all outputs for errors.
-7. **Output Generation** – Each agent saves its results (summaries, briefs, hypotheses, etc.) to structured subfolders in the designated project output directory.
+1. You start MACS from the GUI (`gui.py`), the CLI (`cli.py`), or the adaptive runner
+   (`adaptive/adaptive_graph_runner.py`).
+2. The entrypoint reads `config.json` (or the file you pass in) and sends the
+   settings to the orchestrator.
+3. The orchestrator builds a directed acyclic graph (DAG) of agent nodes from the
+   `graph_definition` section in the config.
+4. Each node is mapped to a Python class in `agents/` (or a plugin) and an
+   instance is created.
+5. The orchestrator executes nodes in a safe order (topological order) so that
+   a node only runs after its required inputs are ready.
+6. While nodes run, the orchestrator emits events to the event bus. Subscribers
+   such as `EventLogger` (logs) and `MetricsCollector` (writes `node_metrics.json`)
+   listen to those events.
+7. Each agent returns a dictionary. The orchestrator maps the keys into inputs
+   for downstream nodes based on the edge `data_mapping` in the config.
+8. The orchestrator writes output files (summaries, briefs, hypotheses, etc.)
+   into your project output directory.
 
-This scheme provides a quick reference for understanding how MACS orchestrates its multi-agent workflow.
+## Where to Find the Code
 
-## Adaptive Evolution
+- `multi_agent_llm_system.py` - orchestration engine (GraphOrchestrator) and
+  `run_project_orchestration` entrypoint.
+- `agents/` - built-in agent classes (PDF loader, summarizer, memory, etc.).
+- `agent_plugins/` - optional plugin agents.
+- `events.py` and `event_subscribers.py` - event bus and subscriber handlers.
+- `adaptive/` - adaptive cycle that evaluates and mutates the graph.
+- `utils.py` and `config_schema.py` - config loading, validation, and helpers.
 
-The optional `adaptive` package adds an evaluation-driven evolution loop. Using
-`adaptive/adaptive_graph_runner.py`, MACS can execute the agent graph, evaluate
-the outputs, and mutate the graph definition for the next iteration. The cycle
-continues until an evaluation threshold is reached or a maximum number of steps
-is taken, enabling the workflow to evolve automatically.
+## Adaptive Evolution Loop
+
+The adaptive runner repeats a cycle of run -> evaluate -> mutate:
+
+1. Run the current graph.
+2. Score results with one or more evaluation plugins.
+3. If the score is below the threshold, mutate the graph config and try again.
+4. Save per-cycle metrics in `adaptive_metrics/` under the output directory.
+
+This lets MACS improve a workflow without changing agent code.
