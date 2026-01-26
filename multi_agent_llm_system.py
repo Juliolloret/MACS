@@ -10,7 +10,7 @@ from collections import defaultdict, deque
 import traceback
 import threading
 import webbrowser
-from typing import Dict, Any, Optional, Set
+from typing import Dict, Any, Optional, Set, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from llm import LLMClient
@@ -236,7 +236,7 @@ class GraphOrchestrator:
         if fatal:
             agent_inputs["error"] = "; ".join(messages_list)
 
-    def _format_node_label(self, node: dict) -> tuple[str | None, str]:
+    def _format_node_label(self, node: dict) -> Tuple[Optional[str], str]:
         """Return the node identifier and formatted label used in visualizations."""
 
         node_id = node.get("id")
@@ -249,7 +249,7 @@ class GraphOrchestrator:
     def _render_with_pyvis(
         self,
         output_path: str,
-        highlight_node_id: str | None,
+        highlight_node_id: Optional[str],
     ) -> str:
         """Render the orchestrator graph using the ``pyvis`` network library."""
 
@@ -304,7 +304,7 @@ class GraphOrchestrator:
         self,
         output_path: str,
         output_format: str = "html",
-        highlight_node_id: str | None = None,
+        highlight_node_id: Optional[str] = None,
     ) -> str:
         """Generate a visual representation of the agent graph.
 

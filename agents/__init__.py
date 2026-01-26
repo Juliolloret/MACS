@@ -12,8 +12,15 @@ from .registry import (
     load_plugins,
 )
 from .base_agent import Agent
-from .memory_agent import ShortTermMemoryAgent, LongTermMemoryAgent
-from .deep_research_summarizer_agent import DeepResearchSummarizerAgent
+try:
+    from .memory_agent import ShortTermMemoryAgent, LongTermMemoryAgent
+except Exception:
+    pass
+
+try:
+    from .deep_research_summarizer_agent import DeepResearchSummarizerAgent
+except Exception:
+    pass
 
 # Import all modules ending with '_agent' to populate AGENT_REGISTRY
 load_agents(__name__)

@@ -5,7 +5,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from multi_agent_llm_system import GraphOrchestrator
+from config_schema import validate_graph_definition
 from llm_fake import FakeLLM
 
 
@@ -27,7 +27,7 @@ class TestConfigSchema(unittest.TestCase):
             "edges": []
         }
         with self.assertRaises(ValidationError):
-            GraphOrchestrator(invalid_graph, FakeLLM(), {})
+            validate_graph_definition(invalid_graph)
 
     def test_invalid_data_mapping_type(self):
         """Edges with non-dict data_mapping should raise an error."""
@@ -41,7 +41,7 @@ class TestConfigSchema(unittest.TestCase):
             ]
         }
         with self.assertRaises(ValidationError):
-            GraphOrchestrator(invalid_graph, FakeLLM(), {})
+            validate_graph_definition(invalid_graph)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 try:
     from langchain_community.vectorstores import FAISS  # pylint: disable=import-error
-except ImportError:
+except (ImportError, TypeError, Exception):
     FAISS = None
 
 from utils import log_status

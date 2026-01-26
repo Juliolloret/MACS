@@ -6,7 +6,7 @@ for agent nodes based on their declared capabilities.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from contracts import AgentCapabilities, UpstreamIssue, InputGatherResult
 from utils import log_status
@@ -117,7 +117,7 @@ def _resolve_input_value(
     initial_inputs: Dict[str, Any],
     declared_output_keys: Dict[str, Set[str]],
     optional_inputs: Set[str],
-) -> tuple[Any, Optional[UpstreamIssue]]:
+) -> Tuple[Any, Optional[UpstreamIssue]]:
     """Resolve a single input value from upstream output or initial inputs.
 
     Parameters

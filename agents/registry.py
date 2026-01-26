@@ -78,7 +78,7 @@ def load_agents(package_name: str = __package__):
             try:
                 importlib.import_module(full_module_name)
                 log_status(f"  [SUCCESS] Successfully imported agent module: '{module_name}'")
-            except ImportError as e:
+            except Exception as e:
                 log_status(f"  [FAILURE] Failed to import agent module '{module_name}'. Error: {e}")
                 continue
 

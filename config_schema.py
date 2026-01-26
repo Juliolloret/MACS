@@ -63,7 +63,7 @@ class GraphDefinition(BaseModel):  # pylint: disable=too-few-public-methods
                     )
             return self
     else:
-        @model_validator()
+        @root_validator(pre=False, allow_reuse=True)
         def check_edges_reference_known_nodes(cls, values):  # type: ignore[no-redef]
             """Ensure that every edge references existing node identifiers."""
             nodes = values.get("nodes", [])
