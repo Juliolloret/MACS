@@ -13,3 +13,5 @@ __pycache__/
 
 # Env
 .env
+storage/run_configs/
+!storage/run_configs/example.json

@@ -1,6 +1,6 @@
-{
+﻿{
   "system_variables": {
-    "openai_api_key": "YOUR_OPENAI_API_KEY",
+    "openai_api_key":"${OPENAI_API_KEY}",
     "llm_client": "openai",
     "default_llm_model": "gpt-4o",
     "models": {
@@ -92,3 +92,4 @@
     ]
   }
 }
+

@@ -27,7 +27,7 @@ changed and how to update your setup.
 ```json
 {
   "system_variables": {
-    "openai_api_key": "sk-...",
+    "openai_api_key": "<OPENAI_API_KEY>",
     "prompt_ids": ["pr_123"]
   }
 }
@@ -67,3 +67,4 @@ print(response.output_text)
   Fix: Run `python -m pip install -r requirements.txt`.
 - Mistake: Leaving `openai_api_key` empty in `config.json`.
   Fix: Add a valid key or set `OPENAI_API_KEY` in your shell.
+

@@ -1,6 +1,6 @@
-{
+﻿{
   "system_variables": {
-    "openai_api_key": "YOUR_KEY"
+    "openai_api_key":"${OPENAI_API_KEY}"
   },
   "graph_definition": {
     "nodes": [],
@@ -16,3 +16,4 @@
     "mutation_strategy": "basic"
   }
 }
+

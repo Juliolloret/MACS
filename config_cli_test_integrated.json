@@ -1,6 +1,6 @@
-{
+﻿{
   "system_variables": {
-    "openai_api_key": "YOUR_OPENAI_API_KEY_IN_CLI_CONFIG",
+    "openai_api_key":"${OPENAI_API_KEY}",
     "llm_client": "fake",
     "output_project_synthesis_folder_name": "project_synthesis_cli",
     "output_project_hypotheses_folder_name": "project_hypotheses_cli",
