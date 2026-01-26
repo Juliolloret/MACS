@@ -5,11 +5,17 @@ from llm import LLMError
 from utils import log_status
 from .base_agent import Agent
 from .registry import register_agent
+from .io_models import HypothesisGeneratorInput, HypothesisGeneratorOutput
 
 
 @register_agent("HypothesisGeneratorAgent")
 class HypothesisGeneratorAgent(Agent):
     """Produce research hypotheses from an integrated knowledge brief."""
+
+    # Typed contract declarations
+    INPUT_MODEL = HypothesisGeneratorInput
+    OUTPUT_MODEL = HypothesisGeneratorOutput
+    REQUIRED_INPUTS = ["integrated_knowledge_brief"]
 
     def execute(self, inputs: dict) -> dict:  # Type hint for dict
         """Generate a list of hypotheses and key opportunities."""

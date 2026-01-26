@@ -20,6 +20,31 @@ It receives a dictionary, does work, and returns a dictionary.
 - Edges map output keys from one agent into input keys for the next.
 - Agents run in topological order so inputs are ready when needed.
 
+## Agent Capabilities System
+
+Agents declare their requirements using class-level attributes:
+
+```python
+class MyAgent(Agent):
+    REQUIRES_PROJECT_DIR = True           # Needs project_base_output_dir
+    CONSUMES_ALL_OUTPUTS = False          # Needs all_agent_outputs
+    REQUIRED_INPUTS = ["pdf_text_content"]  # Must be provided
+    OPTIONAL_INPUTS = ["user_query"]       # May be provided
+```
+
+The orchestrator uses `agent.get_capabilities()` to:
+- Validate required inputs are mapped in the graph
+- Inject project directory for agents that write files
+- Aggregate all outputs for integrator agents
+
+The `AgentCapabilities` dataclass (in `contracts.py`) includes:
+- `requires_project_dir`: agent writes to the output directory
+- `consumes_all_outputs`: agent needs all upstream results
+- `needs_input_keys`: list of required inputs
+- `optional_input_keys`: list of optional inputs
+- `loop_over`: key to iterate over (for loop execution)
+- `parallelizable`: can run iterations in parallel
+
 ## Input and Output Contract (Example)
 
 Example of a simple agent output:

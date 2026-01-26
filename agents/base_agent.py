@@ -25,6 +25,10 @@ class Agent:
     CONSUMES_ALL_OUTPUTS: bool = False
     REQUIRED_INPUTS: List[str] = []
     OPTIONAL_INPUTS: List[str] = []
+    
+    # Typed contract models (optional - set in subclasses for validation)
+    INPUT_MODEL: Optional[type] = None
+    OUTPUT_MODEL: Optional[type] = None
 
     def __init__(self, agent_id, agent_type, config_params=None, llm: LLMClient = None, app_config: Dict[str, Any] = None):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Initialise a generic agent.
@@ -81,6 +85,38 @@ class Agent:
             loop_over=self.config_params.get("loop_over"),
             parallelizable=self.config_params.get("parallel_execution", False),
         )
+
+    def validate_inputs(self, inputs: dict, model_class: Optional[type] = None) -> tuple:
+        """Validate inputs against a Pydantic model.
+
+        Parameters
+        ----------
+        inputs : dict
+            Raw input dictionary from orchestrator.
+        model_class : Optional[type]
+            Pydantic model class to validate against. If None, uses self.INPUT_MODEL.
+
+        Returns
+        -------
+        tuple
+            (validated_model, None) on success, or (None, {"error": str}) on failure.
+        """
+        model = model_class or self.INPUT_MODEL
+        if model is None:
+            # No model defined, return inputs as-is in a simple object
+            class InputWrapper:
+                def __init__(self, data):
+                    self.__dict__.update(data)
+            return InputWrapper(inputs), None
+
+        try:
+            from pydantic import ValidationError
+            validated = model(**inputs)
+            return validated, None
+        except ValidationError as e:
+            error_msg = f"[{self.agent_id}] Input validation failed: {e}"
+            log_status(error_msg)
+            return None, {"error": error_msg}
 
     def get_formatted_system_message(self, format_kwargs: Optional[Dict[str, Any]] = None) -> str:
         """Return the system message with optional string formatting."""

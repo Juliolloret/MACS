@@ -8,14 +8,19 @@ from llm import LLMError
 
 from .base_agent import Agent
 from .registry import register_agent
-# log_status is available via base_agent.py, or if not, would need to be imported if used directly here
+from .io_models import KnowledgeIntegratorInput, KnowledgeIntegratorOutput
 
 @register_agent("KnowledgeIntegratorAgent")
 class KnowledgeIntegratorAgent(Agent):
     """Combine outputs from multiple sources into a coherent brief."""
 
+    # Typed contract declarations
+    INPUT_MODEL = KnowledgeIntegratorInput
+    OUTPUT_MODEL = KnowledgeIntegratorOutput
+    
     # Capability declarations
     REQUIRES_PROJECT_DIR = True
+    CONSUMES_ALL_OUTPUTS = True
     OPTIONAL_INPUTS = [
         "multi_doc_synthesis",
         "deep_research_summary",

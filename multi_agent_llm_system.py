@@ -246,18 +246,240 @@ class GraphOrchestrator:
             label += f"\n{metrics['execution_time_sec']:.2f}s, {metrics['tokens_used']} tok"
         return node_id, label
 
+    def _get_node_color(self, state: str, is_highlighted: bool) -> dict:
+        """Return color configuration based on node state.
+
+        Parameters
+        ----------
+        state : str
+            One of 'pending', 'executing', 'completed', 'failed', 'skipped'.
+        is_highlighted : bool
+            Whether this node is currently highlighted.
+
+        Returns
+        -------
+        dict
+            Color configuration with 'background' and 'border' keys.
+        """
+        colors = {
+            "pending": {"background": "#4A90D9", "border": "#2E6DA4"},
+            "executing": {"background": "#FFB347", "border": "#FF8C00"},
+            "completed": {"background": "#90EE90", "border": "#228B22"},
+            "failed": {"background": "#FF6B6B", "border": "#CC0000"},
+            "skipped": {"background": "#CCCCCC", "border": "#999999"},
+        }
+
+        if is_highlighted:
+            return {"background": "#FFB347", "border": "#FF8C00"}
+
+        return colors.get(state, colors["pending"])
+
+    def _build_node_tooltip(self, node: dict) -> str:
+        """Build rich HTML tooltip for a node.
+
+        Parameters
+        ----------
+        node : dict
+            Node definition from graph_definition.
+
+        Returns
+        -------
+        str
+            HTML string for the tooltip content.
+        """
+        node_id = node.get("id", "Unknown")
+        node_type = node.get("type", "Unknown")
+        config = node.get("config", {})
+        description = config.get("description", "No description available")
+
+        metrics = self.node_metrics.get(node_id, {})
+        metrics_html = ""
+        if metrics:
+            exec_time = metrics.get("execution_time_sec", 0)
+            tokens = metrics.get("tokens_used", 0)
+            metrics_html = f"<hr/><b>Execution:</b> {exec_time:.2f}s<br/><b>Tokens:</b> {tokens}"
+
+        # Get agent capabilities if available
+        agent = self.agents.get(node_id)
+        caps_html = ""
+        if agent and hasattr(agent, "get_capabilities"):
+            caps = agent.get_capabilities()
+            if caps.needs_input_keys:
+                caps_html += f"<br/><b>Inputs:</b> {', '.join(caps.needs_input_keys)}"
+            if caps.requires_project_dir:
+                caps_html += "<br/><i>Requires project directory</i>"
+
+        return (
+            f"<div style='padding:8px;max-width:300px;font-family:Arial,sans-serif;'>"
+            f"<b style='font-size:14px;color:#333;'>{node_id}</b><br/>"
+            f"<span style='color:#666;'>Type: {node_type}</span>"
+            f"<hr style='margin:8px 0;border:none;border-top:1px solid #ddd;'/>"
+            f"<div style='font-size:12px;color:#444;'>{description}</div>"
+            f"{caps_html}{metrics_html}</div>"
+        )
+
+    def _inject_info_panel_script(self, html_file: str) -> None:
+        """Inject JavaScript for click-to-show-info functionality.
+
+        Parameters
+        ----------
+        html_file : str
+            Path to the HTML file to modify.
+        """
+        info_panel_html = '''
+<style>
+    #info-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 160px;
+        background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+        border-top: 2px solid #4A90D9;
+        padding: 15px 20px;
+        overflow-y: auto;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+        display: none;
+        z-index: 1000;
+    }
+    #info-panel.visible { display: block; }
+    #info-panel h3 {
+        margin: 0 0 10px 0;
+        color: #2E6DA4;
+        font-size: 16px;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 8px;
+    }
+    #info-content {
+        font-size: 13px;
+        color: #444;
+        line-height: 1.5;
+    }
+    #close-panel {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        cursor: pointer;
+        font-size: 18px;
+        color: #999;
+    }
+    #close-panel:hover { color: #333; }
+</style>
+<div id="info-panel">
+    <span id="close-panel" onclick="document.getElementById('info-panel').classList.remove('visible')">✕</span>
+    <h3 id="info-title">Click a node to view agent details</h3>
+    <div id="info-content"></div>
+</div>
+<script>
+    network.on("click", function(params) {
+        if (params.nodes.length > 0) {
+            var nodeId = params.nodes[0];
+            var node = network.body.data.nodes.get(nodeId);
+            var panel = document.getElementById("info-panel");
+            var title = document.getElementById("info-title");
+            var content = document.getElementById("info-content");
+            
+            panel.classList.add("visible");
+            title.innerHTML = "Agent: <strong>" + nodeId + "</strong>";
+            content.innerHTML = node.title || "No details available for this node.";
+        }
+    });
+    
+    // Adjust network height to account for info panel
+    document.getElementById("mynetwork").style.height = "calc(100vh - 180px)";
+</script>
+'''
+
+        try:
+            with open(html_file, "r", encoding="utf-8") as f:
+                html_content = f.read()
+
+            # Inject before closing body tag
+            html_content = html_content.replace("</body>", info_panel_html + "</body>")
+
+            with open(html_file, "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except Exception as exc:  # pragma: no cover - best effort
+            log_status(f"[GraphOrchestrator] WARNING: Could not inject info panel: {exc}")
+
     def _render_with_pyvis(
         self,
         output_path: str,
-        highlight_node_id: Optional[str],
+        highlight_node_id: Optional[str] = None,
+        node_states: Optional[Dict[str, str]] = None,
     ) -> str:
-        """Render the orchestrator graph using the ``pyvis`` network library."""
+        """Render the orchestrator graph using the pyvis network library.
+
+        Parameters
+        ----------
+        output_path : str
+            Base path (without extension) for the output file.
+        highlight_node_id : Optional[str]
+            Node ID to highlight (typically the executing node).
+        node_states : Optional[Dict[str, str]]
+            Map of node_id to state ('pending', 'executing', 'completed', 'failed', 'skipped').
+
+        Returns
+        -------
+        str
+            Path to the generated HTML file.
+        """
 
         if Network is None:  # pragma: no cover - handled in ``visualize``
             raise RuntimeError("pyvis is not available")
 
-        network = Network(height="650px", width="100%", directed=True)
-        network.barnes_hut()
+        node_states = node_states or {}
+
+        # Create network with enhanced settings
+        network = Network(
+            height="700px",
+            width="100%",
+            directed=True,
+            bgcolor="#FAFAFA",
+            font_color="#333333",
+        )
+
+        # Configure physics and layout for better visualization
+        network.set_options('''
+        {
+            "nodes": {
+                "font": {"size": 14, "face": "Segoe UI, Arial, sans-serif", "color": "#333"},
+                "shadow": {"enabled": true, "size": 8, "x": 2, "y": 2}
+            },
+            "edges": {
+                "arrows": {"to": {"enabled": true, "scaleFactor": 0.6}},
+                "smooth": {"type": "cubicBezier", "forceDirection": "vertical"},
+                "width": 1.5,
+                "color": {"color": "#888888", "highlight": "#4A90D9", "hover": "#4A90D9"}
+            },
+            "physics": {
+                "enabled": true,
+                "hierarchicalRepulsion": {
+                    "centralGravity": 0.0,
+                    "springLength": 120,
+                    "springConstant": 0.02,
+                    "nodeDistance": 150
+                },
+                "solver": "hierarchicalRepulsion"
+            },
+            "layout": {
+                "hierarchical": {
+                    "enabled": true,
+                    "direction": "UD",
+                    "sortMethod": "directed",
+                    "levelSeparation": 120,
+                    "nodeSpacing": 180
+                }
+            },
+            "interaction": {
+                "hover": true,
+                "tooltipDelay": 100,
+                "zoomView": true,
+                "dragView": true
+            }
+        }
+        ''')
 
         added_node = False
         for node in self.graph_definition.get("nodes", []):
@@ -265,14 +487,25 @@ class GraphOrchestrator:
             if not node_id:
                 continue
             added_node = True
-            html_label = label.replace("\n", "<br/>")
-            color = "#FFD966" if node_id == highlight_node_id else "#A6CEE3"
+
+            state = node_states.get(node_id, "pending")
+            is_highlighted = node_id == highlight_node_id
+            color = self._get_node_color(state, is_highlighted)
+            tooltip = self._build_node_tooltip(node)
+
+            # Determine border width based on state
+            border_width = 3 if is_highlighted else (2 if state in ("completed", "failed") else 1)
+
             network.add_node(
                 node_id,
-                label=html_label,
-                title=html_label,
+                label=label.replace("\n", "<br/>"),
+                title=tooltip,
                 color=color,
                 shape="box",
+                size=30,
+                borderWidth=border_width,
+                borderWidthSelected=4,
+                font={"size": 12, "face": "Segoe UI, Arial"},
             )
 
         for edge in self.graph_definition.get("edges", []):
@@ -290,6 +523,10 @@ class GraphOrchestrator:
             os.makedirs(directory, exist_ok=True)
 
         network.write_html(output_file, notebook=False)
+
+        # Inject the info panel for click-to-view-details
+        self._inject_info_panel_script(output_file)
+
         log_status(
             f"[GraphOrchestrator] INFO: Graph visualization saved to {output_file} (pyvis)."
         )

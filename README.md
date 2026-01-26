@@ -126,6 +126,22 @@ section below.
 - GUI and CLI entrypoints.
 - Event-driven metrics and logs for observability.
 
+## Graph Visualization
+
+MACS generates interactive HTML graphs during workflow execution:
+
+| File | When Generated |
+|------|----------------|
+| `graph_initial.html` | Before execution starts |
+| `graph_{node}.html` | During each node execution (current node highlighted) |
+| `graph_final.html` | After workflow completes |
+
+**Features:**
+- Hierarchical top-down layout showing DAG flow
+- Click any node to view agent details in an info panel
+- Color-coded states: blue (pending), orange (executing), green (completed), red (failed)
+- Hover tooltips with agent type and execution metrics
+
 ## Output Structure
 
 Typical output directory:

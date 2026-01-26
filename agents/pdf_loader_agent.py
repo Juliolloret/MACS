@@ -6,10 +6,16 @@ from utils import log_status, pypdf  # pypdf needed for pypdf.PdfReader
 
 from .base_agent import Agent
 from .registry import register_agent
+from .io_models import PDFLoaderInput, PDFLoaderOutput
 
 @register_agent("PDFLoaderAgent")
 class PDFLoaderAgent(Agent):
     """Extract raw text from a PDF document."""
+    
+    # Typed contract declarations
+    INPUT_MODEL = PDFLoaderInput
+    OUTPUT_MODEL = PDFLoaderOutput
+    REQUIRED_INPUTS = ["pdf_path"]
 
     def execute(self, inputs: dict) -> dict:  # Type hint for dict matches common usage
         """Read the PDF specified in ``inputs`` and return its text content."""

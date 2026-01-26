@@ -3,11 +3,6 @@
 import os
 from typing import Any, Dict
 
-try:
-    from langchain_community.vectorstores import FAISS
-except ImportError:  # pragma: no cover
-    FAISS = None  # type: ignore[assignment]
-
 from utils import log_status
 from .base_agent import Agent
 from .registry import register_agent
@@ -77,10 +72,17 @@ class DeepResearchSummarizerAgent(Agent):
                 "error": f"Vector store not found at path: {vector_store_path}",
             }
 
-        if FAISS is None:
+        # Deferred import to avoid pydantic version conflicts at module load time
+        try:
+            from langchain_community.vectorstores import FAISS
+        except ImportError:
             error_msg = (
                 "langchain_community.vectorstores is not available. Install the package to enable FAISS support."
             )
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"deep_research_summary": "", "error": error_msg}
+        except Exception as e:
+            error_msg = f"Failed to import FAISS due to: {e}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"deep_research_summary": "", "error": error_msg}
 

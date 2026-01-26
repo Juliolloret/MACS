@@ -7,10 +7,17 @@ from llm import LLMError
 
 from .base_agent import Agent
 from .registry import register_agent
+from .io_models import PDFSummarizerInput, PDFSummarizerOutput
 
 @register_agent("PDFSummarizerAgent")
 class PDFSummarizerAgent(Agent):
     """Summarise the text extracted from a single PDF document."""
+    
+    # Typed contract declarations
+    INPUT_MODEL = PDFSummarizerInput
+    OUTPUT_MODEL = PDFSummarizerOutput
+    REQUIRED_INPUTS = ["pdf_text_content"]
+    OPTIONAL_INPUTS = ["original_pdf_path"]
 
     def execute(self, inputs: dict) -> dict:  # Type hint for dict
         """Generate a concise summary for the PDF text in ``inputs``."""

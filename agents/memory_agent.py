@@ -3,11 +3,6 @@
 import os
 from typing import Dict, Any
 
-try:
-    from langchain_community.vectorstores import FAISS  # pylint: disable=import-error
-except (ImportError, TypeError, Exception):
-    FAISS = None
-
 from utils import log_status
 from .base_agent import Agent
 from .registry import register_agent
@@ -67,8 +62,15 @@ class ShortTermMemoryAgent(Agent):
                 "error": "No valid summary strings were found to build short-term memory.",
             }
 
-        if FAISS is None:
+        # Deferred import to avoid pydantic version conflicts at module load time
+        try:
+            from langchain_community.vectorstores import FAISS  # pylint: disable=import-error
+        except ImportError:
             error_msg = "langchain_community.vectorstores is required but not installed."
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"error": error_msg}
+        except Exception as e:
+            error_msg = f"Failed to import FAISS: {e}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
 
@@ -160,8 +162,15 @@ class LongTermMemoryAgent(Agent):
             log_status(f"[{self.agent_id}] INFO: No valid summary strings found to add to long-term memory.")
             return {"long_term_memory_path": storage_path}
 
-        if FAISS is None:
+        # Deferred import to avoid pydantic version conflicts at module load time
+        try:
+            from langchain_community.vectorstores import FAISS  # pylint: disable=import-error
+        except ImportError:
             error_msg = "langchain_community.vectorstores is required but not installed."
+            log_status(f"[{self.agent_id}] ERROR: {error_msg}")
+            return {"error": error_msg}
+        except Exception as e:
+            error_msg = f"Failed to import FAISS: {e}"
             log_status(f"[{self.agent_id}] ERROR: {error_msg}")
             return {"error": error_msg}
 
